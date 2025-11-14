@@ -1,2 +1,6 @@
-google-cloud-storage
+fastapi
+uvicorn
 pandas
+httpx
+google-cloud-bigquery
+python-dotenv
