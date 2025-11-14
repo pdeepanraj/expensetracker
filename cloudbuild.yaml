@@ -1,16 +1,33 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _REGION: us-central1
+  _AR_REPO: my-repo
+  _SERVICE: my-pipeline
+
 steps:
-- name: gcr.io/cloud-builders/docker
-  args: ['build','-t','gcr.io/$PROJECT_ID/expense-app:latest','.']
-- name: gcr.io/cloud-builders/docker
-  args: ['push','gcr.io/$PROJECT_ID/expense-app:latest']
-- name: gcr.io/google.com/cloudsdktool/cloud-sdk
-  entrypoint: gcloud
-  args:
-    - run
-    - deploy
-    - expense-app
-    - --image=gcr.io/$PROJECT_ID/expense-app:latest
-    - --region=us-central1
-    - --platform=managed
-    - --allow-unauthenticated
-    - --set-env-vars=BQ_PROJECT=$PROJECT_ID,BQ_DATASET=expense_ds,BQ_TABLE=transactions
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:$SHORT_SHA", "."]
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:$SHORT_SHA"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      [
+        "run","deploy","${_SERVICE}",
+        "--image","${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:$SHORT_SHA",
+        "--region","${_REGION}",
+        "--platform","managed",
+        "--allow-unauthenticated",
+        "--set-env-vars",
+        "BIGQUERY_DATASET=my_app_ds,BIGQUERY_TABLE_DETAILS=positive_monthly,BIGQUERY_TABLE_SUM_BY_CAT=summary_by_category,BIGQUERY_TABLE_SUM_BY_MAIN=summary_by_main,BIGQUERY_TABLE_TOTAL_POS_BY_MONTH=total_positive_by_month,BIGQUERY_TABLE_YEAR_MAIN_TOTALS=year_main_totals",
+        # GitHub repo reference defaults; you can override on request
+        "--set-env-vars",
+        "GITHUB_OWNER=your-org,GITHUB_REPO=your-repo,GITHUB_BRANCH=main,GITHUB_DATA_PATH=data/input.csv,GITHUB_CONFIG_PATH=config/categories.json",
+        # For private repos, map token from Secret Manager:
+        # "--set-secrets","GITHUB_TOKEN=projects/$PROJECT_ID/secrets/github-token:latest"
+      ]
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:$SHORT_SHA
