@@ -1,14 +1,11 @@
-# Cloud Build config for building to Container Registry (gcr.io)
-# and deploying to Cloud Run (us-east1)
-
 options:
   logging: CLOUD_LOGGING_ONLY
 
 substitutions:
-  _SERVICE: expense-bqry
+  _SERVICE: expense-bqry   # your Cloud Run service name
 
 steps:
-  # Build the image and tag it in Container Registry
+  # Build image
   - name: gcr.io/cloud-builders/docker
     args:
       - build
@@ -16,14 +13,15 @@ steps:
       - gcr.io/$PROJECT_ID/${_SERVICE}:$SHORT_SHA
       - .
 
-  # Push the image to Container Registry
+  # Push image
   - name: gcr.io/cloud-builders/docker
     args:
       - push
       - gcr.io/$PROJECT_ID/${_SERVICE}:$SHORT_SHA
 
-  # Deploy to Cloud Run (managed) in us-east1
+  # Deploy to Cloud Run (us-east1)
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: Deploy
     entrypoint: gcloud
     args:
       - run
@@ -32,16 +30,40 @@ steps:
       - --image=gcr.io/$PROJECT_ID/${_SERVICE}:$SHORT_SHA
       - --region=us-east1
       - --platform=managed
-      - --allow-unauthenticated
       - --memory=1Gi
       - --cpu=1
-      - --max-instances=1
+      - --max-instances=5
+      # No --allow-unauthenticated flag here
+
+  # Grant public invoker so the service is accessible without auth
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: MakePublic
+    entrypoint: gcloud
+    args:
+      - run
+      - services
+      - add-iam-policy-binding
+      - ${_SERVICE}
+      - --region=us-east1
+      - --member=allUsers
+      - --role=roles/run.invoker
+
+  # Optionally set or update environment variables on the same revision
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: SetEnv
+    entrypoint: gcloud
+    args:
+      - run
+      - services
+      - update
+      - ${_SERVICE}
+      - --region=us-east1
+      - --platform=managed
       - --set-env-vars
       - BIGQUERY_DATASET=my_app_ds,BIGQUERY_TABLE_DETAILS=positive_monthly,BIGQUERY_TABLE_SUM_BY_CAT=summary_by_category,BIGQUERY_TABLE_SUM_BY_MAIN=summary_by_main,BIGQUERY_TABLE_TOTAL_POS_BY_MONTH=total_positive_by_month,BIGQUERY_TABLE_YEAR_MAIN_TOTALS=year_main_totals
       - --set-env-vars
       - GITHUB_OWNER=your-org,GITHUB_REPO=your-repo,GITHUB_BRANCH=main,GITHUB_DATA_PATH=data/input.csv,GITHUB_CONFIG_PATH=config/categories.json
-      # If using a private GitHub repo, store a PAT in Secret Manager as "github-token"
-      # and then uncomment the following line to inject it as GITHUB_TOKEN:
+      # If using a private GitHub repo, inject your token from Secret Manager:
       # - --set-secrets=GITHUB_TOKEN=projects/$PROJECT_ID/secrets/github-token:latest
 
 images:
