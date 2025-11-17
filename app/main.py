@@ -1,5 +1,6 @@
 import io
 import csv
+from pathlib import Path
 from typing import List, Optional
 
 import pandas as pd
@@ -7,48 +8,76 @@ from fastapi import FastAPI, Request, Form, File, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
-# Existing imports and constants
-from pipeline import make_classifier_grouped, run_pipeline
-from bq_client import ensure_tables
-from bq_write import write_positive_rows
-from bq_queries import (
+# Import from the app package
+from app.pipeline import make_classifier_grouped, run_pipeline
+from app.bq_client import ensure_tables
+from app.bq_write import write_positive_rows
+from app.bq_queries import (
     query_total_by_month,
     query_summary_by_category,
     query_summary_by_main,
     query_latest_year_main_totals,
 )
 
-app = FastAPI()
-templates = Jinja2Templates(directory="templates")
+# -----------------------------------------------------------------------------
+# FastAPI app and template setup
+# -----------------------------------------------------------------------------
 
+app = FastAPI()
+
+# Ensure this points to the templates folder inside app/
+templates = Jinja2Templates(directory="app/templates")
+
+# Optional defaults displayed on the UI
 GITHUB_OWNER = "your-username"
 GITHUB_REPO = "your-repo"
 GITHUB_BRANCH = "main"
 
-LAST_RESULTS = {}
-LAST_RESULTS_JSON = {}
+# Keep a small cache for "download" and UI info, as in your original app
+LAST_RESULTS: dict = {}
+LAST_RESULTS_JSON: dict = {}
+
+# Helper to resolve paths relative to this file
+APP_DIR = Path(__file__).parent
+CATEGORIES_JSON_PATH = str(APP_DIR / "categories_grouped.json")
+
+
+# -----------------------------------------------------------------------------
+# Utilities
+# -----------------------------------------------------------------------------
 
 def to_native(obj):
-    # Simple helper to ensure JSON-serializable types
+    # In case you want to do special conversions before sending to templates
     return obj
 
 def read_csv_bytes(content: bytes, filename: str) -> pd.DataFrame:
     return pd.read_csv(io.BytesIO(content))
 
 def gh_headers():
+    # If you have a token, you can add Authorization header; raw works for public
     return {"Accept": "application/vnd.github.v3.raw"}
+
+
+# -----------------------------------------------------------------------------
+# Startup: ensure BigQuery dataset/table exist
+# -----------------------------------------------------------------------------
 
 @app.on_event("startup")
 def startup_event():
-    # Ensure BigQuery dataset/table exist
     ensure_tables()
+
+
+# -----------------------------------------------------------------------------
+# Basic endpoints
+# -----------------------------------------------------------------------------
 
 @app.get("/", response_class=JSONResponse)
 def root():
     return {"status": "ok"}
 
-@app.get("/results", response_class=JSONResponse)
+@app.get("/results")
 def results_page(request: Request):
+    # You can render without data; the front-end can fetch /api/* for charts
     return templates.TemplateResponse(
         "results.html",
         {
@@ -59,7 +88,7 @@ def results_page(request: Request):
         },
     )
 
-@app.get("/categorized", response_class=JSONResponse)
+@app.get("/categorized")
 def categorized_page(request: Request):
     return templates.TemplateResponse(
         "categorized.html",
@@ -71,7 +100,12 @@ def categorized_page(request: Request):
         },
     )
 
-@app.post("/categorized-github", response_class=JSONResponse)
+
+# -----------------------------------------------------------------------------
+# Analyze CSVs fetched from GitHub
+# -----------------------------------------------------------------------------
+
+@app.post("/categorized-github")
 async def categorized_github(
     request: Request,
     owner: str = Form(...),
@@ -120,41 +154,48 @@ async def categorized_github(
             },
         )
 
-    # Categorize exactly like your existing flow
-    classifier = make_classifier_grouped("categories_grouped.json", use_word_boundaries=False)
+    # Categorize using the original logic
+    classifier = make_classifier_grouped(CATEGORIES_JSON_PATH, use_word_boundaries=False)
     result = run_pipeline(frames, classifier)
 
-    # Save in-memory copies as before
+    # Persist minimal info locally (for download endpoint)
     LAST_RESULTS["all_positive_monthly"] = result.get("all_positive_monthly", [])
     LAST_RESULTS["latest_month"] = str(result.get("latest_month", ""))
     LAST_RESULTS["latest_year"] = result.get("latest_year", None)
     LAST_RESULTS["latest_year_main_totals"] = result.get("latest_year_main_totals", [])
 
     # Write positive rows to BigQuery
-    # Build the DataFrame from all_positive_monthly-like structure if needed.
-    # However run_pipeline already has clean_data inside; we emulate positive_rows via returned dict
-    # For simplicity, recompose a DataFrame from all_positive_monthly records
+    # Reconstruct a DataFrame from returned records (if not already keeping df)
     apm = result.get("all_positive_monthly", [])
-    df = pd.DataFrame(apm or [])
-    if not df.empty:
-        # Normalize Date and Month fields back if they exist only as strings
-        if "Date" in df.columns and not pd.api.types.is_datetime64_any_dtype(df["Date"]):
-            df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-        if "Month" not in df.columns and "Date" in df.columns:
-            df["Month"] = df["Date"].dt.to_period("M").astype(str)
-        write_positive_rows(df)
+    df_out = pd.DataFrame(apm or [])
+    if not df_out.empty:
+        # Normalize Date and Month columns
+        if "Date" in df_out.columns and not pd.api.types.is_datetime64_any_dtype(df_out["Date"]):
+            df_out["Date"] = pd.to_datetime(df_out["Date"], errors="coerce")
+        if "Month" not in df_out.columns:
+            if "Date" in df_out.columns:
+                df_out["Month"] = df_out["Date"].dt.to_period("M").astype(str)
+            else:
+                # If Month is missing and Date unavailable, skip insert to avoid bad rows
+                pass
+        # Insert only positive amounts
+        if "Amount" in df_out.columns:
+            df_out["Amount"] = pd.to_numeric(df_out["Amount"], errors="coerce").fillna(0.0)
+            df_pos = df_out[df_out["Amount"] > 0].copy()
+            if not df_pos.empty:
+                write_positive_rows(df_pos)
 
-    # Instead of computing charts with pandas, read them from BigQuery for performance
+    # Fetch aggregates from BigQuery
     total_by_month = query_total_by_month()
     summary_by_cat = query_summary_by_category()
-    summary_by_main = query_summary_by_main()
+    summary_by_main_res = query_summary_by_main()
     latest_year_totals = query_latest_year_main_totals()
 
     results_json = {
-        "latest_month": str(LAST_RESULTS["latest_month"]),
+        "latest_month": str(LAST_RESULTS.get("latest_month", "")),
         "total_positive_by_month": total_by_month,
         "summary_by_category": summary_by_cat,
-        "summary_by_main": summary_by_main,
+        "summary_by_main": summary_by_main_res,
         "latest_year": LAST_RESULTS.get("latest_year"),
         "latest_year_main_totals": latest_year_totals,
     }
@@ -171,7 +212,12 @@ async def categorized_github(
         },
     )
 
-@app.post("/categorized-analyze", response_class=JSONResponse)
+
+# -----------------------------------------------------------------------------
+# Analyze uploaded categorized CSV
+# -----------------------------------------------------------------------------
+
+@app.post("/categorized-analyze")
 async def categorized_analyze(request: Request, file: UploadFile = File(...)):
     content = await file.read()
     try:
@@ -191,14 +237,19 @@ async def categorized_analyze(request: Request, file: UploadFile = File(...)):
             },
         )
 
-    # Normalize and write rows to BigQuery
-    df["Date"] = pd.to_datetime(df.get("Date", None), errors="coerce")
-    if df["Date"].isna().all():
-        # If Date missing, synthesize from Month as first day
+    # Normalize core fields
+    # Date may be absent in the uploaded CSV; synthesize from Month if needed
+    if "Date" in df.columns:
+        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    else:
         df["Date"] = pd.to_datetime(df["Month"].astype(str) + "-01", errors="coerce")
+
     df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0.0)
 
-    write_positive_rows(df[df["Amount"] > 0])
+    # Write positive rows to BigQuery
+    df_pos = df[df["Amount"] > 0].copy()
+    if not df_pos.empty:
+        write_positive_rows(df_pos)
 
     info = f"Loaded {len(df)} rows from {file.filename} (positive written to BigQuery)"
     data_json = to_native(df.to_dict(orient="records"))
@@ -215,7 +266,11 @@ async def categorized_analyze(request: Request, file: UploadFile = File(...)):
         },
     )
 
-# Download CSV of last analysis (still supported)
+
+# -----------------------------------------------------------------------------
+# Download CSV of last in-memory analysis (kept for parity with original app)
+# -----------------------------------------------------------------------------
+
 @app.get("/download-positive-expenses")
 def download_positive_expenses():
     rows = LAST_RESULTS.get("all_positive_monthly", [])
@@ -241,7 +296,11 @@ def download_positive_expenses():
     fname = f"positive_expenses_{LAST_RESULTS.get('latest_month', '')}.csv"
     return StreamingResponse(output, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=\"{fname}\""})
 
-# New API endpoints for charts (consumed by your front-end)
+
+# -----------------------------------------------------------------------------
+# API endpoints for charts backed by BigQuery
+# -----------------------------------------------------------------------------
+
 @app.get("/api/total-by-month")
 def api_total_by_month():
     return JSONResponse(query_total_by_month())
