@@ -48,7 +48,6 @@ def gh_fetch_raw(owner: str, repo: str, path: str, ref: str):
     r = requests.get(url, headers=gh_headers(), timeout=60)
     r.raise_for_status()
     return r.content
-    
 
 # ---------------- Ingest helpers ----------------
 def fetch_csv_to_df_bytes(b: bytes) -> pd.DataFrame:
@@ -72,13 +71,6 @@ def load_classifier_from_repo(owner: str, repo: str, ref: str, json_path: str | 
         return make_classifier_grouped(tmp_path)
     else:
         return make_classifier_grouped("categories_grouped.json")
-
-def normalize_group_by_param(val: str) -> list[str]:
-    allowed = {"Month", "CardName", "MainCategory", "Category"}
-    if not val:
-        return []
-    parts = [p.strip() for p in val.split(",") if p.strip()]
-    return [p for p in parts if p in allowed]
 
 # ---------------- BigQuery helpers ----------------
 def bq_client() -> bigquery.Client:
@@ -273,7 +265,22 @@ def dashboard():
         latest_details=latest_details,
         project=BQ_PROJECT,
         dataset=BQ_DATASET,
+        # No aggregate data in default dashboard view
+        aggregate_labels=[],
+        aggregate_values=[],
+        aggregate_group_by="",
+        aggregate_month="",
+        aggregate_min_amount="",
+        aggregate_rows=[],
     )
+
+# ---------- Dynamic Aggregate route ----------
+def normalize_group_by_param(val: str) -> list[str]:
+    allowed = {"Month", "CardName", "MainCategory", "Category"}
+    if not val:
+        return []
+    parts = [p.strip() for p in val.split(",") if p.strip()]
+    return [p for p in parts if p in allowed]
 
 @app.get("/aggregate")
 def aggregate():
@@ -317,7 +324,7 @@ def aggregate():
     """
     rows = bq_query(sql, params=params)
 
-    # Optional client-side filter for min_amount (since it’s simple)
+    # Optional client-side filter for min_amount
     if min_amount_val is not None:
         rows = [r for r in rows if (r.get("Amount") or 0) >= min_amount_val]
 
@@ -327,17 +334,15 @@ def aggregate():
     labels = [label_for_row(r) for r in rows]
     values = [float(r.get("Amount") or 0) for r in rows]
 
-    # Render using the same dashboard template with an aggregate section
     return render_template(
         "dashboard.html",
-        latest_month=None,
+        latest_month="",                     # not used in aggregate view
         month_for_view=month_filter or "",
-        top_categories=[],              # not used in aggregate response
-        monthly_totals=[],              # not used in aggregate response
-        latest_details=[],              # not used in aggregate response
+        top_categories=[],                   # not used
+        monthly_totals=[],                   # not used
+        latest_details=[],                   # not used
         project=BQ_PROJECT,
         dataset=BQ_DATASET,
-        # Aggregate payload
         aggregate_labels=labels,
         aggregate_values=values,
         aggregate_group_by=",".join(group_cols),
