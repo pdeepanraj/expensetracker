@@ -439,12 +439,11 @@ def dashboard():
     )
 
 # ---------- Dynamic Aggregate route ----------
-def normalize_group_by_param(val: str) -> list[str]:
+def normalize_group_by_param(vals: list[str]) -> list[str]:
     allowed = {"Month", "CardName", "MainCategory", "Category"}
-    if not val:
+    if not vals:
         return []
-    parts = [p.strip() for p in val.split(",") if p.strip()]
-    return [p for p in parts if p in allowed]
+    return [v for v in vals if v in allowed]
 
 @app.get("/aggregate")
 def aggregate():
@@ -452,9 +451,14 @@ def aggregate():
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
 
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
-    # Read user filters
-    group_by_raw = request.args.get("group_by", "").strip()
-    # Also accept dropdown filters
+
+    # Read group_by as multiple checkbox values
+    group_by_list = request.args.getlist("group_by")
+    group_cols = normalize_group_by_param(group_by_list)
+    if not group_cols:
+        group_cols = ["Category"]
+
+    # Dropdown filters
     selected_month = request.args.get("month", "").strip() or None
     selected_card = request.args.get("card", "").strip() or None
     selected_main = request.args.get("main", "").strip() or None
@@ -465,14 +469,8 @@ def aggregate():
     except Exception:
         min_amount_val = None
 
-    # Fetch filter dropdowns
     months, cards, mains, cats = get_distinct_filters()
 
-    group_cols = normalize_group_by_param(group_by_raw)
-    if not group_cols:
-        group_cols = ["Category"]
-
-    # Build SQL with filters
     filter_params = {"month": selected_month, "card": selected_card, "main": selected_main, "cat": selected_cat}
     where_sql, qp = apply_filters_where(filter_params)
 
@@ -512,12 +510,12 @@ def aggregate():
         aggregate_month=selected_month or "",
         aggregate_min_amount=min_amount or "",
         aggregate_rows=rows,
-        # Filters
         months=months, cards=cards, mains=mains, cats=cats,
         selected_month=selected_month, selected_card=selected_card,
         selected_main=selected_main, selected_cat=selected_cat,
         loaded="",
     )
+
 
 @app.get("/status")
 def status():
