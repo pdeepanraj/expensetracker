@@ -16,6 +16,18 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
 </div>
 {% endif %}
 
+{% if loaded or table_modified %}
+<div class="card">
+  {% if loaded %}
+    <p><strong>Load result:</strong> {{ loaded }} new rows inserted.</p>
+  {% endif %}
+  {% if table_modified %}
+    <p class="muted">Table last modified: {{ table_modified }}</p>
+  {% endif %}
+</div>
+{% endif %}
+
+
 <!-- Filters bar -->
 <div class="card">
   <h3>Filters</h3>
