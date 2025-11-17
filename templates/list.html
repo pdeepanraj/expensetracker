@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Choose CSVs</title>
+</head>
+<body>
+  <h2>CSV files in {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}</h2>
+  {% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+  {% if files and files|length > 0 %}
+    <form method="post" action="/process">
+      <input type="hidden" name="owner" value="{{ owner }}">
+      <input type="hidden" name="repo" value="{{ repo }}">
+      <input type="hidden" name="branch" value="{{ branch }}">
+      <input type="hidden" name="path" value="{{ path }}">
+
+      <p><b>Select CSVs to process:</b></p>
+      {% for f in files %}
+        <div>
+          <label>
+            <input type="checkbox" name="csv_paths" value="{{ f.path }}"> {{ f.name }}
+          </label>
+        </div>
+      {% endfor %}
+      <br>
+
+      <label>Card Name:</label>
+      <input type="text" name="card_name" value="Uploaded" required><br><br>
+
+      <label>Use categories_grouped.json from this repo (optional path):</label>
+      <input type="text" name="json_path" placeholder="categories_grouped.json"><br><br>
+
+      <button type="submit">Run Pipeline</button>
+    </form>
+  {% else %}
+    <p>No CSV files found in this folder.</p>
+  {% endif %}
+  <p><a href="{{ url_for('index') }}">Back</a></p>
+</body>
+</html>
