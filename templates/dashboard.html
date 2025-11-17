@@ -1,132 +1,114 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Expense Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    .full { grid-column: 1 / -1; }
-    canvas { background: #fafafa; padding: 8px; border: 1px solid #eee; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
-    th { background: #f5f5f5; }
-    .header { display:flex; align-items:center; justify-content:space-between; }
-    .muted { color: #666; }
-    .search { margin-bottom: 12px; }
-    .nav { margin-bottom: 16px; }
-    .nav a { margin-right: 12px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h2>Expense Dashboard</h2>
-    <div class="muted">
-      Source: {{ project }}.{{ dataset }}.all_positive_monthly —
-      Latest month in table: {{ latest_month }} —
-      Viewing: {{ month_for_view }}
-    </div>
+{% extends "base.html" %}
+{% block title %}Expense Dashboard{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .full { grid-column: 1 / -1; }
+  canvas { background: #fafafa; padding: 8px; border: 1px solid #eee; }
+  .search { margin-bottom: 12px; }
+</style>
+{% endblock %}
+
+{% block header_meta %}
+Source: {{ project }}.{{ dataset }}.all_positive_monthly — Latest: {{ latest_month }} — Viewing: {{ month_for_view }}
+{% endblock %}
+
+{% block content %}
+<form method="get" action="/dashboard" style="margin: 0 0 20px 0;">
+  <label for="month">Jump to month (YYYY-MM)</label>
+  <input id="month" name="month" type="text" placeholder="YYYY-MM" value="{{ month_for_view }}" />
+  <button type="submit">Go</button>
+</form>
+
+<div class="grid">
+  <div>
+    <h3>Top Categories ({{ month_for_view }})</h3>
+    <canvas id="catChart" height="260"></canvas>
   </div>
 
-  <div class="nav">
-    <a href="/">Home</a>
-    <a href="/dashboard">Dashboard</a>
+  <div>
+    <h3>Monthly Total Trend</h3>
+    <canvas id="trendChart" height="260"></canvas>
   </div>
 
-  <form method="get" action="/dashboard" style="margin: 8px 0 20px 0;">
-    <label for="month">Jump to month (YYYY-MM):</label>
-    <input id="month" name="month" type="text" placeholder="YYYY-MM" value="{{ month_for_view }}" />
-    <button type="submit">Go</button>
-  </form>
-
-  <div class="grid">
-    <div>
-      <h3>Top Categories ({{ month_for_view }})</h3>
-      <canvas id="catChart" height="260"></canvas>
-    </div>
-
-    <div>
-      <h3>Monthly Total Trend</h3>
-      <canvas id="trendChart" height="260"></canvas>
-    </div>
-
-    <div class="full">
-      <h3>Details ({{ month_for_view }})</h3>
-      <input id="search" class="search" type="text" placeholder="Filter by text...">
-      <table id="detailTable">
-        <thead>
-          <tr>
-            <th>CardName</th>
-            <th>MainCategory</th>
-            <th>Category</th>
-            <th>Description</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in latest_details %}
-          <tr>
-            <td>{{ r.CardName }}</td>
-            <td>{{ r.MainCategory }}</td>
-            <td>{{ r.Category }}</td>
-            <td>{{ r.Description }}</td>
-            <td>{{ "%.2f"|format(r.Amount or 0) }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+  <div class="full">
+    <h3>Details ({{ month_for_view }})</h3>
+    <input id="search" class="search" type="text" placeholder="Filter by text...">
+    <table id="detailTable">
+      <thead>
+        <tr>
+          <th>CardName</th>
+          <th>MainCategory</th>
+          <th>Category</th>
+          <th>Description</th>
+          <th>Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in latest_details %}
+        <tr>
+          <td>{{ r.CardName }}</td>
+          <td>{{ r.MainCategory }}</td>
+          <td>{{ r.Category }}</td>
+          <td>{{ r.Description }}</td>
+          <td>{{ "%.2f"|format(r.Amount or 0) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
+</div>
+{% endblock %}
 
-  <script>
-    // Data from server
-    const topCategories = {{ top_categories|tojson }};
-    const monthlyTotals = {{ monthly_totals|tojson }};
+{% block scripts %}
+<script>
+  const topCategories = {{ top_categories|tojson }};
+  const monthlyTotals = {{ monthly_totals|tojson }};
 
-    // Top categories bar chart
-    const catLabels = topCategories.map(x => x.Category);
-    const catValues = topCategories.map(x => x.Amount);
-    new Chart(document.getElementById('catChart'), {
-      type: 'bar',
-      data: {
-        labels: catLabels,
-        datasets: [{ label: 'Amount', data: catValues, backgroundColor: '#4e79a7' }]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: { x: { ticks: { callback: v => '$' + v } } }
-      }
+  // Top categories bar chart
+  const catLabels = topCategories.map(x => x.Category);
+  const catValues = topCategories.map(x => x.Amount);
+  new Chart(document.getElementById('catChart'), {
+    type: 'bar',
+    data: {
+      labels: catLabels,
+      datasets: [{ label: 'Amount', data: catValues, backgroundColor: '#4e79a7' }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { x: { ticks: { callback: v => '$' + v } } }
+    }
+  });
+
+  // Monthly totals line chart
+  const trendLabels = monthlyTotals.map(x => x.Month);
+  const trendValues = monthlyTotals.map(x => x.Amount);
+  new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: trendLabels,
+      datasets: [{ label: 'Total', data: trendValues, borderColor: '#e15759', fill: false, tension: 0.2 }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { ticks: { callback: v => '$' + v } } }
+    }
+  });
+
+  // Simple table filter
+  const searchInput = document.getElementById('search');
+  const table = document.getElementById('detailTable');
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.toLowerCase();
+    [...table.tBodies[0].rows].forEach(row => {
+      const text = row.innerText.toLowerCase();
+      row.style.display = text.includes(q) ? '' : 'none';
     });
-
-    // Monthly totals line chart
-    const trendLabels = monthlyTotals.map(x => x.Month);
-    const trendValues = monthlyTotals.map(x => x.Amount);
-    new Chart(document.getElementById('trendChart'), {
-      type: 'line',
-      data: {
-        labels: trendLabels,
-        datasets: [{ label: 'Total', data: trendValues, borderColor: '#e15759', fill: false, tension: 0.2 }]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: { y: { ticks: { callback: v => '$' + v } } }
-      }
-    });
-
-    // Simple table filter
-    const searchInput = document.getElementById('search');
-    const table = document.getElementById('detailTable');
-    searchInput.addEventListener('input', () => {
-      const q = searchInput.value.toLowerCase();
-      [...table.tBodies[0].rows].forEach(row => {
-        const text = row.innerText.toLowerCase();
-        row.style.display = text.includes(q) ? '' : 'none';
-      });
-    });
-  </script>
-</body>
-</html>
+  });
+</script>
+{% endblock %}
