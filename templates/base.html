@@ -4,55 +4,25 @@
   <meta charset="utf-8">
   <title>{% block title %}Expense Tracker{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    :root {
-      --bg: #ffffff;
-      --text: #222;
-      --muted: #666;
-      --border: #e5e5e5;
-      --primary: #2d6cdf;
-      --accent: #4e79a7;
-    }
-    * { box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; margin: 0; background: var(--bg); color: var(--text); }
-    header { display:flex; align-items:center; justify-content:space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); }
-    header h1 { font-size: 18px; margin: 0; }
-    header .meta { font-size: 12px; color: var(--muted); }
-    nav { display:flex; gap: 12px; padding: 10px 20px; border-bottom: 1px solid var(--border); }
-    nav a { text-decoration: none; color: var(--primary); }
-    main { padding: 20px; max-width: 1200px; margin: 0 auto; }
-    footer { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
-    .card { border: 1px solid var(--border); border-radius: 8px; padding: 16px; background: #fafafa; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    .full { grid-column: 1 / -1; }
-    label { display:block; margin: 8px 0 4px; }
-    input[type="text"], input[type="url"], textarea { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; }
-    button { background: var(--primary); color: #fff; border: none; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
-    button.secondary { background: #777; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { padding: 8px; border-bottom: 1px solid var(--border); text-align: left; }
-    th { background: #f5f5f5; }
-    .muted { color: var(--muted); }
-    .error { color: #b00020; margin-bottom: 12px; }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   {% block head %}{% endblock %}
 </head>
 <body>
-  <header>
+  <header class="header">
     <h1>Expense Tracker</h1>
     <div class="meta">{% block header_meta %}{% endblock %}</div>
   </header>
 
-  <nav>
+  <nav class="nav">
     <a href="/">Home</a>
     <a href="/dashboard">Dashboard</a>
   </nav>
 
-  <main>
+  <main class="main">
     {% block content %}{% endblock %}
   </main>
 
-  <footer>
+  <footer class="footer">
     Built with Flask, BigQuery, and Chart.js
   </footer>
 
