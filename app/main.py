@@ -7,6 +7,7 @@ import pandas as pd
 from fastapi import FastAPI, Request, Form, File, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 
 # Import from the app package
 from app.pipeline import make_classifier_grouped, run_pipeline
@@ -18,8 +19,6 @@ from app.bq_queries import (
     query_summary_by_main,
     query_latest_year_main_totals,
 )
-from fastapi.staticfiles import StaticFiles
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # -----------------------------------------------------------------------------
 # FastAPI app and template setup
@@ -28,7 +27,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app = FastAPI()
 
 # Ensure this points to the templates folder inside app/
-templates = Jinja2Templates(directory="app/templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="/templates")
 
 # Optional defaults displayed on the UI
 GITHUB_OWNER = "your-username"
