@@ -10,6 +10,61 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
 {% endblock %}
 
 {% block content %}
+{% if loaded %}
+<div class="card">
+  <p><strong>Load result:</strong> {{ loaded }} new rows inserted.</p>
+</div>
+{% endif %}
+
+<!-- Filters bar -->
+<div class="card">
+  <h3>Filters</h3>
+  <form method="get" action="/dashboard">
+    <div class="grid-2">
+      <div>
+        <label>Month</label>
+        <select name="month">
+          <option value="">All</option>
+          {% for m in months %}
+            <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>CardName</label>
+        <select name="card">
+          <option value="">All</option>
+          {% for c in cards %}
+            <option value="{{ c }}" {% if selected_card == c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>MainCategory</label>
+        <select name="main">
+          <option value="">All</option>
+          {% for mc in mains %}
+            <option value="{{ mc }}" {% if selected_main == mc %}selected{% endif %}>{{ mc }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Category</label>
+        <select name="cat">
+          <option value="">All</option>
+          {% for ct in cats %}
+            <option value="{{ ct }}" {% if selected_cat == ct %}selected{% endif %}>{{ ct }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Apply</button>
+      <a class="btn secondary" href="/dashboard">Reset</a>
+    </div>
+  </form>
+</div>
+
 <!-- Dynamic Grouping card -->
 <div class="card">
   <h3>Dynamic Grouping</h3>
@@ -21,8 +76,33 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
         <p class="muted">Allowed: Month, CardName, MainCategory, Category</p>
       </div>
       <div>
-        <label for="monthAgg">Filter by month (optional, YYYY-MM)</label>
-        <input id="monthAgg" name="month" type="text" placeholder="YYYY-MM" value="{{ aggregate_month or '' }}">
+        <label>Use current filters</label>
+        <div class="inline">
+          <select name="month">
+            <option value="">All</option>
+            {% for m in months %}
+              <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+          <select name="card">
+            <option value="">All</option>
+            {% for c in cards %}
+              <option value="{{ c }}" {% if selected_card == c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+          <select name="main">
+            <option value="">All</option>
+            {% for mc in mains %}
+              <option value="{{ mc }}" {% if selected_main == mc %}selected{% endif %}>{{ mc }}</option>
+            {% endfor %}
+          </select>
+          <select name="cat">
+            <option value="">All</option>
+            {% for ct in cats %}
+              <option value="{{ ct }}" {% if selected_cat == ct %}selected{% endif %}>{{ ct }}</option>
+            {% endfor %}
+          </select>
+        </div>
         <label for="min_amount">Minimum amount (optional)</label>
         <input id="min_amount" name="min_amount" type="text" placeholder="e.g., 10" value="{{ aggregate_min_amount or '' }}">
       </div>
@@ -69,19 +149,9 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
 {% endif %}
 
 {% if not aggregate_labels %}
-<div class="card">
-  <form method="get" action="/dashboard">
-    <label for="month">Jump to month (YYYY-MM)</label>
-    <div class="inline">
-      <input id="month" name="month" type="text" placeholder="YYYY-MM" value="{{ month_for_view }}">
-      <button type="submit">Go</button>
-    </div>
-  </form>
-</div>
-
 <div class="grid-2">
   <div class="card">
-    <h3>Top Categories ({{ month_for_view }})</h3>
+    <h3>Top Categories{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
     <canvas id="catChart" height="260"></canvas>
   </div>
 
@@ -92,7 +162,7 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
 </div>
 
 <div class="card">
-  <h3>Details ({{ month_for_view }})</h3>
+  <h3>Details{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
   <input id="search" class="search" type="text" placeholder="Filter by text...">
   <div class="table-scroll">
     <table id="detailTable">
