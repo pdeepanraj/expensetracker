@@ -130,6 +130,19 @@ def load_records(table_name: str, records: list[dict], schema: list[bigquery.Sch
     job.result()
     print(f"[LOAD] Completed {table_id}")
 
+def bq_query(sql: str, params: dict | None = None) -> list[dict]:
+    client = bq_client()
+    job_config = bigquery.QueryJobConfig()
+    if params:
+        # Named parameters
+        job_config.query_parameters = [
+            bigquery.ScalarQueryParameter(k, "STRING", str(v)) for k, v in params.items()
+        ]
+    job = client.query(sql, job_config=job_config)
+    rows = list(job.result())
+    return [dict(row) for row in rows]
+
+
 # ---------------- Routes ----------------
 @app.get("/")
 def index():
@@ -194,6 +207,68 @@ def process():
     except Exception as e:
         # Bubble up exact error for quick troubleshooting
         return f"Error: {type(e).__name__}: {e}", 500
+
+@app.get("/dashboard")
+def dashboard():
+    # Ensure dataset is reachable
+    if not validate_dataset(BQ_PROJECT, BQ_DATASET):
+        return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
+
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.all_positive_monthly`"
+
+    # Latest month as STRING like 'YYYY-MM'
+    latest_month_sql = f"""
+      SELECT Month
+      FROM {table_id}
+      WHERE Month IS NOT NULL
+      ORDER BY Month DESC
+      LIMIT 1
+    """
+    latest_month_rows = bq_query(latest_month_sql)
+    if not latest_month_rows:
+        return "No data available yet.", 200
+    latest_month = latest_month_rows[0]["Month"]
+
+    # Top categories for latest month
+    top_categories_sql = f"""
+      SELECT Category, SUM(Amount) AS Amount
+      FROM {table_id}
+      WHERE Month = @month
+      GROUP BY Category
+      ORDER BY Amount DESC
+      LIMIT 12
+    """
+    top_categories = bq_query(top_categories_sql, params={"month": latest_month})
+
+    # Monthly totals trend
+    monthly_totals_sql = f"""
+      SELECT Month, SUM(Amount) AS Amount
+      FROM {table_id}
+      GROUP BY Month
+      ORDER BY Month
+    """
+    monthly_totals = bq_query(monthly_totals_sql)
+
+    # Latest month detail table
+    latest_detail_sql = f"""
+      SELECT CardName, MainCategory, Category, Description, Amount
+      FROM {table_id}
+      WHERE Month = @month
+      ORDER BY Amount DESC
+      LIMIT 500
+    """
+    latest_details = bq_query(latest_detail_sql, params={"month": latest_month})
+
+    return render_template(
+        "dashboard.html",
+        latest_month=latest_month,
+        top_categories=top_categories,
+        monthly_totals=monthly_totals,
+        latest_details=latest_details,
+        project=BQ_PROJECT,
+        dataset=BQ_DATASET,
+    )
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
