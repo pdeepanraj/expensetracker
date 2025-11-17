@@ -12,13 +12,65 @@
 {% endblock %}
 
 {% block header_meta %}
-Source: {{ project }}.{{ dataset }}.all_positive_monthly — Latest: {{ latest_month }} — Viewing: {{ month_for_view }}
+Source: {{ project }}.{{ dataset }}.all_positive_monthly
 {% endblock %}
 
 {% block content %}
+<!-- Dynamic Grouping card -->
+<div class="card" style="margin-bottom:20px;">
+  <h3>Dynamic Grouping</h3>
+  <form method="get" action="/aggregate">
+    <label for="group_by">Group by (choose one or more, comma-separated)</label>
+    <input id="group_by" name="group_by" type="text" placeholder="Category,Month" value="{{ aggregate_group_by or 'Category' }}">
+    <label for="monthAgg">Filter by month (optional, YYYY-MM)</label>
+    <input id="monthAgg" name="month" type="text" placeholder="YYYY-MM" value="{{ aggregate_month or '' }}">
+    <label for="min_amount">Minimum amount (optional)</label>
+    <input id="min_amount" name="min_amount" type="text" placeholder="e.g., 10" value="{{ aggregate_min_amount or '' }}">
+    <div style="margin-top:12px;">
+      <button type="submit">Run</button>
+    </div>
+    <p class="muted">Allowed fields: Month, CardName, MainCategory, Category</p>
+  </form>
+</div>
+
+{% if aggregate_labels is defined and aggregate_labels %}
+<div class="grid">
+  <div class="full">
+    <h3>Aggregate Results{% if aggregate_group_by %} (Group by: {{ aggregate_group_by }}{% if aggregate_month %}, Month={{ aggregate_month }}{% endif %}){% endif %}</h3>
+    <canvas id="aggChart" height="260"></canvas>
+    <div class="card" style="margin-top:12px;">
+      <table>
+        <thead>
+          <tr>
+            {% if aggregate_rows and aggregate_rows[0] %}
+              {% for k in aggregate_rows[0].keys() %}
+                <th>{{ k }}</th>
+              {% endfor %}
+            {% else %}
+              <th>Group</th><th>Amount</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in aggregate_rows %}
+          <tr>
+            {% for v in r.values() %}
+            <td>{{ v }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if not aggregate_labels %}
+<!-- Standard Month-focused dashboard when not showing aggregate -->
 <form method="get" action="/dashboard" style="margin: 0 0 20px 0;">
   <label for="month">Jump to month (YYYY-MM)</label>
-  <input id="month" name="month" type="text" placeholder="YYYY-MM" value="{{ month_for_view }}" />
+  <input id="month" name="month" type="text" placeholder="YYYY-MM" value="{{ month_for_view }}">
   <button type="submit">Go</button>
 </form>
 
@@ -60,10 +112,30 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly — Latest: {{ latest_m
     </table>
   </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
+{% if aggregate_labels is defined and aggregate_labels %}
 <script>
+  const aggLabels = {{ aggregate_labels|tojson }};
+  const aggValues = {{ aggregate_values|tojson }};
+  new Chart(document.getElementById('aggChart'), {
+    type: 'bar',
+    data: {
+      labels: aggLabels,
+      datasets: [{ label: 'Amount', data: aggValues, backgroundColor: '#2d6cdf' }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { ticks: { callback: v => '$' + v } } }
+    }
+  });
+</script>
+{% else %}
+<script>
+  // Data from server (standard dashboard)
   const topCategories = {{ top_categories|tojson }};
   const monthlyTotals = {{ monthly_totals|tojson }};
 
@@ -111,4 +183,5 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly — Latest: {{ latest_m
     });
   });
 </script>
+{% endif %}
 {% endblock %}
