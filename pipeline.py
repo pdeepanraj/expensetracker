@@ -155,6 +155,7 @@ def run_pipeline(frames: List[pd.DataFrame], classifier):
 
     total_positive_by_month = (positive_rows.groupby('Month', as_index=False)['Amount'].sum())
 
+    # Year-level totals
     positive_rows['Year'] = positive_rows['Date'].dt.year
     year_main_totals = (positive_rows
         .groupby(['Year', 'MainCategory'], as_index=False)['Amount']
@@ -171,8 +172,38 @@ def run_pipeline(frames: List[pd.DataFrame], classifier):
         .sort_values('Amount', ascending=False)
     )
 
+    # ---------- JSON-serializable casts ----------
+    # Period -> string for Month
+    for df in [
+        latest_positive_monthly,
+        all_positive_monthly,
+        summary_by_category,
+        summary_by_main,
+        total_positive_by_month,
+    ]:
+        if 'Month' in df.columns:
+            df['Month'] = df['Month'].astype(str)
+
+    # Ensure numeric types are plain Python-compatible
+    for df, cols in [
+        (latest_positive_monthly, ['Amount']),
+        (all_positive_monthly, ['Amount']),
+        (summary_by_category, ['Amount']),
+        (summary_by_main, ['Amount']),
+        (total_positive_by_month, ['Amount']),
+        (latest_year_main_totals, ['Amount']),
+    ]:
+        for c in cols:
+            if c in df.columns:
+                df[c] = pd.to_numeric(df[c], errors='coerce').astype(float)
+
+    # Year as int
+    if 'Year' in latest_year_main_totals.columns:
+        latest_year_main_totals['Year'] = pd.to_numeric(latest_year_main_totals['Year'], errors='coerce').astype('Int64').astype('int')
+
+    # ---------- return ----------
     return {
-        "latest_month": latest_month,
+        "latest_month": str(latest_month) if latest_month is not pd.NaT else None,
         "positive_monthly": latest_positive_monthly.to_dict(orient='records'),
         "all_positive_monthly": all_positive_monthly.to_dict(orient='records'),
         "summary_by_category": summary_by_category.to_dict(orient='records'),
@@ -181,3 +212,4 @@ def run_pipeline(frames: List[pd.DataFrame], classifier):
         "latest_year": latest_year,
         "latest_year_main_totals": latest_year_main_totals.to_dict(orient='records'),
     }
+
