@@ -3,12 +3,6 @@
 
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<style>
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-  .full { grid-column: 1 / -1; }
-  canvas { background: #fafafa; padding: 8px; border: 1px solid #eee; }
-  .search { margin-bottom: 12px; }
-</style>
 {% endblock %}
 
 {% block header_meta %}
@@ -17,77 +11,90 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
 
 {% block content %}
 <!-- Dynamic Grouping card -->
-<div class="card" style="margin-bottom:20px;">
+<div class="card">
   <h3>Dynamic Grouping</h3>
   <form method="get" action="/aggregate">
-    <label for="group_by">Group by (choose one or more, comma-separated)</label>
-    <input id="group_by" name="group_by" type="text" placeholder="Category,Month" value="{{ aggregate_group_by or 'Category' }}">
-    <label for="monthAgg">Filter by month (optional, YYYY-MM)</label>
-    <input id="monthAgg" name="month" type="text" placeholder="YYYY-MM" value="{{ aggregate_month or '' }}">
-    <label for="min_amount">Minimum amount (optional)</label>
-    <input id="min_amount" name="min_amount" type="text" placeholder="e.g., 10" value="{{ aggregate_min_amount or '' }}">
-    <div style="margin-top:12px;">
+    <div class="grid-2">
+      <div>
+        <label for="group_by">Group by (comma-separated)</label>
+        <input id="group_by" name="group_by" type="text" placeholder="Category,Month" value="{{ aggregate_group_by or 'Category' }}">
+        <p class="muted">Allowed: Month, CardName, MainCategory, Category</p>
+      </div>
+      <div>
+        <label for="monthAgg">Filter by month (optional, YYYY-MM)</label>
+        <input id="monthAgg" name="month" type="text" placeholder="YYYY-MM" value="{{ aggregate_month or '' }}">
+        <label for="min_amount">Minimum amount (optional)</label>
+        <input id="min_amount" name="min_amount" type="text" placeholder="e.g., 10" value="{{ aggregate_min_amount or '' }}">
+      </div>
+    </div>
+    <div class="actions">
       <button type="submit">Run</button>
     </div>
-    <p class="muted">Allowed fields: Month, CardName, MainCategory, Category</p>
   </form>
 </div>
 
 {% if aggregate_labels is defined and aggregate_labels %}
-<div class="grid">
-  <div class="full">
-    <h3>Aggregate Results{% if aggregate_group_by %} (Group by: {{ aggregate_group_by }}{% if aggregate_month %}, Month={{ aggregate_month }}{% endif %}){% endif %}</h3>
-    <canvas id="aggChart" height="260"></canvas>
-    <div class="card" style="margin-top:12px;">
-      <table>
-        <thead>
-          <tr>
-            {% if aggregate_rows and aggregate_rows[0] %}
-              {% for k in aggregate_rows[0].keys() %}
-                <th>{{ k }}</th>
-              {% endfor %}
-            {% else %}
-              <th>Group</th><th>Amount</th>
-            {% endif %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in aggregate_rows %}
-          <tr>
-            {% for v in r.values() %}
-            <td>{{ v }}</td>
+<div class="card">
+  <h3>Aggregate Results{% if aggregate_group_by %} (Group by: {{ aggregate_group_by }}{% if aggregate_month %}, Month={{ aggregate_month }}{% endif %}){% endif %}</h3>
+  <canvas id="aggChart" height="260"></canvas>
+</div>
+
+<div class="card">
+  <h3>Aggregate Table</h3>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          {% if aggregate_rows and aggregate_rows[0] %}
+            {% for k in aggregate_rows[0].keys() %}
+              <th>{{ k }}</th>
             {% endfor %}
-          </tr>
+          {% else %}
+            <th>Group</th><th>Amount</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in aggregate_rows %}
+        <tr>
+          {% for v in r.values() %}
+          <td>{{ v }}</td>
           {% endfor %}
-        </tbody>
-      </table>
-    </div>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
 {% endif %}
 
 {% if not aggregate_labels %}
-<!-- Standard Month-focused dashboard when not showing aggregate -->
-<form method="get" action="/dashboard" style="margin: 0 0 20px 0;">
-  <label for="month">Jump to month (YYYY-MM)</label>
-  <input id="month" name="month" type="text" placeholder="YYYY-MM" value="{{ month_for_view }}">
-  <button type="submit">Go</button>
-</form>
+<div class="card">
+  <form method="get" action="/dashboard">
+    <label for="month">Jump to month (YYYY-MM)</label>
+    <div class="inline">
+      <input id="month" name="month" type="text" placeholder="YYYY-MM" value="{{ month_for_view }}">
+      <button type="submit">Go</button>
+    </div>
+  </form>
+</div>
 
-<div class="grid">
-  <div>
+<div class="grid-2">
+  <div class="card">
     <h3>Top Categories ({{ month_for_view }})</h3>
     <canvas id="catChart" height="260"></canvas>
   </div>
 
-  <div>
+  <div class="card">
     <h3>Monthly Total Trend</h3>
     <canvas id="trendChart" height="260"></canvas>
   </div>
+</div>
 
-  <div class="full">
-    <h3>Details ({{ month_for_view }})</h3>
-    <input id="search" class="search" type="text" placeholder="Filter by text...">
+<div class="card">
+  <h3>Details ({{ month_for_view }})</h3>
+  <input id="search" class="search" type="text" placeholder="Filter by text...">
+  <div class="table-scroll">
     <table id="detailTable">
       <thead>
         <tr>
@@ -135,7 +142,6 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
 </script>
 {% else %}
 <script>
-  // Data from server (standard dashboard)
   const topCategories = {{ top_categories|tojson }};
   const monthlyTotals = {{ monthly_totals|tojson }};
 
