@@ -15,17 +15,34 @@
     .header { display:flex; align-items:center; justify-content:space-between; }
     .muted { color: #666; }
     .search { margin-bottom: 12px; }
+    .nav { margin-bottom: 16px; }
+    .nav a { margin-right: 12px; }
   </style>
 </head>
 <body>
   <div class="header">
     <h2>Expense Dashboard</h2>
-    <div class="muted">Source: {{ project }}.{{ dataset }}.all_positive_monthly — Latest month: {{ latest_month }}</div>
+    <div class="muted">
+      Source: {{ project }}.{{ dataset }}.all_positive_monthly —
+      Latest month in table: {{ latest_month }} —
+      Viewing: {{ month_for_view }}
+    </div>
   </div>
+
+  <div class="nav">
+    <a href="/">Home</a>
+    <a href="/dashboard">Dashboard</a>
+  </div>
+
+  <form method="get" action="/dashboard" style="margin: 8px 0 20px 0;">
+    <label for="month">Jump to month (YYYY-MM):</label>
+    <input id="month" name="month" type="text" placeholder="YYYY-MM" value="{{ month_for_view }}" />
+    <button type="submit">Go</button>
+  </form>
 
   <div class="grid">
     <div>
-      <h3>Top Categories ({{ latest_month }})</h3>
+      <h3>Top Categories ({{ month_for_view }})</h3>
       <canvas id="catChart" height="260"></canvas>
     </div>
 
@@ -35,7 +52,7 @@
     </div>
 
     <div class="full">
-      <h3>Latest Month Details</h3>
+      <h3>Details ({{ month_for_view }})</h3>
       <input id="search" class="search" type="text" placeholder="Filter by text...">
       <table id="detailTable">
         <thead>
@@ -79,6 +96,7 @@
       options: {
         indexAxis: 'y',
         responsive: true,
+        plugins: { legend: { display: false } },
         scales: { x: { ticks: { callback: v => '$' + v } } }
       }
     });
@@ -94,6 +112,7 @@
       },
       options: {
         responsive: true,
+        plugins: { legend: { display: false } },
         scales: { y: { ticks: { callback: v => '$' + v } } }
       }
     });
