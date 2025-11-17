@@ -1,25 +1,26 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Select GitHub Repo</title>
-</head>
-<body>
+{% extends "base.html" %}
+{% block title %}Select GitHub Repo{% endblock %}
+
+{% block content %}
+<div class="card">
   <h2>Select GitHub Repository</h2>
   <form method="get" action="/list">
-    <label>Owner (user or org):</label>
-    <input type="text" name="owner" required placeholder="octocat"><br><br>
+    <label>Owner (user or org)</label>
+    <input type="text" name="owner" required placeholder="octocat">
 
-    <label>Repo:</label>
-    <input type="text" name="repo" required placeholder="hello-world"><br><br>
+    <label>Repo</label>
+    <input type="text" name="repo" required placeholder="hello-world">
 
-    <label>Branch (default main):</label>
-    <input type="text" name="branch" placeholder="main"><br><br>
+    <label>Branch (default main)</label>
+    <input type="text" name="branch" placeholder="main">
 
-    <label>Path (folder within repo, default root):</label>
-    <input type="text" name="path" placeholder=""><br><br>
+    <label>Path (folder within repo, default root)</label>
+    <input type="text" name="path" placeholder="">
 
-    <button type="submit">List CSV files</button>
+    <div style="margin-top:12px;">
+      <button type="submit">List CSV files</button>
+      <a class="button secondary" href="/dashboard" style="margin-left:8px; text-decoration:none; padding:8px 14px; border-radius:6px; background:#777; color:#fff;">View Dashboard</a>
+    </div>
   </form>
-</body>
-</html>
+</div>
+{% endblock %}
