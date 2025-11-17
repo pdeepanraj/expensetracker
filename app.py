@@ -48,6 +48,7 @@ def gh_fetch_raw(owner: str, repo: str, path: str, ref: str):
     r = requests.get(url, headers=gh_headers(), timeout=60)
     r.raise_for_status()
     return r.content
+    
 
 # ---------------- Ingest helpers ----------------
 def fetch_csv_to_df_bytes(b: bytes) -> pd.DataFrame:
@@ -71,6 +72,13 @@ def load_classifier_from_repo(owner: str, repo: str, ref: str, json_path: str | 
         return make_classifier_grouped(tmp_path)
     else:
         return make_classifier_grouped("categories_grouped.json")
+
+def normalize_group_by_param(val: str) -> list[str]:
+    allowed = {"Month", "CardName", "MainCategory", "Category"}
+    if not val:
+        return []
+    parts = [p.strip() for p in val.split(",") if p.strip()]
+    return [p for p in parts if p in allowed]
 
 # ---------------- BigQuery helpers ----------------
 def bq_client() -> bigquery.Client:
@@ -265,6 +273,77 @@ def dashboard():
         latest_details=latest_details,
         project=BQ_PROJECT,
         dataset=BQ_DATASET,
+    )
+
+@app.get("/aggregate")
+def aggregate():
+    if not validate_dataset(BQ_PROJECT, BQ_DATASET):
+        return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
+
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.all_positive_monthly`"
+    # Read user filters
+    group_by_raw = request.args.get("group_by", "").strip()
+    month_filter = request.args.get("month", "").strip() or None
+    min_amount = request.args.get("min_amount", "").strip()
+    try:
+        min_amount_val = float(min_amount) if min_amount else None
+    except Exception:
+        min_amount_val = None
+
+    group_cols = normalize_group_by_param(group_by_raw)
+    if not group_cols:
+        # Default to Category totals across all months
+        group_cols = ["Category"]
+
+    # Build SQL
+    select_cols = ", ".join(group_cols)
+    group_cols_sql = ", ".join(group_cols)
+    where_clauses = []
+    params = {}
+
+    if month_filter:
+        where_clauses.append("Month = @month")
+        params["month"] = month_filter
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+    sql = f"""
+      SELECT {select_cols}, SUM(Amount) AS Amount
+      FROM {table_id}
+      {where_sql}
+      GROUP BY {group_cols_sql}
+      ORDER BY Amount DESC
+      LIMIT 1000
+    """
+    rows = bq_query(sql, params=params)
+
+    # Optional client-side filter for min_amount (since it’s simple)
+    if min_amount_val is not None:
+        rows = [r for r in rows if (r.get("Amount") or 0) >= min_amount_val]
+
+    # Build labels for chart from grouped cols
+    def label_for_row(r):
+        return " / ".join(str(r.get(c, "")) for c in group_cols)
+    labels = [label_for_row(r) for r in rows]
+    values = [float(r.get("Amount") or 0) for r in rows]
+
+    # Render using the same dashboard template with an aggregate section
+    return render_template(
+        "dashboard.html",
+        latest_month=None,
+        month_for_view=month_filter or "",
+        top_categories=[],              # not used in aggregate response
+        monthly_totals=[],              # not used in aggregate response
+        latest_details=[],              # not used in aggregate response
+        project=BQ_PROJECT,
+        dataset=BQ_DATASET,
+        # Aggregate payload
+        aggregate_labels=labels,
+        aggregate_values=values,
+        aggregate_group_by=",".join(group_cols),
+        aggregate_month=month_filter or "",
+        aggregate_min_amount=min_amount or "",
+        aggregate_rows=rows,
     )
 
 if __name__ == "__main__":
