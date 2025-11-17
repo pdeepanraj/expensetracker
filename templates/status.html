@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Status{% endblock %}
+
+{% block header_meta %}
+{{ project }}.{{ dataset }}.{{ table }}
+{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+  <div class="card">
+    <h3>Table</h3>
+    <p><strong>ID:</strong> {{ project }}.{{ dataset }}.{{ table }}</p>
+    <p><strong>Total rows:</strong> {{ meta.num_rows }}</p>
+    <p><strong>Created:</strong> {{ meta.created }}</p>
+    <p><strong>Last modified:</strong> {{ meta.modified }}</p>
+  </div>
+
+  <div class="card">
+    <h3>Last Insert Proxy</h3>
+    {% if last_insert %}
+      <p><strong>Latest Month:</strong> {{ last_insert.Month }}</p>
+      <p><strong>Max Amount (that month):</strong> {{ "%.2f"|format(last_insert.MaxAmount or 0) }}</p>
+    {% else %}
+      <p class="muted">No data yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h3>Rows by Month (top 12)</h3>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Month</th><th>RowCount</th><th>Total Amount</th></tr>
+      </thead>
+      <tbody>
+        {% for r in month_stats %}
+        <tr>
+          <td>{{ r.Month }}</td>
+          <td>{{ r.RowCount }}</td>
+          <td>{{ "%.2f"|format(r.Amount or 0) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
