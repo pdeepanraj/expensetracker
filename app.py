@@ -88,6 +88,18 @@ def load_records(table_name: str, records: list[dict], schema: list[bigquery.Sch
     )
     job.result()
 
+def ensure_dataset(project_id: str, dataset_id: str, location: str = "US"):
+    client = bigquery.Client(project=project_id)
+    dataset_ref = bigquery.DatasetReference(project_id, dataset_id)
+    try:
+        client.get_dataset(dataset_ref)
+    except Exception:
+        ds = bigquery.Dataset(dataset_ref)
+        ds.location = location
+        client.create_dataset(ds)
+
+
+
 @app.get("/")
 def index():
     return render_template("index.html")
@@ -172,6 +184,7 @@ def process():
             "total_positive_by_month": schema_total_positive_by_month,
             "latest_year_main_totals": schema_latest_year_main_totals,
         }
+        ensure_dataset(BQ_PROJECT, BQ_DATASET, location="US")
         ensure_tables(schema_map)
 
         load_records("positive_monthly", result["positive_monthly"], schema_positive_monthly)
