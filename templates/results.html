@@ -121,5 +121,19 @@
     document.getElementById('month-select').addEventListener('change', (e) => { const month = e.target.value; populateMainFilterForMonth(month); renderMonthlyFiltered(month, '__all__'); });
     document.getElementById('main-filter').addEventListener('change', (e) => { const month = document.getElementById('month-select').value; renderMonthlyFiltered(month, e.target.value); });
   </script>
+  <script>
+async function loadCharts(){
+  const totalResp = await fetch('/api/total-by-month');
+  const total = await totalResp.json();
+  const catResp = await fetch('/api/summary-by-category');
+  const cats = await catResp.json();
+  const mainResp = await fetch('/api/summary-by-main');
+  const mains = await mainResp.json();
+  // Render into your table/chart views (existing code can adapt these arrays)
+  console.log({ total, cats, mains });
+}
+document.addEventListener('DOMContentLoaded', loadCharts);
+</script>
+
 </body>
 </html>
