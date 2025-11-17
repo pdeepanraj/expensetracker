@@ -83,9 +83,30 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
   <form method="get" action="/aggregate">
     <div class="grid-2">
       <div>
-        <label for="group_by">Group by (comma-separated)</label>
-        <input id="group_by" name="group_by" type="text" placeholder="Category,Month" value="{{ aggregate_group_by or 'Category' }}">
-        <p class="muted">Allowed: Month, CardName, MainCategory, Category</p>
+        <label>Group by</label>
+        <div class="checkbox-group">
+          <label>
+            <input type="checkbox" name="group_by" value="Month"
+                   {% if aggregate_group_by and 'Month' in aggregate_group_by.split(',') %}checked{% endif %}>
+            Month
+          </label>
+          <label>
+            <input type="checkbox" name="group_by" value="CardName"
+                   {% if aggregate_group_by and 'CardName' in aggregate_group_by.split(',') %}checked{% endif %}>
+            CardName
+          </label>
+          <label>
+            <input type="checkbox" name="group_by" value="MainCategory"
+                   {% if aggregate_group_by and 'MainCategory' in aggregate_group_by.split(',') %}checked{% endif %}>
+            MainCategory
+          </label>
+          <label>
+            <input type="checkbox" name="group_by" value="Category"
+                   {% if (not aggregate_group_by) or 'Category' in aggregate_group_by.split(',') %}checked{% endif %}>
+            Category
+          </label>
+        </div>
+        <p class="muted">Select one or more grouping columns</p>
       </div>
       <div>
         <label>Use current filters</label>
@@ -124,6 +145,8 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
     </div>
   </form>
 </div>
+
+
 
 {% if aggregate_labels is defined and aggregate_labels %}
 <div class="card">
