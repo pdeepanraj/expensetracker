@@ -17,25 +17,25 @@ Repo: {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}
     <input type="hidden" name="branch" value="{{ branch }}">
     <input type="hidden" name="path" value="{{ path }}">
 
-    <div style="margin-bottom:10px;">
+    <div class="select-all">
       <label><input type="checkbox" id="selectAll"> Select All</label>
     </div>
 
-    {% for f in files %}
-      <div>
-        <label>
+    <div class="checkbox-list">
+      {% for f in files %}
+        <label class="checkbox-item">
           <input type="checkbox" name="csv_paths" value="{{ f.path }}"> {{ f.name }}
         </label>
-      </div>
-    {% endfor %}
+      {% endfor %}
+    </div>
 
-    <label style="margin-top:12px;">Card Name</label>
+    <label>Card Name</label>
     <input type="text" name="card_name" value="Uploaded" required>
 
     <label>categories_grouped.json path in repo (optional)</label>
     <input type="text" name="json_path" placeholder="categories_grouped.json">
 
-    <div style="margin-top:12px;">
+    <div class="actions">
       <button type="submit">Run Pipeline</button>
     </div>
   </form>

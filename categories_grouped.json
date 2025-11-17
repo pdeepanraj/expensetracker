@@ -3,7 +3,7 @@
       "main": "Grocery",
       "categories": [
         { "category": "ALDI", "keywords": ["aldi"] },
-        { "category": "Spice of India", "keywords": ["spice of indi"] },
+        { "category": "Spice of India", "keywords": ["spice of indi","spice of"] },
         { "category": "FoodTown", "keywords": ["foodtown"] },
         { "category": "Farmers Market", "keywords": ["tropical farm"] },
         { "category": "Publix", "keywords": ["publix"] },

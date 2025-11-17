@@ -6,6 +6,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY pipeline.py categories_grouped.json app.py ./
 COPY templates/ ./templates/
+COPY static/ ./static/
 
 ENV PORT=8080
 CMD ["python", "app.py"]
