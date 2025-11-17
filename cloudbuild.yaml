@@ -1,9 +1,9 @@
 steps:
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'gcr.io/deepanexpense/expense-app:latest', '.']
+  args: ['build', '-t', 'gcr.io/deepanexpense/expense-app-bquery:latest', '.']
 
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'gcr.io/deepanexpense/expense-app:latest']
+  args: ['push', 'gcr.io/deepanexpense/expense-app-bquery:latest']
 
 # This is the required fix for your error:
 options:
