@@ -63,31 +63,64 @@ def load_classifier_from_repo(owner: str, repo: str, ref: str, json_path: str | 
         return make_classifier_grouped("categories_grouped.json")
 
 def bq_client() -> bigquery.Client:
-    return bigquery.Client(project=BQ_PROJECT)
+    proj = os.environ.get("BQ_PROJECT")
+    ds = os.environ.get("BQ_DATASET")
+    print(f"[BOOT] BQ_PROJECT={proj}, BQ_DATASET={ds}")
+    if not proj or not proj.strip():
+        raise RuntimeError("Missing env var BQ_PROJECT")
+    if not ds or not ds.strip():
+        raise RuntimeError("Missing env var BQ_DATASET")
+    return bigquery.Client(project=proj)
+
+def validate_dataset(project_id: str, dataset_id: str):
+    client = bq_client()
+    ds_ref = bigquery.DatasetReference(project_id, dataset_id)
+    try:
+        ds = client.get_dataset(ds_ref)
+        print(f"[DATASET] Found {project_id}.{dataset_id} location={ds.location}")
+        return True
+    except Exception as e:
+        print(f"[DATASET] Not found {project_id}.{dataset_id}: {e}")
+        return False
 
 def ensure_tables(schema_map: dict):
     client = bq_client()
-    dataset_ref = bigquery.DatasetReference(BQ_PROJECT, BQ_DATASET)
+    dataset_ref = bigquery.DatasetReference(os.environ["BQ_PROJECT"], os.environ["BQ_DATASET"])
     for table_name, schema in schema_map.items():
         table_ref = dataset_ref.table(table_name)
         try:
             client.get_table(table_ref)
+            print(f"[TABLE] Exists: {table_ref.table_id}")
         except Exception:
-            table = bigquery.Table(table_ref, schema=schema)
-            client.create_table(table)
+            try:
+                table = bigquery.Table(table_ref, schema=schema)
+                client.create_table(table)
+                print(f"[TABLE] Created: {table_ref.table_id}")
+            except Exception as e:
+                print(f"[TABLE] Create failed {table_ref.table_id}: {type(e).__name__}: {e}")
+                raise
 
 def load_records(table_name: str, records: list[dict], schema: list[bigquery.SchemaField]):
     if not records:
+        print(f"[LOAD] Skip empty load to {table_name}")
         return
     client = bq_client()
-    table_id = f"{BQ_PROJECT}.{BQ_DATASET}.{table_name}"
-    job = client.load_table_from_json(
-        records,
-        table_id,
-        job_config=bigquery.LoadJobConfig(schema=schema, write_disposition="WRITE_TRUNCATE"),
-    )
-    job.result()
-
+    table_id = f"{os.environ['BQ_PROJECT']}.{os.environ['BQ_DATASET']}.{table_name}"
+    job_config = bigquery.LoadJobConfig(schema=schema, write_disposition="WRITE_TRUNCATE")
+    print(f"[LOAD] Loading {len(records)} rows into {table_id}")
+    try:
+        job = client.load_table_from_json(records, table_id, job_config=job_config)
+        job.result()
+        print(f"[LOAD] Completed {table_id}")
+    except Exception as e:
+        # Surface full error chain
+        try:
+            errs = job.errors if 'job' in locals() else None
+        except Exception:
+            errs = None
+        print(f"[LOAD] Failed {table_id}: {type(e).__name__}: {e}; details={errs}")
+        raise
+        
 def ensure_dataset(project_id: str, dataset_id: str, location: str = "US"):
     client = bigquery.Client(project=project_id)
     dataset_ref = bigquery.DatasetReference(project_id, dataset_id)
@@ -185,6 +218,9 @@ def process():
             "latest_year_main_totals": schema_latest_year_main_totals,
         }
         ensure_dataset(BQ_PROJECT, BQ_DATASET, location="US")
+        # before ensure_tables(schema_map)
+        if not validate_dataset(BQ_PROJECT, BQ_DATASET):
+            return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not found or not accessible.", 500
         ensure_tables(schema_map)
 
         load_records("positive_monthly", result["positive_monthly"], schema_positive_monthly)
