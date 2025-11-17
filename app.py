@@ -477,14 +477,23 @@ def aggregate():
     select_cols = ", ".join(group_cols)
     group_cols_sql = ", ".join(group_cols)
 
+    # Decide ordering: if Month is in grouping, sort by Month then Amount
+    if "Month" in group_cols:
+        # If you want latest first, use DESC; otherwise ASC for chronological
+        order_clause = "ORDER BY Month ASC, Amount DESC"
+    else:
+        order_clause = "ORDER BY Amount DESC"
+
     sql = f"""
-      SELECT {select_cols}, SUM(Amount) AS Amount
-      FROM {table_id}
-      {where_sql}
-      GROUP BY {group_cols_sql}
-      ORDER BY Amount DESC
-      LIMIT 1000
-    """
+          SELECT {select_cols}, SUM(Amount) AS Amount
+          FROM {table_id}
+          {where_sql}
+          GROUP BY {group_cols_sql}
+          {order_clause}
+          LIMIT 1000
+        """
+
+
     rows = bq_query(sql, params=qp)
 
     if min_amount_val is not None:
