@@ -2,6 +2,7 @@
 import io
 import os
 import json
+import hashlib
 import requests
 import pandas as pd
 from flask import Flask, request, render_template, redirect, url_for
@@ -27,7 +28,6 @@ def gh_headers():
     return h
 
 def gh_list_dir(owner: str, repo: str, path: str | None, ref: str | None):
-    # GET /repos/{owner}/{repo}/contents/{path}?ref=branch
     base = f"https://api.github.com/repos/{owner}/{repo}/contents"
     url = f"{base}/{path.strip('/')}" if path else base
     params = {"ref": ref} if ref else {}
@@ -43,7 +43,6 @@ def gh_list_dir(owner: str, repo: str, path: str | None, ref: str | None):
     return [], None
 
 def gh_fetch_raw(owner: str, repo: str, path: str, ref: str):
-    # Raw content with branch/ref
     url = f"https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{path}"
     r = requests.get(url, headers=gh_headers(), timeout=60)
     r.raise_for_status()
@@ -51,7 +50,6 @@ def gh_fetch_raw(owner: str, repo: str, path: str, ref: str):
 
 # ---------------- Ingest helpers ----------------
 def fetch_csv_to_df_bytes(b: bytes) -> pd.DataFrame:
-    # Try CSV first, fallback to Excel if someone uploaded XLSX
     try:
         return pd.read_csv(io.BytesIO(b))
     except Exception:
@@ -60,8 +58,20 @@ def fetch_csv_to_df_bytes(b: bytes) -> pd.DataFrame:
         except Exception as e:
             raise ValueError(f"Unable to parse file as CSV or Excel: {e}")
 
+def derive_card_name_from_path(path: str) -> str:
+    """
+    Given a repo-relative path like 'files/2025/Amex_Blue_cash_oct25.csv',
+    take the basename without extension, drop the last underscore segment, and uppercase.
+    Example: 'Amex_Blue_cash_oct25' -> 'AMEX_BLUE_CASH'
+    """
+    base = os.path.basename(path)
+    name, _ = os.path.splitext(base)
+    if "_" in name:
+        name = name.rsplit("_", 1)[0]
+    # Normalize to upper with underscores
+    return name.replace(" ", "_").upper()
+
 def load_classifier_from_repo(owner: str, repo: str, ref: str, json_path: str | None):
-    # If json_path provided, load categories_grouped.json from repo; else use bundled file
     if json_path:
         b = gh_fetch_raw(owner, repo, json_path.strip("/"), ref)
         cfg = json.loads(b.decode("utf-8"))
@@ -105,8 +115,9 @@ def bq_query(sql: str, params: dict | None = None) -> list[dict]:
     rows = list(job.result())
     return [dict(row) for row in rows]
 
-# Only one table we load: all_positive_monthly
-SCHEMA_ALL_POSITIVE_MONTHLY = [
+# Target table
+TARGET_TABLE = "all_positive_monthly"
+TARGET_SCHEMA = [
     bigquery.SchemaField("Month", "STRING"),
     bigquery.SchemaField("CardName", "STRING"),
     bigquery.SchemaField("MainCategory", "STRING"),
@@ -114,6 +125,8 @@ SCHEMA_ALL_POSITIVE_MONTHLY = [
     bigquery.SchemaField("Description", "STRING"),
     bigquery.SchemaField("Amount", "FLOAT"),
     bigquery.SchemaField("Comment", "STRING"),
+    # Hash used for dedup
+    bigquery.SchemaField("RowHash", "STRING"),
 ]
 
 def ensure_table(table_name: str, schema: list[bigquery.SchemaField]):
@@ -128,17 +141,118 @@ def ensure_table(table_name: str, schema: list[bigquery.SchemaField]):
         client.create_table(table)
         print(f"[TABLE] Created: {table_ref.table_id}")
 
-def load_records(table_name: str, records: list[dict], schema: list[bigquery.SchemaField]):
+def compute_row_hash(rec: dict) -> str:
+    key_fields = ["Month", "CardName", "MainCategory", "Category", "Description", "Amount", "Comment"]
+    payload = "|".join(str(rec.get(k, "")).strip() for k in key_fields)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+def append_non_duplicates(records: list[dict], table_name: str):
+    """
+    Load incoming records to a staging table, then insert only new rows (by RowHash) into target.
+    Skip if no new rows.
+    """
     if not records:
-        print(f"[LOAD] Skip empty load to {table_name}")
-        return
+        print("[LOAD] No records to process.")
+        return 0
+
+    # Add RowHash
+    for r in records:
+        r["RowHash"] = compute_row_hash(r)
+
     client = bq_client()
-    table_id = f"{BQ_PROJECT}.{BQ_DATASET}.{table_name}"
-    job_config = bigquery.LoadJobConfig(schema=schema, write_disposition="WRITE_TRUNCATE")
-    print(f"[LOAD] Loading {len(records)} rows into {table_id}")
-    job = client.load_table_from_json(records, table_id, job_config=job_config)
+    dataset = f"{BQ_PROJECT}.{BQ_DATASET}"
+    target_id = f"{dataset}.{table_name}"
+    staging_id = f"{dataset}.{table_name}_staging"
+
+    # Ensure target exists
+    ensure_table(table_name, TARGET_SCHEMA)
+
+    # Create or replace staging
+    staging_schema = TARGET_SCHEMA
+    try:
+        client.delete_table(staging_id, not_found_ok=True)
+    except Exception:
+        pass
+    client.create_table(bigquery.Table(staging_id, schema=staging_schema))
+
+    # Load into staging with WRITE_TRUNCATE
+    print(f"[STAGING] Loading {len(records)} rows into {staging_id}")
+    job = client.load_table_from_json(
+        records,
+        staging_id,
+        job_config=bigquery.LoadJobConfig(schema=staging_schema, write_disposition="WRITE_TRUNCATE"),
+    )
     job.result()
-    print(f"[LOAD] Completed {table_id}")
+
+    # Insert only non-duplicates into target
+    dedup_sql = f"""
+    INSERT INTO `{target_id}` (Month, CardName, MainCategory, Category, Description, Amount, Comment, RowHash)
+    SELECT Month, CardName, MainCategory, Category, Description, Amount, Comment, RowHash
+    FROM `{staging_id}` s
+    WHERE NOT EXISTS (
+        SELECT 1 FROM `{target_id}` t
+        WHERE t.RowHash = s.RowHash
+    )
+    """
+    print(f"[DEDUP] Inserting non-duplicate rows into {target_id}")
+    qjob = client.query(dedup_sql)
+    qres = qjob.result()
+    # There is no rowcount on DML query job result directly; check count via query
+    count_sql = f"SELECT COUNT(*) AS cnt FROM `{staging_id}` s WHERE NOT EXISTS (SELECT 1 FROM `{target_id}` t WHERE t.RowHash = s.RowHash)"
+    cnt = bq_query(count_sql)[0]["cnt"]
+    print(f"[DEDUP] New rows inserted: {cnt}")
+
+    # Drop staging
+    try:
+        client.delete_table(staging_id, not_found_ok=True)
+    except Exception:
+        pass
+
+    return cnt
+
+# ---------------- Filters helpers ----------------
+def get_distinct_filters():
+    """
+    Fetch distinct values for dropdowns from BigQuery.
+    """
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
+    sql = f"""
+    SELECT ARRAY_AGG(DISTINCT Month) AS months,
+           ARRAY_AGG(DISTINCT CardName) AS cards,
+           ARRAY_AGG(DISTINCT MainCategory) AS mains,
+           ARRAY_AGG(DISTINCT Category) AS cats
+    FROM {table_id}
+    """
+    rows = bq_query(sql)
+    if not rows:
+        return [], [], [], []
+    r = rows[0]
+    months = sorted([m for m in r.get("months", []) if m], reverse=True)
+    cards = sorted([c for c in r.get("cards", []) if c])
+    mains = sorted([m for m in r.get("mains", []) if m])
+    cats = sorted([c for c in r.get("cats", []) if c])
+    return months, cards, mains, cats
+
+def apply_filters_where(params: dict) -> tuple[str, dict]:
+    """
+    Build WHERE clause and parameters for dashboard queries.
+    Accepted keys: month, card, main, cat.
+    """
+    where = []
+    qp = {}
+    if params.get("month"):
+        where.append("Month = @month")
+        qp["month"] = params["month"]
+    if params.get("card"):
+        where.append("CardName = @card")
+        qp["card"] = params["card"]
+    if params.get("main"):
+        where.append("MainCategory = @main")
+        qp["main"] = params["main"]
+    if params.get("cat"):
+        where.append("Category = @cat")
+        qp["cat"] = params["cat"]
+    return ("WHERE " + " AND ".join(where)) if where else "", qp
 
 # ---------------- Routes ----------------
 @app.get("/")
@@ -170,7 +284,8 @@ def process():
     path = request.form.get("path", "").strip()
     csv_paths = request.form.getlist("csv_paths")  # repo-relative paths
     json_path = request.form.get("json_path", "").strip() or None
-    card_name = request.form.get("card_name", "Uploaded").strip() or "Uploaded"
+    # Deprecated manual card_name input in favor of filename-derived per file
+    # card_name = request.form.get("card_name", "Uploaded").strip() or "Uploaded"
 
     if not owner or not repo or not csv_paths:
         return "Please select at least one CSV.", 400
@@ -185,20 +300,23 @@ def process():
         for p in csv_paths:
             b = gh_fetch_raw(owner, repo, p, branch)
             df = fetch_csv_to_df_bytes(b)
-            df_clean = clean_and_standardize(df, card_name=card_name)
+            derived_card = derive_card_name_from_path(p)  # apply filename-to-card rule
+            df_clean = clean_and_standardize(df, card_name=derived_card)
             frames.append(df_clean)
 
-        # Run your patched pipeline (outputs JSON-safe dicts)
+        # Run pipeline (outputs JSON-safe dicts after your previous patch)
         result = run_pipeline(frames, classifier)
 
-        # Create and load only all_positive_monthly
-        ensure_table("all_positive_monthly", SCHEMA_ALL_POSITIVE_MONTHLY)
+        # Only load all_positive_monthly via dedup append
         records = result["all_positive_monthly"]
-        load_records("all_positive_monthly", records, SCHEMA_ALL_POSITIVE_MONTHLY)
 
-        # Redirect to dashboard for the latest month just processed
+        # Append only non-duplicates
+        new_rows = append_non_duplicates(records, TARGET_TABLE)
+
+        # Redirect to dashboard with the latest month just processed
         latest_month = str(result.get("latest_month"))
-        return redirect(url_for("dashboard", month=latest_month), code=303)
+        # Include a flash message via query params
+        return redirect(url_for("dashboard", month=latest_month, loaded=new_rows), code=303)
 
     except Exception as e:
         return f"Error: {type(e).__name__}: {e}", 500
@@ -208,70 +326,103 @@ def dashboard():
     if not validate_dataset(BQ_PROJECT, BQ_DATASET):
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
 
-    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.all_positive_monthly`"
-    selected_month = request.args.get("month", "").strip() or None
+    loaded = request.args.get("loaded", "")
+    # Dropdown filters
+    months, cards, mains, cats = get_distinct_filters()
 
-    # Determine latest month available
-    latest_month_sql = f"""
-      SELECT Month
-      FROM {table_id}
-      WHERE Month IS NOT NULL
-      ORDER BY Month DESC
-      LIMIT 1
-    """
+    # Selected filters from query params
+    selected_month = request.args.get("month", "").strip() or None
+    selected_card = request.args.get("card", "").strip() or None
+    selected_main = request.args.get("main", "").strip() or None
+    selected_cat = request.args.get("cat", "").strip() or None
+
+    filter_params = {"month": selected_month, "card": selected_card, "main": selected_main, "cat": selected_cat}
+    where_sql, qp = apply_filters_where(filter_params)
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
+
+    # If no data, short-circuit
+    latest_month_sql = f"SELECT Month FROM {table_id} WHERE Month IS NOT NULL ORDER BY Month DESC LIMIT 1"
     latest_month_rows = bq_query(latest_month_sql)
     if not latest_month_rows:
-        return "No data available yet.", 200
-    latest_month = latest_month_rows[0]["Month"]
+        return render_template(
+            "dashboard.html",
+            latest_month="",
+            month_for_view=selected_month or "",
+            top_categories=[],
+            monthly_totals=[],
+            latest_details=[],
+            project=BQ_PROJECT,
+            dataset=BQ_DATASET,
+            aggregate_labels=[],
+            aggregate_values=[],
+            aggregate_group_by="",
+            aggregate_month="",
+            aggregate_min_amount="",
+            aggregate_rows=[],
+            # Filters
+            months=months, cards=cards, mains=mains, cats=cats,
+            selected_month=selected_month, selected_card=selected_card,
+            selected_main=selected_main, selected_cat=selected_cat,
+            loaded=loaded,
+        )
 
+    # Month for view defaults to selected or latest
+    latest_month = latest_month_rows[0]["Month"]
     month_for_view = selected_month or latest_month
 
-    # Top categories for the selected month
+    # Top categories for selected filters
     top_categories_sql = f"""
       SELECT Category, SUM(Amount) AS Amount
       FROM {table_id}
-      WHERE Month = @month
+      {where_sql}
       GROUP BY Category
       ORDER BY Amount DESC
       LIMIT 12
     """
-    top_categories = bq_query(top_categories_sql, params={"month": month_for_view})
+    top_categories = bq_query(top_categories_sql, params=qp)
 
-    # Monthly totals trend
+    # Monthly totals trend for selected filters except Month (we show across months)
+    trend_where_params = {k: v for k, v in filter_params.items() if k != "month"}
+    trend_where_sql, trend_qp = apply_filters_where(trend_where_params)
     monthly_totals_sql = f"""
       SELECT Month, SUM(Amount) AS Amount
       FROM {table_id}
+      {trend_where_sql}
       GROUP BY Month
       ORDER BY Month
     """
-    monthly_totals = bq_query(monthly_totals_sql)
+    monthly_totals = bq_query(monthly_totals_sql, params=trend_qp)
 
-    # Details for the selected month
+    # Details table for selected filters
     latest_detail_sql = f"""
       SELECT CardName, MainCategory, Category, Description, Amount
       FROM {table_id}
-      WHERE Month = @month
-      ORDER BY Amount DESC
+      {where_sql}
+      ORDER BY Month DESC, Amount DESC
       LIMIT 1000
     """
-    latest_details = bq_query(latest_detail_sql, params={"month": month_for_view})
+    latest_details = bq_query(latest_detail_sql, params=qp)
 
     return render_template(
         "dashboard.html",
-        latest_month=latest_month,           # absolute latest
-        month_for_view=month_for_view,       # chosen or latest
+        latest_month=latest_month,
+        month_for_view=month_for_view,
         top_categories=top_categories,
         monthly_totals=monthly_totals,
         latest_details=latest_details,
         project=BQ_PROJECT,
         dataset=BQ_DATASET,
-        # No aggregate data in default dashboard view
         aggregate_labels=[],
         aggregate_values=[],
         aggregate_group_by="",
         aggregate_month="",
         aggregate_min_amount="",
         aggregate_rows=[],
+        # Filters
+        months=months, cards=cards, mains=mains, cats=cats,
+        selected_month=selected_month, selected_card=selected_card,
+        selected_main=selected_main, selected_cat=selected_cat,
+        loaded=loaded,
     )
 
 # ---------- Dynamic Aggregate route ----------
@@ -287,32 +438,33 @@ def aggregate():
     if not validate_dataset(BQ_PROJECT, BQ_DATASET):
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
 
-    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.all_positive_monthly`"
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
     # Read user filters
     group_by_raw = request.args.get("group_by", "").strip()
-    month_filter = request.args.get("month", "").strip() or None
+    # Also accept dropdown filters
+    selected_month = request.args.get("month", "").strip() or None
+    selected_card = request.args.get("card", "").strip() or None
+    selected_main = request.args.get("main", "").strip() or None
+    selected_cat = request.args.get("cat", "").strip() or None
     min_amount = request.args.get("min_amount", "").strip()
     try:
         min_amount_val = float(min_amount) if min_amount else None
     except Exception:
         min_amount_val = None
 
+    # Fetch filter dropdowns
+    months, cards, mains, cats = get_distinct_filters()
+
     group_cols = normalize_group_by_param(group_by_raw)
     if not group_cols:
-        # Default to Category totals across all months
         group_cols = ["Category"]
 
-    # Build SQL
+    # Build SQL with filters
+    filter_params = {"month": selected_month, "card": selected_card, "main": selected_main, "cat": selected_cat}
+    where_sql, qp = apply_filters_where(filter_params)
+
     select_cols = ", ".join(group_cols)
     group_cols_sql = ", ".join(group_cols)
-    where_clauses = []
-    params = {}
-
-    if month_filter:
-        where_clauses.append("Month = @month")
-        params["month"] = month_filter
-
-    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
     sql = f"""
       SELECT {select_cols}, SUM(Amount) AS Amount
@@ -322,13 +474,11 @@ def aggregate():
       ORDER BY Amount DESC
       LIMIT 1000
     """
-    rows = bq_query(sql, params=params)
+    rows = bq_query(sql, params=qp)
 
-    # Optional client-side filter for min_amount
     if min_amount_val is not None:
         rows = [r for r in rows if (r.get("Amount") or 0) >= min_amount_val]
 
-    # Build labels for chart from grouped cols
     def label_for_row(r):
         return " / ".join(str(r.get(c, "")) for c in group_cols)
     labels = [label_for_row(r) for r in rows]
@@ -336,19 +486,24 @@ def aggregate():
 
     return render_template(
         "dashboard.html",
-        latest_month="",                     # not used in aggregate view
-        month_for_view=month_filter or "",
-        top_categories=[],                   # not used
-        monthly_totals=[],                   # not used
-        latest_details=[],                   # not used
+        latest_month="",
+        month_for_view=selected_month or "",
+        top_categories=[],
+        monthly_totals=[],
+        latest_details=[],
         project=BQ_PROJECT,
         dataset=BQ_DATASET,
         aggregate_labels=labels,
         aggregate_values=values,
         aggregate_group_by=",".join(group_cols),
-        aggregate_month=month_filter or "",
+        aggregate_month=selected_month or "",
         aggregate_min_amount=min_amount or "",
         aggregate_rows=rows,
+        # Filters
+        months=months, cards=cards, mains=mains, cats=cats,
+        selected_month=selected_month, selected_card=selected_card,
+        selected_main=selected_main, selected_cat=selected_cat,
+        loaded="",
     )
 
 if __name__ == "__main__":
