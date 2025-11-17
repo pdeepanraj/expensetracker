@@ -341,7 +341,7 @@ def dashboard():
     loaded = request.args.get("loaded", "")
     # Dropdown filters
     months, cards, mains, cats = get_distinct_filters()
-
+    
     # Selected filters from query params
     selected_month = request.args.get("month", "").strip() or None
     selected_card = request.args.get("card", "").strip() or None
@@ -351,18 +351,18 @@ def dashboard():
     filter_params = {"month": selected_month, "card": selected_card, "main": selected_main, "cat": selected_cat}
     where_sql, qp = apply_filters_where(filter_params)
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
-
+    meta = get_table_metadata(TARGET_TABLE)
     # If no data, short-circuit
     latest_month_sql = f"SELECT Month FROM {table_id} WHERE Month IS NOT NULL ORDER BY Month DESC LIMIT 1"
     latest_month_rows = bq_query(latest_month_sql)
     if not latest_month_rows:
         return render_template(
             "dashboard.html",
-            latest_month="",
-            month_for_view=selected_month or "",
-            top_categories=[],
-            monthly_totals=[],
-            latest_details=[],
+             latest_month=latest_month,
+            month_for_view=month_for_view,
+            top_categories=top_categories,
+            monthly_totals=monthly_totals,
+            latest_details=latest_details,
             project=BQ_PROJECT,
             dataset=BQ_DATASET,
             aggregate_labels=[],
@@ -376,8 +376,9 @@ def dashboard():
             selected_month=selected_month, selected_card=selected_card,
             selected_main=selected_main, selected_cat=selected_cat,
             loaded=loaded,
-        )
-
+            # Status metadata
+        table_modified=meta.get("modified"),
+    )
     # Month for view defaults to selected or latest
     latest_month = latest_month_rows[0]["Month"]
     month_for_view = selected_month or latest_month
