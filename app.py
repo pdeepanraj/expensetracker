@@ -11,10 +11,10 @@ from pipeline import make_classifier_grouped, clean_and_standardize, run_pipelin
 
 app = Flask(__name__, template_folder="templates")
 
-# Environment variables:
-#   BQ_PROJECT = your GCP project id (e.g., "deepanexpense")
+# Environment variables expected:
+#   BQ_PROJECT = your GCP project ID (e.g., "deepanexpense")
 #   BQ_DATASET = BigQuery dataset (e.g., "expense_analytics")
-#   GITHUB_TOKEN (optional) for private repos
+#   GITHUB_TOKEN (optional) for private repos access
 BQ_PROJECT = os.environ.get("BQ_PROJECT")
 BQ_DATASET = os.environ.get("BQ_DATASET", "expense_analytics")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")  # optional
@@ -76,7 +76,6 @@ def load_classifier_from_repo(owner: str, repo: str, ref: str, json_path: str | 
 def bq_client() -> bigquery.Client:
     proj = BQ_PROJECT
     ds = BQ_DATASET
-    # Minimal boot diagnostics
     print(f"[BOOT] BQ_PROJECT={proj}, BQ_DATASET={ds}")
     if not proj or not proj.strip():
         raise RuntimeError("Missing env var BQ_PROJECT")
@@ -95,7 +94,18 @@ def validate_dataset(project_id: str, dataset_id: str) -> bool:
         print(f"[DATASET] Not found or inaccessible {project_id}.{dataset_id}: {e}")
         return False
 
-# Only one table: all_positive_monthly
+def bq_query(sql: str, params: dict | None = None) -> list[dict]:
+    client = bq_client()
+    job_config = bigquery.QueryJobConfig()
+    if params:
+        job_config.query_parameters = [
+            bigquery.ScalarQueryParameter(k, "STRING", str(v)) for k, v in params.items()
+        ]
+    job = client.query(sql, job_config=job_config)
+    rows = list(job.result())
+    return [dict(row) for row in rows]
+
+# Only one table we load: all_positive_monthly
 SCHEMA_ALL_POSITIVE_MONTHLY = [
     bigquery.SchemaField("Month", "STRING"),
     bigquery.SchemaField("CardName", "STRING"),
@@ -129,19 +139,6 @@ def load_records(table_name: str, records: list[dict], schema: list[bigquery.Sch
     job = client.load_table_from_json(records, table_id, job_config=job_config)
     job.result()
     print(f"[LOAD] Completed {table_id}")
-
-def bq_query(sql: str, params: dict | None = None) -> list[dict]:
-    client = bq_client()
-    job_config = bigquery.QueryJobConfig()
-    if params:
-        # Named parameters
-        job_config.query_parameters = [
-            bigquery.ScalarQueryParameter(k, "STRING", str(v)) for k, v in params.items()
-        ]
-    job = client.query(sql, job_config=job_config)
-    rows = list(job.result())
-    return [dict(row) for row in rows]
-
 
 # ---------------- Routes ----------------
 @app.get("/")
@@ -179,14 +176,11 @@ def process():
         return "Please select at least one CSV.", 400
 
     try:
-        # Ensure dataset access
         if not validate_dataset(BQ_PROJECT, BQ_DATASET):
             return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not found or not accessible.", 500
 
-        # Load classifier (repo JSON or local)
         classifier = load_classifier_from_repo(owner, repo, branch, json_path)
 
-        # Fetch and clean frames
         frames = []
         for p in csv_paths:
             b = gh_fetch_raw(owner, repo, p, branch)
@@ -194,29 +188,30 @@ def process():
             df_clean = clean_and_standardize(df, card_name=card_name)
             frames.append(df_clean)
 
-        # Run pipeline (your patched version emits JSON-safe data)
+        # Run your patched pipeline (outputs JSON-safe dicts)
         result = run_pipeline(frames, classifier)
 
-        # Create table if needed and load only all_positive_monthly
+        # Create and load only all_positive_monthly
         ensure_table("all_positive_monthly", SCHEMA_ALL_POSITIVE_MONTHLY)
         records = result["all_positive_monthly"]
         load_records("all_positive_monthly", records, SCHEMA_ALL_POSITIVE_MONTHLY)
 
+        # Redirect to dashboard for the latest month just processed
         latest_month = str(result.get("latest_month"))
-        return f"Completed. Loaded {len(records)} rows into {BQ_PROJECT}.{BQ_DATASET}.all_positive_monthly. Latest month: {latest_month}."
+        return redirect(url_for("dashboard", month=latest_month), code=303)
+
     except Exception as e:
-        # Bubble up exact error for quick troubleshooting
         return f"Error: {type(e).__name__}: {e}", 500
 
 @app.get("/dashboard")
 def dashboard():
-    # Ensure dataset is reachable
     if not validate_dataset(BQ_PROJECT, BQ_DATASET):
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
 
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.all_positive_monthly`"
+    selected_month = request.args.get("month", "").strip() or None
 
-    # Latest month as STRING like 'YYYY-MM'
+    # Determine latest month available
     latest_month_sql = f"""
       SELECT Month
       FROM {table_id}
@@ -229,7 +224,9 @@ def dashboard():
         return "No data available yet.", 200
     latest_month = latest_month_rows[0]["Month"]
 
-    # Top categories for latest month
+    month_for_view = selected_month or latest_month
+
+    # Top categories for the selected month
     top_categories_sql = f"""
       SELECT Category, SUM(Amount) AS Amount
       FROM {table_id}
@@ -238,7 +235,7 @@ def dashboard():
       ORDER BY Amount DESC
       LIMIT 12
     """
-    top_categories = bq_query(top_categories_sql, params={"month": latest_month})
+    top_categories = bq_query(top_categories_sql, params={"month": month_for_view})
 
     # Monthly totals trend
     monthly_totals_sql = f"""
@@ -249,26 +246,26 @@ def dashboard():
     """
     monthly_totals = bq_query(monthly_totals_sql)
 
-    # Latest month detail table
+    # Details for the selected month
     latest_detail_sql = f"""
       SELECT CardName, MainCategory, Category, Description, Amount
       FROM {table_id}
       WHERE Month = @month
       ORDER BY Amount DESC
-      LIMIT 500
+      LIMIT 1000
     """
-    latest_details = bq_query(latest_detail_sql, params={"month": latest_month})
+    latest_details = bq_query(latest_detail_sql, params={"month": month_for_view})
 
     return render_template(
         "dashboard.html",
-        latest_month=latest_month,
+        latest_month=latest_month,           # absolute latest
+        month_for_view=month_for_view,       # chosen or latest
         top_categories=top_categories,
         monthly_totals=monthly_totals,
         latest_details=latest_details,
         project=BQ_PROJECT,
         dataset=BQ_DATASET,
     )
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
