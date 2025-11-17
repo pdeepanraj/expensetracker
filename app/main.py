@@ -28,7 +28,7 @@ app = FastAPI()
 
 # Ensure this points to the templates folder inside app/
 app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="/templates")
+templates = Jinja2Templates(directory="app/templates")
 
 # Optional defaults displayed on the UI
 GITHUB_OWNER = "your-username"
