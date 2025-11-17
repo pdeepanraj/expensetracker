@@ -1,0 +1,143 @@
+[
+    {
+      "main": "Grocery",
+      "categories": [
+        { "category": "ALDI", "keywords": ["aldi"] },
+        { "category": "Spice of India", "keywords": ["spice of indi"] },
+        { "category": "FoodTown", "keywords": ["foodtown"] },
+        { "category": "Farmers Market", "keywords": ["tropical farm"] },
+        { "category": "Publix", "keywords": ["publix"] },
+        { "category": "Costco", "keywords": ["costco whse"] },
+        { "category": "SAMS", "keywords": ["sam's club", "sams club"] },
+        { "category": "Restaurant Depot", "keywords": ["restaurant depot", "deriviera", "farm fresh"] },
+        { "category": "Chick-Fil-A", "keywords": ["chick-fil-a"] }
+      ]
+    },
+    {
+      "main": "Water",
+      "categories": [
+        { "category": "Water", "keywords": ["primo"] }
+      ]
+    },
+    {
+      "main": "RENT",
+      "categories": [
+        { "category": "RENT", "keywords": ["rent"] }
+      ]
+    },
+    {
+      "main": "Card Renewal",
+      "categories": [
+        { "category": "Card Renewal", "keywords": ["renewal membership"] }
+      ]
+    },
+    {
+      "main": "Gas",
+      "categories": [
+        { "category": "Gas Station", "keywords": ["gas", "shell", "exxon"] }
+      ]
+    },
+    {
+      "main": "Toll",
+      "categories": [
+        { "category": "Sunpass", "keywords": ["sunpass"] },
+        { "category": "Parking", "keywords": ["parking", "atm.tk", " st pk ", "city of naples","nic*-dep ft"] }
+      ]
+    },
+    {
+      "main": "Car Wash",
+      "categories": [
+        { "category": "Car Wash", "keywords": ["car wash"] }
+      ]
+    },
+    {
+      "main": "Food",
+      "categories": [
+        { "category": "Pizza", "keywords": ["domino", "pizza", "sbarro","little caesars"] },
+        { "category": "Olive gardens", "keywords": ["olive garden"] },
+        { "category": "Popeyes", "keywords": ["popeyes"] },
+        { "category": "Thai", "keywords": ["one thai", "rice and noodle"] },
+        { "category": "KFC", "keywords": ["kfc"] },
+        { "category": "McDonald", "keywords": ["mcdonald"] },
+        { "category": "IceCream", "keywords": ["ice cream"] },
+        { "category": "Panera", "keywords": ["panera"] },
+        { "category": "Office Food", "keywords": ["aramark"] },
+        { "category": "BurgerKing", "keywords": ["burger king"] },
+        { "category": "Wendys", "keywords": ["wendy's"] },
+        { "category": "Indian Restaurant", "keywords": ["the indian bistro", "paradise biryani", "indian cuisine", "hyderabad cafe","deccanspice"] },
+        { "category": "Wingstop", "keywords": ["wingstop"] }
+      ]
+    },
+    {
+      "main": "Lincense",
+      "categories": [
+        { "category": "Lincense", "keywords": ["tax collect"] }
+      ]
+    },
+    {
+      "main": "Shopping",
+      "categories": [
+        { "category": "Walmart", "keywords": ["walmart.com", "wal-mart", "wmt plus"] },
+        { "category": "Amazon", "keywords": ["amazon"] },
+        { "category": "Bath&Body", "keywords": ["bathandbody", "bath & body"] },
+        { "category": "Temu", "keywords": ["temu"] },
+        { "category": "BJS", "keywords": ["bjs wholesale"] },
+        { "category": "OldNavy", "keywords": ["old navy"] },
+        { "category": "Crocs", "keywords": ["crocs"] },
+        { "category": "Macys", "keywords": ["macys"] },
+        { "category": "Target", "keywords": ["target"] },
+        { "category": "Dress", "keywords": ["ross stores", "carters", "children's place"] },
+        { "category": "DollarTree", "keywords": ["dollar tree", "dollar gene", "dollartree", "claires"] },
+        { "category": "Burlington", "keywords": ["burlington"] },
+        { "category": "FeDex", "keywords": ["fedex"] },
+        { "category": "HomeDepot", "keywords": ["home depot", "office depot"] },
+        { "category": "Shein", "keywords": ["shein"] }
+      ]
+    },
+    {
+      "main": "Subscription",
+      "categories": [
+        { "category": "Streaming", "keywords": ["willow", "lycatel"] }
+      ]
+    },
+    {
+      "main": "Trip",
+      "categories": [
+        { "category": "Room Rental", "keywords": ["airbnb", "booking.com", "booking bv"] },
+        { "category": "Car Rental", "keywords": ["turo"] },
+        { "category": "Tamil Sangham", "keywords": ["thenpoovaga"] },
+        { "category": "Trip Activities", "keywords": ["groupon","museum","top of the fa", "pure florida","niagara fallsny","haystach dryers","hudsonnews"] }
+      ]
+    },
+    {
+      "main": "Class",
+      "categories": [
+        { "category": "Class", "keywords": ["aquatic c", "city of pbg", "vsi*pbc", "palm beach"] }
+      ]
+    },
+    {
+      "main": "Insurance",
+      "categories": [
+        { "category": "Insurance", "keywords": ["geico"] }
+      ]
+    },
+    {
+      "main": "Interest",
+      "categories": [
+        { "category": "Interest", "keywords": ["interest charge","balance transfer fee"] }
+      ]
+    },
+    {
+      "main": "Medicine",
+      "categories": [
+        { "category": "Medicine", "keywords": ["cvs"] }
+      ]
+    },
+    {
+      "main": "Movie",
+      "categories": [
+        { "category": "Movie", "keywords": ["cinemark"] }
+      ]
+    }
+  ]
+  
