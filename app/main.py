@@ -18,6 +18,8 @@ from app.bq_queries import (
     query_summary_by_main,
     query_latest_year_main_totals,
 )
+from fastapi.staticfiles import StaticFiles
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # -----------------------------------------------------------------------------
 # FastAPI app and template setup
