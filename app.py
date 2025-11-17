@@ -146,6 +146,18 @@ def compute_row_hash(rec: dict) -> str:
     payload = "|".join(str(rec.get(k, "")).strip() for k in key_fields)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
+def get_table_metadata(table_name: str):
+    client = bq_client()
+    table_id = f"{BQ_PROJECT}.{BQ_DATASET}.{table_name}"
+    table = client.get_table(table_id)
+    # BigQuery Table object has modified and created timestamps
+    return {
+        "id": table_id,
+        "num_rows": table.num_rows,
+        "created": getattr(table, "created", None),
+        "modified": getattr(table, "modified", None),
+    }
+
 def append_non_duplicates(records: list[dict], table_name: str):
     """
     Load incoming records to a staging table, then insert only new rows (by RowHash) into target.
@@ -504,6 +516,46 @@ def aggregate():
         selected_month=selected_month, selected_card=selected_card,
         selected_main=selected_main, selected_cat=selected_cat,
         loaded="",
+    )
+
+@app.get("/status")
+def status():
+    if not validate_dataset(BQ_PROJECT, BQ_DATASET):
+        return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
+
+    target = TARGET_TABLE
+    meta = get_table_metadata(target)
+
+    # Rows by month (top 12 months)
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{target}`"
+    by_month_sql = f"""
+      SELECT Month, COUNT(*) AS RowCount, SUM(Amount) AS Amount
+      FROM {table_id}
+      GROUP BY Month
+      ORDER BY Month DESC
+      LIMIT 12
+    """
+    month_stats = bq_query(by_month_sql)
+
+    # Simple “last insert proxy”: latest Month with max Amount
+    last_insert_sql = f"""
+      SELECT Month, MAX(Amount) AS MaxAmount
+      FROM {table_id}
+      GROUP BY Month
+      ORDER BY Month DESC
+      LIMIT 1
+    """
+    last_insert_rows = bq_query(last_insert_sql)
+    last_insert = last_insert_rows[0] if last_insert_rows else {}
+
+    return render_template(
+        "status.html",
+        project=BQ_PROJECT,
+        dataset=BQ_DATASET,
+        table=target,
+        meta=meta,
+        month_stats=month_stats,
+        last_insert=last_insert,
     )
 
 if __name__ == "__main__":
