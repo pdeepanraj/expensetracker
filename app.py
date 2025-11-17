@@ -89,6 +89,10 @@ def insert_rows(table, rows):
     if errors:
         raise RuntimeError(f"BigQuery insert errors for {table}: {errors}")
 
+@app.get("/")
+def index():
+    return "Service is up. Try GET /health or POST /run"
+
 @app.get("/health")
 def health():
     return "OK"
