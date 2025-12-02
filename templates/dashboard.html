@@ -27,10 +27,9 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
 </div>
 {% endif %}
 
-
-<!-- Filters + Dynamic Grouping side by side -->
+<!-- Controls row: Filters + Dynamic Grouping side by side -->
 <div class="grid-2">
-  <!-- Filters bar -->
+  <!-- Filters -->
   <div class="card">
     <h3>Filters</h3>
     <form method="get" action="/dashboard">
@@ -79,7 +78,7 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
     </form>
   </div>
 
-  <!-- Dynamic Grouping card -->
+  <!-- Dynamic Grouping -->
   <div class="card">
     <h3>Dynamic Grouping</h3>
     <form method="get" action="/aggregate">
@@ -149,85 +148,85 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
   </div>
 </div>
 
-
-
-
 {% if aggregate_labels is defined and aggregate_labels %}
-<div class="card">
-  <h3>Aggregate Results{% if aggregate_group_by %} (Group by: {{ aggregate_group_by }}{% if aggregate_month %}, Month={{ aggregate_month }}{% endif %}){% endif %}</h3>
-  <canvas id="aggChart" height="260"></canvas>
-</div>
+  <!-- Aggregate row: chart and table aligned -->
+  <div class="grid-2">
+    <div class="card">
+      <h3>Aggregate Results{% if aggregate_group_by %} (Group by: {{ aggregate_group_by }}{% if aggregate_month %}, Month={{ aggregate_month }}{% endif %}){% endif %}</h3>
+      <canvas id="aggChart" height="260"></canvas>
+    </div>
 
-<div class="card">
-  <h3>Aggregate Table</h3>
-  <div class="table-scroll">
-    <table>
-      <thead>
-        <tr>
-          {% if aggregate_rows and aggregate_rows[0] %}
-            {% for k in aggregate_rows[0].keys() %}
-              <th>{{ k }}</th>
+    <div class="card">
+      <h3>Aggregate Table</h3>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              {% if aggregate_rows and aggregate_rows[0] %}
+                {% for k in aggregate_rows[0].keys() %}
+                  <th>{{ k }}</th>
+                {% endfor %}
+              {% else %}
+                <th>Group</th><th>Amount</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in aggregate_rows %}
+            <tr>
+              {% for v in r.values() %}
+              <td>{{ v }}</td>
+              {% endfor %}
+            </tr>
             {% endfor %}
-          {% else %}
-            <th>Group</th><th>Amount</th>
-          {% endif %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in aggregate_rows %}
-        <tr>
-          {% for v in r.values() %}
-          <td>{{ v }}</td>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+{% else %}
+  <!-- Default charts row -->
+  <div class="grid-2">
+    <div class="card">
+      <h3>Top Categories{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
+      <canvas id="catChart" height="260"></canvas>
+    </div>
+
+    <div class="card">
+      <h3>Monthly Total Trend</h3>
+      <canvas id="trendChart" height="260"></canvas>
+    </div>
+  </div>
+
+  <!-- Details table full-width -->
+  <div class="card">
+    <h3>Details{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
+    <input id="search" class="search" type="text" placeholder="Filter by text...">
+    <div class="table-scroll">
+      <table id="detailTable">
+        <thead>
+          <tr>
+            <th>CardName</th>
+            <th>MainCategory</th>
+            <th>Category</th>
+            <th>Description</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in latest_details %}
+          <tr>
+            <td>{{ r.CardName }}</td>
+            <td>{{ r.MainCategory }}</td>
+            <td>{{ r.Category }}</td>
+            <td>{{ r.Description }}</td>
+            <td>{{ "%.2f"|format(r.Amount or 0) }}</td>
+          </tr>
           {% endfor %}
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </tbody>
+      </table>
+    </div>
   </div>
-</div>
-{% endif %}
-
-{% if not aggregate_labels %}
-<div class="grid-2">
-  <div class="card">
-    <h3>Top Categories{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
-    <canvas id="catChart" height="260"></canvas>
-  </div>
-
-  <div class="card">
-    <h3>Monthly Total Trend</h3>
-    <canvas id="trendChart" height="260"></canvas>
-  </div>
-</div>
-
-<div class="card">
-  <h3>Details{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
-  <input id="search" class="search" type="text" placeholder="Filter by text...">
-  <div class="table-scroll">
-    <table id="detailTable">
-      <thead>
-        <tr>
-          <th>CardName</th>
-          <th>MainCategory</th>
-          <th>Category</th>
-          <th>Description</th>
-          <th>Amount</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in latest_details %}
-        <tr>
-          <td>{{ r.CardName }}</td>
-          <td>{{ r.MainCategory }}</td>
-          <td>{{ r.Category }}</td>
-          <td>{{ r.Description }}</td>
-          <td>{{ "%.2f"|format(r.Amount or 0) }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
 {% endif %}
 {% endblock %}
 
@@ -245,7 +244,9 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
     options: {
       responsive: true,
       plugins: { legend: { display: false } },
-      scales: { y: { ticks: { callback: v => '$' + v } } }
+      scales: {
+        y: { ticks: { callback: v => '$' + v } }
+      }
     }
   });
 </script>
@@ -293,7 +294,7 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
   searchInput.addEventListener('input', () => {
     const q = searchInput.value.toLowerCase();
     [...table.tBodies[0].rows].forEach(row => {
-      const text = row.innerText.toLowerCase();
+      const text = row.innerText.toLowerCase().replace(/\s+/g, ' ');
       row.style.display = text.includes(q) ? '' : 'none';
     });
   });
