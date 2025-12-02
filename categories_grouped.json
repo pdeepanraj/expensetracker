@@ -61,6 +61,8 @@
         { "category": "McDonald", "keywords": ["mcdonald"] },
         { "category": "IceCream", "keywords": ["ice cream"] },
         { "category": "Panera", "keywords": ["panera"] },
+        { "category": "PandaExpress", "keywords": ["panda"] },
+        { "category": "UberEats", "keywords": ["uber *eats"] },
         { "category": "Office Food", "keywords": ["aramark"] },
         { "category": "BurgerKing", "keywords": ["burger king"] },
         { "category": "Wendys", "keywords": ["wendy's"] },
@@ -91,13 +93,17 @@
         { "category": "Burlington", "keywords": ["burlington"] },
         { "category": "FeDex", "keywords": ["fedex"] },
         { "category": "HomeDepot", "keywords": ["home depot", "office depot"] },
+        { "category": "JCPenney", "keywords": ["jcpenney"] }, 
+        { "category": "JBL", "keywords": ["jbl"] }, 
+        { "category": "UnderArmour", "keywords": ["ua.com","underarmour"] }, 
+        { "category": "Kohls", "keywords": ["kohls","www.kohls.com","kohl's"] },  
         { "category": "Shein", "keywords": ["shein"] }
       ]
     },
     {
       "main": "Subscription",
       "categories": [
-        { "category": "Streaming", "keywords": ["willow", "lycatel"] }
+        { "category": "Streaming", "keywords": ["willow", "lycatel", "disney"] }
       ]
     },
     {
@@ -112,7 +118,7 @@
     {
       "main": "Class",
       "categories": [
-        { "category": "Class", "keywords": ["aquatic c", "city of pbg", "vsi*pbc", "palm beach"] }
+        { "category": "Class", "keywords": ["aquatic c", "city of pbg", "vsi*pbc", "palm beach", "focused on forever"] }
       ]
     },
     {
@@ -124,7 +130,7 @@
     {
       "main": "Interest",
       "categories": [
-        { "category": "Interest", "keywords": ["interest charge","balance transfer fee"] }
+        { "category": "Interest", "keywords": ["interest charge","balance transfer fee","interest"] }
       ]
     },
     {
