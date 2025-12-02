@@ -93,7 +93,7 @@
         { "category": "Burlington", "keywords": ["burlington"] },
         { "category": "FeDex", "keywords": ["fedex"] },
         { "category": "HomeDepot", "keywords": ["home depot", "office depot"] },
-        { "category": "JCPenny", "keywords": ["jcpenny"] }, 
+        { "category": "JCPenney", "keywords": ["jcpenney"] }, 
         { "category": "JBL", "keywords": ["jbl"] }, 
         { "category": "UnderArmour", "keywords": ["ua.com","underarmour"] }, 
         { "category": "Kohls", "keywords": ["kohls","www.kohls.com","kohl's"] },  
@@ -130,7 +130,7 @@
     {
       "main": "Interest",
       "categories": [
-        { "category": "Interest", "keywords": ["interest charge","balance transfer fee"] }
+        { "category": "Interest", "keywords": ["interest charge","balance transfer fee","interest"] }
       ]
     },
     {
