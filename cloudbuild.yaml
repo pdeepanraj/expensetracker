@@ -5,6 +5,18 @@ steps:
 - name: 'gcr.io/cloud-builders/docker'
   args: ['push', 'gcr.io/deepanexpense/expense-app-bquery:latest']
 
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+    [
+      'run','deploy','expense-app-bquery',
+      '--image','gcr.io/deepanexpense/expense-app-bquery:latest',
+      '--region','us-east1',
+      '--platform','managed',
+      '--allow-unauthenticated'  # remove if you want auth-only
+    ]
+
+
 # This is the required fix for your error:
 options:
   logging: CLOUD_LOGGING_ONLY
