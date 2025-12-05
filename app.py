@@ -12,6 +12,16 @@ from pipeline import make_classifier_grouped, clean_and_standardize, run_pipelin
 
 app = Flask(__name__, template_folder="templates")
 
+@app.template_filter('currency')
+def currency_filter(value):
+    try:
+        n = float(value or 0)
+        # Use Python formatting for thousands and 2 decimals
+        return f"${n:,.2f}"
+    except Exception:
+        return value
+
+
 # Environment variables expected:
 #   BQ_PROJECT = your GCP project ID (e.g., "deepanexpense")
 #   BQ_DATASET = BigQuery dataset (e.g., "expense_analytics")
