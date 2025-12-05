@@ -112,4 +112,9 @@
     </div>
   </section>
 </div>
+{% if message %}
+<div class="card" style="border-color: {{ 'var(--border)' if message_type != 'error' else '#ffccd2' }};">
+  <p class="{{ 'muted' if message_type != 'error' else 'error' }}">{{ message }}</p>
+</div>
+{% endif %}
 {% endblock %}
