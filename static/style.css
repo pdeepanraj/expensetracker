@@ -1,11 +1,11 @@
 :root {
-  --bg: #eef6ff;        /* pastel blue page background */
-  --text: #1f2a44;      /* cooler dark text */
-  --muted: #5e6e8a;     /* gray-blue secondary */
-  --border: #d9e6ff;    /* soft blue border */
-  --primary: #2d6cdf;   /* main blue */
-  --accent: #4e79a7;    /* accent blue */
-  --card: #ffffff;      /* white cards */
+  --bg: #eef6ff;
+  --text: #1f2a44;
+  --muted: #5e6e8a;
+  --border: #d9e6ff;
+  --primary: #2d6cdf;
+  --accent: #4e79a7;
+  --card: #ffffff;
   --success: #1e8e3e;
   --danger: #b00020;
   --warning: #b07d00;
@@ -14,6 +14,47 @@
   --radius-sm: 6px;
   --radius-lg: 14px;
   --focus-ring: 0 0 0 3px rgba(45, 108, 223, 0.25);
+
+  /* Chart variables for light */
+  --chart-grid: rgba(0,0,0,0.10);
+  --chart-tooltip-bg: #1f2a44;
+  --chart-tooltip-text: #ffffff;
+}
+
+html[data-theme="dark"] {
+  --bg: #0f1013;
+  --text: #f4f6f8;
+  --muted: #a2a7b0;
+  --border: rgba(255,255,255,0.12);
+  --primary: #38a1ff;
+  --accent: #f05a7e;
+  --card: #15171d;
+  --shadow: 0 18px 50px rgba(0,0,0,0.5);
+  --focus-ring: 0 0 0 3px rgba(56,161,255,0.35);
+
+  /* Chart variables for dark */
+  --chart-grid: rgba(255,255,255,0.12);
+  --chart-tooltip-bg: #0f1013;
+  --chart-tooltip-text: #e9ecf2;
+}
+
+/* Respect OS preference when no explicit toggle */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) {
+    --bg: #0f1013;
+    --text: #f4f6f8;
+    --muted: #a2a7b0;
+    --border: rgba(255,255,255,0.12);
+    --primary: #38a1ff;
+    --accent: #f05a7e;
+    --card: #15171d;
+    --shadow: 0 18px 50px rgba(0,0,0,0.5);
+    --focus-ring: 0 0 0 3px rgba(56,161,255,0.35);
+
+    --chart-grid: rgba(255,255,255,0.12);
+    --chart-tooltip-bg: #0f1013;
+    --chart-tooltip-text: #e9ecf2;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -179,28 +220,17 @@ canvas {
 .card { animation: cardIn 220ms ease; }
 
 /* ------- Sidebar layout additions ------- */
-
-/* Two-column layout: sidebar + content */
 .layout {
   display: grid;
   grid-template-columns: 280px 1fr;
   gap: 24px;
 }
-@media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; }
-}
-
-/* Sidebar behavior */
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
 .sidebar .card { margin-bottom: 24px; }
-/* Stack inner grid vertically inside sidebar for compact controls */
 .sidebar .grid-2 { grid-template-columns: 1fr; gap: 12px; }
-
-/* Sticky sidebar on desktop */
 @media (min-width: 901px) {
   .sidebar { position: sticky; top: 24px; align-self: start; }
 }
-
-/* Accordions */
 .accordion { border-top: 1px solid var(--border); margin-top: 8px; }
 .accordion-item { border-bottom: 1px solid var(--border); }
 .accordion-header {
