@@ -50,7 +50,7 @@
         <h3>Last Insert Proxy</h3>
         {% if last_insert %}
           <p><strong>Latest Month:</strong> {{ last_insert.Month }}</p>
-          <p><strong>Max Amount (that month):</strong> {{ "%.2f"|format(last_insert.MaxAmount or 0) }}</p>
+          <p><strong>Max Amount (that month): {{ (last_insert.MaxAmount or 0)|currency }}</p>
         {% else %}
           <p class="muted">No data yet.</p>
         {% endif %}
