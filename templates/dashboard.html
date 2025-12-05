@@ -3,9 +3,6 @@
 
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<style>
-  /* Local page tweaks if needed (kept minimal; core styles live in style.css) */
-</style>
 {% endblock %}
 
 {% block header_meta %}
@@ -30,20 +27,16 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
 </div>
 {% endif %}
 
-<!-- Page intro -->
-<div class="card" style="padding: 20px; border: none; box-shadow: none; background: transparent; margin-bottom: 8px;">
-  <h3 style="font-size: 20px; margin: 0 0 6px;">Your Expenses</h3>
+<div class="card" style="padding: 16px; border: none; box-shadow: none; background: transparent; margin-bottom: 8px;">
+  <h3 style="margin: 0 0 6px;">Your Expenses</h3>
   <p class="muted">Filter, group, and visualize your spend.</p>
 </div>
 
-<!-- Mobile toggle for sidebar -->
 <button id="filtersToggleBtn" class="btn secondary filters-toggle" type="button">Show filters</button>
 
-<!-- New layout: left sidebar + right content -->
 <div class="layout">
-  <!-- Left: Sidebar -->
+  <!-- Sidebar -->
   <aside id="sidebar" class="sidebar collapsed">
-    <!-- Filters -->
     <div class="card">
       <h3>Filters</h3>
       <div class="accordion">
@@ -136,7 +129,6 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
       </div>
     </div>
 
-    <!-- Dynamic Grouping -->
     <div class="card">
       <h3>Dynamic Grouping</h3>
       <div class="accordion">
@@ -215,7 +207,7 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
     </div>
   </aside>
 
-  <!-- Right: Main content -->
+  <!-- Content -->
   <section class="content">
     {% if aggregate_labels is defined and aggregate_labels %}
       <div class="grid-2">
@@ -257,7 +249,6 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
           <h3>Top Categories{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
           <canvas id="catChart" height="260"></canvas>
         </div>
-
         <div class="card">
           <h3>Monthly Total Trend</h3>
           <canvas id="trendChart" height="260"></canvas>
@@ -310,11 +301,8 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
     },
     options: {
       responsive: true,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ' $' + Number((ctx.parsed?.y ?? ctx.raw ?? 0)).toFixed(2) } }
-      },
-      scales: { y: { ticks: { callback: v => '$' + Number(v).toFixed(2) } } }
+      plugins: { legend: { display: false } },
+      scales: { y: { ticks: { callback: v => '$' + v } } }
     }
   });
 </script>
@@ -335,11 +323,8 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
     options: {
       indexAxis: 'y',
       responsive: true,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ' $' + Number((ctx.parsed?.x ?? ctx.raw ?? 0)).toFixed(2) } }
-      },
-      scales: { x: { ticks: { callback: v => '$' + Number(v).toFixed(2) } } }
+      plugins: { legend: { display: false } },
+      scales: { x: { ticks: { callback: v => '$' + v } } }
     }
   });
 
@@ -354,11 +339,8 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
     },
     options: {
       responsive: true,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ' $' + Number((ctx.parsed?.y ?? ctx.raw ?? 0)).toFixed(2) } }
-      },
-      scales: { y: { ticks: { callback: v => '$' + Number(v).toFixed(2) } } }
+      plugins: { legend: { display: false } },
+      scales: { y: { ticks: { callback: v => '$' + v } } }
     }
   });
 
@@ -374,8 +356,11 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
       });
     });
   }
+</script>
+{% endif %}
 
-  // Sidebar behavior (mobile toggle and accordions)
+<script>
+  // Mobile toggle for sidebar
   const toggleBtn = document.getElementById('filtersToggleBtn');
   const sidebar = document.getElementById('sidebar');
   if (toggleBtn && sidebar) {
@@ -384,10 +369,13 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
       toggleBtn.textContent = collapsed ? 'Show filters' : 'Hide filters';
     };
     toggleBtn.addEventListener('click', () => {
-      sidebar.classList.toggle('collapsed'); syncLabel();
+      sidebar.classList.toggle('collapsed');
+      syncLabel();
     });
     syncLabel();
   }
+
+  // Accordions
   document.querySelectorAll('.accordion-header').forEach(h => {
     h.addEventListener('click', () => {
       const item = h.parentElement;
@@ -396,5 +384,4 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
     });
   });
 </script>
-{% endif %}
 {% endblock %}
