@@ -266,7 +266,7 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
                 <td>{{ r.MainCategory }}</td>
                 <td>{{ r.Category }}</td>
                 <td>{{ r.Description }}</td>
-                <td>{{ "%.2f"|format(r.Amount or 0) }}</td>
+                <td>{{ (r.Amount or 0)|currency }}</td>
               </tr>
               {% endfor %}
             </tbody>
