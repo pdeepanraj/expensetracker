@@ -63,6 +63,7 @@ body {
   margin-bottom: 24px;
   box-shadow: var(--shadow);
 }
+.card h2 { margin: 0 0 8px; font-size: 22px; }
 .card h3 { margin: 0 0 10px; font-size: 18px; }
 .card .muted { margin-top: 6px; }
 
@@ -153,21 +154,15 @@ canvas {
 }
 
 /* Small utilities */
-.kpi {
-  display:flex; gap: 16px; flex-wrap: wrap;
-}
+.kpi { display:flex; gap: 16px; flex-wrap: wrap; }
 .kpi .pill {
   background: #ffffff; border: 1px solid var(--border); border-radius: 999px;
   padding: 8px 12px; box-shadow: var(--shadow);
 }
-.hr {
-  height: 1px; background: var(--border); border: 0; margin: 16px 0;
-}
+.hr { height: 1px; background: var(--border); border: 0; margin: 16px 0; }
 
 /* Focus visible for accessibility */
-:focus-visible {
-  outline: none; box-shadow: var(--focus-ring);
-}
+:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* Responsive tweaks */
 @media (max-width: 700px) {
@@ -183,28 +178,29 @@ canvas {
 }
 .card { animation: cardIn 220ms ease; }
 
-/* Sidebar two-column layout */
+/* ------- Sidebar layout additions ------- */
+
+/* Two-column layout: sidebar + content */
 .layout {
   display: grid;
   grid-template-columns: 280px 1fr;
-  gap: 24px; /* matches your grid gap scale */
+  gap: 24px;
 }
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
 }
 
-/* Sidebar panel behavior */
+/* Sidebar behavior */
 .sidebar .card { margin-bottom: 24px; }
-
-/* In the sidebar, stack inner grids vertically for compact controls */
+/* Stack inner grid vertically inside sidebar for compact controls */
 .sidebar .grid-2 { grid-template-columns: 1fr; gap: 12px; }
 
-/* Sticky sidebar on desktop, so filters stay visible while scrolling content */
+/* Sticky sidebar on desktop */
 @media (min-width: 901px) {
   .sidebar { position: sticky; top: 24px; align-self: start; }
 }
 
-/* Accordion */
+/* Accordions */
 .accordion { border-top: 1px solid var(--border); margin-top: 8px; }
 .accordion-item { border-bottom: 1px solid var(--border); }
 .accordion-header {
@@ -222,4 +218,3 @@ canvas {
   .filters-toggle { display: inline-block; }
   .sidebar.collapsed { display: none; }
 }
-
