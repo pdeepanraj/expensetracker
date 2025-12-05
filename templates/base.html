@@ -19,6 +19,7 @@
   <nav class="nav">
     <a href="/">Home</a>
     <a href="/dashboard">Dashboard</a>
+    <a href="/review">Review</a>
     <a href="/status">Status</a>
   </nav>
 
@@ -56,6 +57,7 @@
             html.removeAttribute('data-theme');
             localStorage.removeItem(key);
           }
+          // Notify pages/charts that theme changed
           const evt = new CustomEvent('theme-changed', { detail: { theme: next || 'auto' } });
           window.dispatchEvent(evt);
         });

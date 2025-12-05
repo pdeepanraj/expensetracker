@@ -6,6 +6,7 @@ import hashlib
 import requests
 import pandas as pd
 from flask import Flask, request, render_template, redirect, url_for
+from markupsafe import escape
 
 from google.cloud import bigquery
 from pipeline import make_classifier_grouped, clean_and_standardize, run_pipeline
@@ -557,6 +558,123 @@ def aggregate():
         loaded="",
         table_modified=get_table_metadata(TARGET_TABLE).get("modified"),
     )
+
+from markupsafe import escape
+
+@app.get("/review")
+def review_get():
+    # Filters to narrow down rows to review (Month required)
+    month = request.args.get("month", "").strip()
+    card = request.args.get("card", "").strip() or None
+    main = request.args.get("main", "").strip() or None
+    cat  = request.args.get("cat", "").strip() or None
+
+    months, cards, mains, cats = get_distinct_filters()
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
+
+    rows = []
+    if month:
+        where = ["Month = @month"]
+        qp = {"month": month}
+        if card: where.append("CardName = @card"); qp["card"] = card
+        if main: where.append("MainCategory = @main"); qp["main"] = main
+        if cat:  where.append("Category = @cat"); qp["cat"] = cat
+        where_sql = "WHERE " + " AND ".join(where)
+        sql = f"""
+          SELECT Month, CardName, MainCategory, Category, Description, Amount, Comment, RowHash
+          FROM {table_id}
+          {where_sql}
+          ORDER BY Amount DESC
+          LIMIT 500
+        """
+        rows = bq_query(sql, params=qp)
+
+    # Optional: pass a status message (e.g., from POST)
+    msg = request.args.get("msg", "").strip()
+    msg_type = request.args.get("msg_type", "").strip()  # 'ok' or 'error'
+
+    return render_template(
+        "review.html",
+        project=BQ_PROJECT, dataset=BQ_DATASET,
+        months=months, cards=cards, mains=mains, cats=cats,
+        selected_month=month, selected_card=card, selected_main=main, selected_cat=cat,
+        review_rows=rows,
+        message=msg, message_type=msg_type
+    )
+
+@app.post("/review")
+def review_post():
+    # Inputs from the form
+    rowhash    = request.form.get("rowhash", "").strip()
+    percentage = request.form.get("percentage", "").strip()
+    note       = request.form.get("note", "").strip()
+    month      = request.form.get("month", "").strip()  # for redirect back with context
+
+    if not rowhash or not percentage:
+        return redirect(url_for("review_get", month=month, msg="rowhash and percentage are required", msg_type="error"), code=303)
+
+    # Validate percentage
+    try:
+        pct = float(percentage)
+        if pct < 0 or pct > 100:
+            return redirect(url_for("review_get", month=month, msg="percentage must be between 0 and 100", msg_type="error"), code=303)
+    except ValueError:
+        return redirect(url_for("review_get", month=month, msg="percentage must be numeric", msg_type="error"), code=303)
+
+    # Fetch original row to compute adjusted amount
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
+    sel_sql = f"""
+      SELECT Amount, Comment
+      FROM {table_id}
+      WHERE RowHash = @rowhash
+      LIMIT 1
+    """
+    recs = bq_query(sel_sql, params={"rowhash": rowhash})
+    if not recs:
+        return redirect(url_for("review_get", month=month, msg="Row not found", msg_type="error"), code=303)
+
+    original_amount = float(recs[0].get("Amount") or 0.0)
+    existing_comment = (recs[0].get("Comment") or "").strip()
+
+    # Safeguard: don’t adjust twice if already reviewed
+    if "[REVIEW]" in existing_comment:
+        return redirect(url_for("review_get", month=month, msg="This row was already reviewed. No changes applied.", msg_type="error"), code=303)
+
+    # Compute share
+    share_amount = round(original_amount * (pct / 100.0), 2)
+
+    # Build updated comment (append; keep previous comments intact)
+    fmt_orig = f"${original_amount:,.2f}"
+    fmt_share = f"${share_amount:,.2f}"
+    structured = f"[REVIEW] Original: {fmt_orig}, Share: {pct:.2f}% -> {fmt_share}"
+    final_comment = structured if not existing_comment else f"{existing_comment} | {structured}"
+    if note:
+        final_comment = f"{final_comment}. Note: {escape(note)}"
+
+    # Update BigQuery row
+    upd_sql = f"""
+      UPDATE {table_id}
+      SET Amount = @new_amount,
+          Comment = @comment
+      WHERE RowHash = @rowhash
+    """
+    client = bq_client()
+    job = client.query(
+        upd_sql,
+        job_config=bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("new_amount", "FLOAT", share_amount),
+                bigquery.ScalarQueryParameter("comment", "STRING", final_comment),
+                bigquery.ScalarQueryParameter("rowhash", "STRING", rowhash),
+            ]
+        )
+    )
+    job.result()
+
+    msg = f"Adjusted to {fmt_share} ({pct:.2f}%). Review note saved."
+    return redirect(url_for("review_get", month=month, msg=msg, msg_type="ok"), code=303)
+
+
 
 @app.get("/status")
 def status():

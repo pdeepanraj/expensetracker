@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Review & Adjust{% endblock %}
+
+{% block header_meta %}
+{{ project }}.{{ dataset }}.{{ 'all_positive_monthly' }}
+{% endblock %}
+
+{% block content %}
+<div class="card" style="padding:16px; border:none; box-shadow:none; background:transparent; margin-bottom:8px;">
+  <h3 style="margin:0 0 6px;">Review & Adjust</h3>
+  <p class="muted">Select a month and optional filters, then set your percentage share and note per transaction.</p>
+</div>
+
+<div class="layout">
+  <!-- Sidebar: filters -->
+  <aside class="sidebar">
+    <div class="card">
+      <h3>Filters</h3>
+      <form method="get" action="/review">
+        <div class="grid-2">
+          <div>
+            <label>Month</label>
+            <select name="month" required>
+              <option value="">-- Select --</option>
+              {% for m in months %}
+                <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>CardName</label>
+            <select name="card">
+              <option value="">All</option>
+              {% for c in cards %}
+                <option value="{{ c }}" {% if selected_card == c %}selected{% endif %}>{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>MainCategory</label>
+            <select name="main">
+              <option value="">All</option>
+              {% for mc in mains %}
+                <option value="{{ mc }}" {% if selected_main == mc %}selected{% endif %}>{{ mc }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>Category</label>
+            <select name="cat">
+              <option value="">All</option>
+              {% for ct in cats %}
+                <option value="{{ ct }}" {% if selected_cat == ct %}selected{% endif %}>{{ ct }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit">Load</button>
+          <a class="btn secondary" href="/review">Reset</a>
+        </div>
+      </form>
+    </div>
+  </aside>
+
+  <!-- Content: table with inline reviewers -->
+  <section class="content">
+    <div class="card">
+      <h3>Transactions{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>CardName</th>
+              <th>MainCategory</th>
+              <th>Category</th>
+              <th>Description</th>
+              <th>Amount</th>
+              <th>Comment</th>
+              <th>Review</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in review_rows %}
+            <tr>
+              <td>{{ r.Month }}</td>
+              <td>{{ r.CardName }}</td>
+              <td>{{ r.MainCategory }}</td>
+              <td>{{ r.Category }}</td>
+              <td>{{ r.Description }}</td>
+              <td>{{ (r.Amount or 0)|currency }}</td>
+              <td>{{ r.Comment }}</td>
+              <td>
+                <form method="post" action="/review" class="inline">
+                  <input type="hidden" name="rowhash" value="{{ r.RowHash }}">
+                  <input type="hidden" name="month" value="{{ selected_month or '' }}">
+                  <label style="margin:0;">%</label>
+                  <input type="text" name="percentage" placeholder="e.g., 25" style="max-width:80px;">
+                  <input type="text" name="note" placeholder="Optional note..." style="flex:1;">
+                  <button type="submit">Apply</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+            {% if not review_rows %}
+            <tr><td colspan="8" class="muted">No rows loaded. Choose a month and click Load.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+{% if message %}
+<div class="card" style="border-color: {{ 'var(--border)' if message_type != 'error' else '#ffccd2' }};">
+  <p class="{{ 'muted' if message_type != 'error' else 'error' }}">{{ message }}</p>
+</div>
+{% endif %}
+{% endblock %}
