@@ -3,6 +3,23 @@
 
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  /* Minimal page-local styles; core lives in style.css */
+  .layout { display: grid; grid-template-columns: 280px 1fr; gap: 24px; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  @media (min-width: 901px) { .sidebar { position: sticky; top: 24px; align-self: start; } }
+  .sidebar .card { margin-bottom: 24px; }
+  .sidebar .grid-2 { grid-template-columns: 1fr; gap: 12px; }
+  .accordion { border-top: 1px solid var(--border); margin-top: 8px; }
+  .accordion-item { border-bottom: 1px solid var(--border); }
+  .accordion-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 10px 0; font-weight: 600; }
+  .accordion-header .chev { transition: transform 160ms ease; }
+  .accordion-item[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  .accordion-panel { display: none; padding: 8px 0 12px; }
+  .accordion-item[aria-expanded="true"] .accordion-panel { display: block; }
+  .filters-toggle { display: none; margin-bottom: 12px; }
+  @media (max-width: 900px) { .filters-toggle { display: inline-block; } .sidebar.collapsed { display: none; } }
+</style>
 {% endblock %}
 
 {% block header_meta %}
@@ -210,51 +227,41 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
   <!-- Content -->
   <section class="content">
     {% if aggregate_labels is defined and aggregate_labels %}
-      <div class="grid-2">
-        <div class="card">
-          <h3>Aggregate Results{% if aggregate_group_by %} (Group by: {{ aggregate_group_by }}{% if aggregate_month %}, Month={{ aggregate_month }}{% endif %}){% endif %}</h3>
-          <canvas id="aggChart" height="260"></canvas>
-        </div>
-        <div class="card">
-          <h3>Aggregate Table</h3>
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  {% if aggregate_rows and aggregate_rows[0] %}
-                    {% for k in aggregate_rows[0].keys() %}
-                      <th>{{ k }}</th>
-                    {% endfor %}
-                  {% else %}
-                    <th>Group</th><th>Amount</th>
-                  {% endif %}
-                </tr>
-              </thead>
-              <tbody>
-                {% for r in aggregate_rows %}
-                <tr>
-                  {% for v in r.values() %}
-                  <td>{{ v }}</td>
+      <!-- Aggregate view: table first, graph second -->
+      <div class="card">
+        <h3>Aggregate Table{% if aggregate_group_by %} (Group by: {{ aggregate_group_by }}{% if aggregate_month %}, Month={{ aggregate_month }}{% endif %}){% endif %}</h3>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                {% if aggregate_rows and aggregate_rows[0] %}
+                  {% for k in aggregate_rows[0].keys() %}
+                    <th>{{ k }}</th>
                   {% endfor %}
-                </tr>
+                {% else %}
+                  <th>Group</th><th>Amount</th>
+                {% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in aggregate_rows %}
+              <tr>
+                {% for v in r.values() %}
+                <td>{{ v }}</td>
                 {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    {% else %}
-      <div class="grid-2">
-        <div class="card">
-          <h3>Top Categories{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
-          <canvas id="catChart" height="260"></canvas>
-        </div>
-        <div class="card">
-          <h3>Monthly Total Trend</h3>
-          <canvas id="trendChart" height="260"></canvas>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
       </div>
 
+      <div class="card">
+        <h3>Aggregate Chart</h3>
+        <canvas id="aggChart" height="260"></canvas>
+      </div>
+    {% else %}
+      <!-- Default view: table first, graph second -->
       <div class="card">
         <h3>Details{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
         <input id="search" class="search" type="text" placeholder="Filter by text...">
@@ -283,6 +290,16 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
           </table>
         </div>
       </div>
+
+      <div class="card">
+        <h3>Top Categories{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
+        <canvas id="catChart" height="260"></canvas>
+      </div>
+
+      <div class="card">
+        <h3>Monthly Total Trend</h3>
+        <canvas id="trendChart" height="260"></canvas>
+      </div>
     {% endif %}
   </section>
 </div>
@@ -291,8 +308,12 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
 {% block scripts %}
 {% if aggregate_labels is defined and aggregate_labels %}
 <script>
+  // Thousand separators + 2 decimals formatter
+  const fmt2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   const aggLabels = {{ aggregate_labels|tojson }};
   const aggValues = {{ aggregate_values|tojson }};
+
   new Chart(document.getElementById('aggChart'), {
     type: 'bar',
     data: {
@@ -301,48 +322,26 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
     },
     options: {
       responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { y: { ticks: { callback: v => '$' + v } } }
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ' $' + fmt2.format(Number((ctx.parsed && ctx.parsed.y) ?? ctx.raw ?? 0))
+          }
+        }
+      },
+      scales: {
+        y: { ticks: { callback: v => '$' + fmt2.format(Number(v)) } }
+      }
     }
   });
 </script>
 {% else %}
 <script>
+  const fmt2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   const topCategories = {{ top_categories|tojson }};
   const monthlyTotals = {{ monthly_totals|tojson }};
-
-  // Top categories bar chart (horizontal)
-  const catLabels = topCategories.map(x => x.Category);
-  const catValues = topCategories.map(x => x.Amount);
-  new Chart(document.getElementById('catChart'), {
-    type: 'bar',
-    data: {
-      labels: catLabels,
-      datasets: [{ label: 'Amount', data: catValues, backgroundColor: '#4e79a7' }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { x: { ticks: { callback: v => '$' + v } } }
-    }
-  });
-
-  // Monthly totals line chart
-  const trendLabels = monthlyTotals.map(x => x.Month);
-  const trendValues = monthlyTotals.map(x => x.Amount);
-  new Chart(document.getElementById('trendChart'), {
-    type: 'line',
-    data: {
-      labels: trendLabels,
-      datasets: [{ label: 'Total', data: trendValues, borderColor: '#e15759', fill: false, tension: 0.2 }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { y: { ticks: { callback: v => '$' + v } } }
-    }
-  });
 
   // Simple table filter
   const searchInput = document.getElementById('search');
@@ -356,6 +355,57 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
       });
     });
   }
+
+  // Top categories bar chart (horizontal), after Details table
+  const catLabels = topCategories.map(x => x.Category);
+  const catValues = topCategories.map(x => x.Amount);
+  new Chart(document.getElementById('catChart'), {
+    type: 'bar',
+    data: {
+      labels: catLabels,
+      datasets: [{ label: 'Amount', data: catValues, backgroundColor: '#4e79a7' }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ' $' + fmt2.format(Number((ctx.parsed && ctx.parsed.x) ?? ctx.raw ?? 0))
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { callback: v => '$' + fmt2.format(Number(v)) } }
+      }
+    }
+  });
+
+  // Monthly totals line chart, after Top Categories chart
+  const trendLabels = monthlyTotals.map(x => x.Month);
+  const trendValues = monthlyTotals.map(x => x.Amount);
+  new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: trendLabels,
+      datasets: [{ label: 'Total', data: trendValues, borderColor: '#e15759', fill: false, tension: 0.2 }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ' $' + fmt2.format(Number((ctx.parsed && ctx.parsed.y) ?? ctx.raw ?? 0))
+          }
+        }
+      },
+      scales: {
+        y: { ticks: { callback: v => '$' + fmt2.format(Number(v)) } }
+      }
+    }
+  });
 </script>
 {% endif %}
 
