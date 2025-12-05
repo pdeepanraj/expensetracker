@@ -229,7 +229,7 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
             <tbody>
               {% for r in aggregate_rows %}
               <tr>
-                {% for v in r.values() %}
+                {% for k, v in r.items() %} {% if k == 'Amount' %} {{ (v or 0)|currency }} {% else %} {{ v }} {% endif %} {% endfor %}
                 <td>{{ v }}</td>
                 {% endfor %}
               </tr>
