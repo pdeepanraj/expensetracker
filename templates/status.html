@@ -50,7 +50,7 @@
         <h3>Last Insert Proxy</h3>
         {% if last_insert %}
           <p><strong>Latest Month:</strong> {{ last_insert.Month }}</p>
-          <p><strong>Max Amount (that month):</strong> {{ "%.2f"|format(last_insert.MaxAmount or 0) }}</p>
+          <p><strong>Max Amount (that month): {{ (last_insert.MaxAmount or 0)|currency }}</p>
         {% else %}
           <p class="muted">No data yet.</p>
         {% endif %}
@@ -69,7 +69,7 @@
             <tr>
               <td>{{ r.Month }}</td>
               <td>{{ r.RowCount }}</td>
-              <td>{{ "%.2f"|format(r.Amount or 0) }}</td>
+              <td>{{ (r.Amount or 0)|currency }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -106,4 +106,50 @@
     });
   });
 </script>
+<script>
+  (function() {
+    const fmtCurrency = v => {
+      const n = Number(v);
+      if (isNaN(n)) return v;
+      return '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+    };
+    const fmtInteger = v => {
+      const n = Number(v);
+      if (isNaN(n)) return v;
+      return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n);
+    };
+
+    function formatTable(tableEl) {
+      if (!tableEl) return;
+      const headers = [...tableEl.tHead?.rows[0]?.cells || []].map(th => th.textContent.trim());
+      if (headers.length === 0) return;
+      const amountIdxs = headers
+        .map((h, i) => (/^total amount$/i.test(h) || /^amount$/i.test(h) ? i : -1))
+        .filter(i => i >= 0);
+      const countIdxs = headers
+        .map((h, i) => (/^rowcount$/i.test(h) ? i : -1))
+        .filter(i => i >= 0);
+
+      [...tableEl.tBodies].forEach(tb => {
+        [...tb.rows].forEach(row => {
+          amountIdxs.forEach(i => {
+            const td = row.cells[i];
+            if (td) td.textContent = fmtCurrency(td.textContent);
+          });
+          countIdxs.forEach(i => {
+            const td = row.cells[i];
+            if (td) td.textContent = fmtInteger(td.textContent);
+          });
+        });
+      });
+    }
+
+    const statusTable = document.querySelector('.content table'); // first table in content
+    formatTable(statusTable);
+
+    // Also format within the grid-2 block (first two cards)
+    document.querySelectorAll('.grid-2 .card .table-scroll table').forEach(formatTable);
+  })();
+</script>
+
 {% endblock %}

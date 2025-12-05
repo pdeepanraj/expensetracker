@@ -229,7 +229,7 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
             <tbody>
               {% for r in aggregate_rows %}
               <tr>
-                {% for v in r.values() %}
+                {% for k, v in r.items() %} {% if k == 'Amount' %} {{ (v or 0)|currency }} {% else %} {{ v }} {% endif %} {% endfor %}
                 <td>{{ v }}</td>
                 {% endfor %}
               </tr>
@@ -266,7 +266,7 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
                 <td>{{ r.MainCategory }}</td>
                 <td>{{ r.Category }}</td>
                 <td>{{ r.Description }}</td>
-                <td>{{ "%.2f"|format(r.Amount or 0) }}</td>
+                <td>{{ (r.Amount or 0)|currency }}</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -461,4 +461,54 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
     });
   });
 </script>
+<script>
+  // Thousand-separator table formatter
+  (function() {
+    const fmtCurrency = v => {
+      const n = Number(v);
+      if (isNaN(n)) return v;
+      return '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+    };
+    const fmtInteger = v => {
+      const n = Number(v);
+      if (isNaN(n)) return v;
+      return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n);
+    };
+
+    function formatTable(tableEl) {
+      if (!tableEl) return;
+      const headers = [...tableEl.tHead?.rows[0]?.cells || []].map(th => th.textContent.trim());
+      if (headers.length === 0) return;
+      const amountIdxs = headers
+        .map((h, i) => (/^amount$/i.test(h) ? i : -1))
+        .filter(i => i >= 0);
+      const countIdxs = headers
+        .map((h, i) => (/^rowcount$/i.test(h) ? i : -1))
+        .filter(i => i >= 0);
+
+      [...tableEl.tBodies].forEach(tb => {
+        [...tb.rows].forEach(row => {
+          amountIdxs.forEach(i => {
+            const td = row.cells[i];
+            if (td) td.textContent = fmtCurrency(td.textContent);
+          });
+          countIdxs.forEach(i => {
+            const td = row.cells[i];
+            if (td) td.textContent = fmtInteger(td.textContent);
+          });
+        });
+      });
+    }
+
+    // Format aggregate table (if present)
+    const aggTable = document.querySelector('.content table'); // first table in content
+    formatTable(aggTable);
+
+    // Format details table
+    const detailTable = document.getElementById('detailTable');
+    formatTable(detailTable);
+  })();
+</script>
+
+
 {% endblock %}

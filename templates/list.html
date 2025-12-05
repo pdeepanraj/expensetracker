@@ -111,4 +111,35 @@ Repo: {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}
     });
   });
 </script>
+<script>
+  (function() {
+    const fmtCurrency = v => {
+      const n = Number(v);
+      if (isNaN(n)) return v;
+      return '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+    };
+
+    function formatTable(tableEl) {
+      if (!tableEl) return;
+      const headers = [...tableEl.tHead?.rows[0]?.cells || []].map(th => th.textContent.trim());
+      if (headers.length === 0) return;
+      const amountIdxs = headers
+        .map((h, i) => (/^amount$/i.test(h) ? i : -1))
+        .filter(i => i >= 0);
+
+      [...tableEl.tBodies].forEach(tb => {
+        [...tb.rows].forEach(row => {
+          amountIdxs.forEach(i => {
+            const td = row.cells[i];
+            if (td) td.textContent = fmtCurrency(td.textContent);
+          });
+        });
+      });
+    }
+
+    const listTable = document.querySelector('.content table');
+    formatTable(listTable);
+  })();
+</script>
+
 {% endblock %}

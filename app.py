@@ -12,6 +12,36 @@ from pipeline import make_classifier_grouped, clean_and_standardize, run_pipelin
 
 app = Flask(__name__, template_folder="templates")
 
+# ---------------- Jinja filters for formatting ----------------
+@app.template_filter('currency')
+def currency_filter(value):
+    """
+    Format a numeric value as US currency with thousand separators and two decimals.
+    Example: 12345.678 -> $12,345.68
+    """
+    try:
+        n = float(value or 0)
+        return f"${n:,.2f}"
+    except Exception:
+        return value
+
+@app.template_filter('intgroup')
+def int_group_filter(value):
+    """
+    Format integers with thousand separators.
+    Example: 12345 -> 12,345
+    If a float-like value is passed, it will be coerced to int.
+    """
+    try:
+        n = int(value or 0)
+        return f"{n:,}"
+    except Exception:
+        try:
+            n = float(value or 0)
+            return f"{int(n):,}"
+        except Exception:
+            return value
+
 # Environment variables expected:
 #   BQ_PROJECT = your GCP project ID (e.g., "deepanexpense")
 #   BQ_DATASET = BigQuery dataset (e.g., "expense_analytics")
@@ -209,8 +239,12 @@ def append_non_duplicates(records: list[dict], table_name: str):
     print(f"[DEDUP] Inserting non-duplicate rows into {target_id}")
     qjob = client.query(dedup_sql)
     qres = qjob.result()
-    # There is no rowcount on DML query job result directly; check count via query
-    count_sql = f"SELECT COUNT(*) AS cnt FROM `{staging_id}` s WHERE NOT EXISTS (SELECT 1 FROM `{target_id}` t WHERE t.RowHash = s.RowHash)"
+    # Count inserted rows
+    count_sql = f"""
+      SELECT COUNT(*) AS cnt
+      FROM `{staging_id}` s
+      WHERE NOT EXISTS (SELECT 1 FROM `{target_id}` t WHERE t.RowHash = s.RowHash)
+    """
     cnt = bq_query(count_sql)[0]["cnt"]
     print(f"[DEDUP] New rows inserted: {cnt}")
 
@@ -296,8 +330,6 @@ def process():
     path = request.form.get("path", "").strip()
     csv_paths = request.form.getlist("csv_paths")  # repo-relative paths
     json_path = request.form.get("json_path", "").strip() or None
-    # Deprecated manual card_name input in favor of filename-derived per file
-    # card_name = request.form.get("card_name", "Uploaded").strip() or "Uploaded"
 
     if not owner or not repo or not csv_paths:
         return "Please select at least one CSV.", 400
@@ -316,7 +348,7 @@ def process():
             df_clean = clean_and_standardize(df, card_name=derived_card)
             frames.append(df_clean)
 
-        # Run pipeline (outputs JSON-safe dicts after your previous patch)
+        # Run pipeline (outputs JSON-safe dicts)
         result = run_pipeline(frames, classifier)
 
         # Only load all_positive_monthly via dedup append
@@ -327,7 +359,6 @@ def process():
 
         # Redirect to dashboard with the latest month just processed
         latest_month = str(result.get("latest_month"))
-        # Include a flash message via query params
         return redirect(url_for("dashboard", month=latest_month, loaded=new_rows), code=303)
 
     except Exception as e:
@@ -352,17 +383,19 @@ def dashboard():
     where_sql, qp = apply_filters_where(filter_params)
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
     meta = get_table_metadata(TARGET_TABLE)
+
     # If no data, short-circuit
     latest_month_sql = f"SELECT Month FROM {table_id} WHERE Month IS NOT NULL ORDER BY Month DESC LIMIT 1"
     latest_month_rows = bq_query(latest_month_sql)
     if not latest_month_rows:
+        # render empty defaults
         return render_template(
             "dashboard.html",
-             latest_month=latest_month,
-            month_for_view=month_for_view,
-            top_categories=top_categories,
-            monthly_totals=monthly_totals,
-            latest_details=latest_details,
+            latest_month="",
+            month_for_view="",
+            top_categories=[],
+            monthly_totals=[],
+            latest_details=[],
             project=BQ_PROJECT,
             dataset=BQ_DATASET,
             aggregate_labels=[],
@@ -377,8 +410,9 @@ def dashboard():
             selected_main=selected_main, selected_cat=selected_cat,
             loaded=loaded,
             # Status metadata
-        table_modified=meta.get("modified"),
-    )
+            table_modified=meta.get("modified"),
+        )
+
     # Month for view defaults to selected or latest
     latest_month = latest_month_rows[0]["Month"]
     month_for_view = selected_month or latest_month
@@ -436,6 +470,7 @@ def dashboard():
         selected_month=selected_month, selected_card=selected_card,
         selected_main=selected_main, selected_cat=selected_cat,
         loaded=loaded,
+        table_modified=meta.get("modified"),
     )
 
 # ---------- Dynamic Aggregate route ----------
@@ -479,7 +514,6 @@ def aggregate():
 
     # Decide ordering: if Month is in grouping, sort by Month then Amount
     if "Month" in group_cols:
-        # If you want latest first, use DESC; otherwise ASC for chronological
         order_clause = "ORDER BY Month ASC, Amount DESC"
     else:
         order_clause = "ORDER BY Amount DESC"
@@ -492,8 +526,6 @@ def aggregate():
           {order_clause}
           LIMIT 1000
         """
-
-
     rows = bq_query(sql, params=qp)
 
     if min_amount_val is not None:
@@ -523,8 +555,8 @@ def aggregate():
         selected_month=selected_month, selected_card=selected_card,
         selected_main=selected_main, selected_cat=selected_cat,
         loaded="",
+        table_modified=get_table_metadata(TARGET_TABLE).get("modified"),
     )
-
 
 @app.get("/status")
 def status():
