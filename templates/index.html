@@ -7,8 +7,11 @@
   <p class="muted">List CSV files and run the pipeline.</p>
 </div>
 
+<button id="filtersToggleBtn" class="btn secondary filters-toggle" type="button">Show filters</button>
+
 <div class="layout">
-  <aside class="sidebar">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar collapsed">
     <div class="card">
       <h3>Quick Links</h3>
       <div class="accordion">
@@ -24,10 +27,20 @@
             </div>
           </div>
         </div>
+        <div class="accordion-item" aria-expanded="false">
+          <div class="accordion-header">
+            <span>Tips</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="accordion-panel">
+            <p class="muted">Use the sidebar filters on the dashboard to narrow your view by month, card, and categories.</p>
+          </div>
+        </div>
       </div>
     </div>
   </aside>
 
+  <!-- Content -->
   <section class="content">
     <div class="card">
       <h2>Select GitHub Repository</h2>
@@ -56,6 +69,21 @@
 
 {% block scripts %}
 <script>
+  // Mobile sidebar toggle
+  const toggleBtn = document.getElementById('filtersToggleBtn');
+  const sidebar = document.getElementById('sidebar');
+  if (toggleBtn && sidebar) {
+    const syncLabel = () => {
+      const collapsed = sidebar.classList.contains('collapsed');
+      toggleBtn.textContent = collapsed ? 'Show filters' : 'Hide filters';
+    };
+    toggleBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+      syncLabel();
+    });
+    syncLabel();
+  }
+
   // Accordions
   document.querySelectorAll('.accordion-header').forEach(h => {
     h.addEventListener('click', () => {

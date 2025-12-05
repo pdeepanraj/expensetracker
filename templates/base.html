@@ -11,6 +11,9 @@
   <header class="header">
     <h1>Expense Tracker</h1>
     <div class="meta">{% block header_meta %}{% endblock %}</div>
+    <div>
+      <button id="themeToggle" class="btn secondary" type="button" title="Toggle theme">Theme</button>
+    </div>
   </header>
 
   <nav class="nav">
@@ -28,5 +31,36 @@
   </footer>
 
   {% block scripts %}{% endblock %}
+
+  <script>
+    (function() {
+      const html = document.documentElement;
+      const key = 'app-theme';
+      const saved = localStorage.getItem(key);
+      if (saved === 'light' || saved === 'dark') {
+        html.setAttribute('data-theme', saved);
+      } else {
+        html.removeAttribute('data-theme'); // follow OS preference
+      }
+      const btn = document.getElementById('themeToggle');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          const current = html.getAttribute('data-theme');
+          const next = current === 'dark' ? 'light'
+                     : current === 'light' ? ''
+                     : 'dark';
+          if (next) {
+            html.setAttribute('data-theme', next);
+            localStorage.setItem(key, next);
+          } else {
+            html.removeAttribute('data-theme');
+            localStorage.removeItem(key);
+          }
+          const evt = new CustomEvent('theme-changed', { detail: { theme: next || 'auto' } });
+          window.dispatchEvent(evt);
+        });
+      }
+    })();
+  </script>
 </body>
 </html>

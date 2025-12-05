@@ -210,51 +210,41 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
   <!-- Content -->
   <section class="content">
     {% if aggregate_labels is defined and aggregate_labels %}
-      <div class="grid-2">
-        <div class="card">
-          <h3>Aggregate Results{% if aggregate_group_by %} (Group by: {{ aggregate_group_by }}{% if aggregate_month %}, Month={{ aggregate_month }}{% endif %}){% endif %}</h3>
-          <canvas id="aggChart" height="260"></canvas>
-        </div>
-        <div class="card">
-          <h3>Aggregate Table</h3>
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  {% if aggregate_rows and aggregate_rows[0] %}
-                    {% for k in aggregate_rows[0].keys() %}
-                      <th>{{ k }}</th>
-                    {% endfor %}
-                  {% else %}
-                    <th>Group</th><th>Amount</th>
-                  {% endif %}
-                </tr>
-              </thead>
-              <tbody>
-                {% for r in aggregate_rows %}
-                <tr>
-                  {% for v in r.values() %}
-                  <td>{{ v }}</td>
+      <!-- Aggregate: table first, chart second -->
+      <div class="card">
+        <h3>Aggregate Table{% if aggregate_group_by %} (Group by: {{ aggregate_group_by }}{% if aggregate_month %}, Month={{ aggregate_month }}{% endif %}){% endif %}</h3>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                {% if aggregate_rows and aggregate_rows[0] %}
+                  {% for k in aggregate_rows[0].keys() %}
+                    <th>{{ k }}</th>
                   {% endfor %}
-                </tr>
+                {% else %}
+                  <th>Group</th><th>Amount</th>
+                {% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in aggregate_rows %}
+              <tr>
+                {% for v in r.values() %}
+                <td>{{ v }}</td>
                 {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    {% else %}
-      <div class="grid-2">
-        <div class="card">
-          <h3>Top Categories{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
-          <canvas id="catChart" height="260"></canvas>
-        </div>
-        <div class="card">
-          <h3>Monthly Total Trend</h3>
-          <canvas id="trendChart" height="260"></canvas>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
       </div>
 
+      <div class="card">
+        <h3>Aggregate Chart</h3>
+        <canvas id="aggChart" height="260"></canvas>
+      </div>
+    {% else %}
+      <!-- Default: table first, charts second -->
       <div class="card">
         <h3>Details{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
         <input id="search" class="search" type="text" placeholder="Filter by text...">
@@ -283,83 +273,170 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
           </table>
         </div>
       </div>
+
+      <div class="card">
+        <h3>Top Categories{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
+        <canvas id="catChart" height="260"></canvas>
+      </div>
+
+      <div class="card">
+        <h3>Monthly Total Trend</h3>
+        <canvas id="trendChart" height="260"></canvas>
+      </div>
     {% endif %}
   </section>
 </div>
 {% endblock %}
 
 {% block scripts %}
-{% if aggregate_labels is defined and aggregate_labels %}
 <script>
-  const aggLabels = {{ aggregate_labels|tojson }};
-  const aggValues = {{ aggregate_values|tojson }};
-  new Chart(document.getElementById('aggChart'), {
-    type: 'bar',
-    data: {
-      labels: aggLabels,
-      datasets: [{ label: 'Amount', data: aggValues, backgroundColor: '#2d6cdf' }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { y: { ticks: { callback: v => '$' + v } } }
-    }
-  });
-</script>
-{% else %}
-<script>
-  const topCategories = {{ top_categories|tojson }};
-  const monthlyTotals = {{ monthly_totals|tojson }};
-
-  // Top categories bar chart (horizontal)
-  const catLabels = topCategories.map(x => x.Category);
-  const catValues = topCategories.map(x => x.Amount);
-  new Chart(document.getElementById('catChart'), {
-    type: 'bar',
-    data: {
-      labels: catLabels,
-      datasets: [{ label: 'Amount', data: catValues, backgroundColor: '#4e79a7' }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { x: { ticks: { callback: v => '$' + v } } }
-    }
-  });
-
-  // Monthly totals line chart
-  const trendLabels = monthlyTotals.map(x => x.Month);
-  const trendValues = monthlyTotals.map(x => x.Amount);
-  new Chart(document.getElementById('trendChart'), {
-    type: 'line',
-    data: {
-      labels: trendLabels,
-      datasets: [{ label: 'Total', data: trendValues, borderColor: '#e15759', fill: false, tension: 0.2 }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { y: { ticks: { callback: v => '$' + v } } }
-    }
-  });
-
-  // Simple table filter
-  const searchInput = document.getElementById('search');
-  const table = document.getElementById('detailTable');
-  if (searchInput && table) {
-    searchInput.addEventListener('input', () => {
-      const q = searchInput.value.toLowerCase();
-      [...table.tBodies[0].rows].forEach(row => {
-        const text = row.innerText.toLowerCase().replace(/\s+/g, ' ');
-        row.style.display = text.includes(q) ? '' : 'none';
-      });
-    });
+  // Utility to read CSS variables
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   }
-</script>
-{% endif %}
+  const fmt2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-<script>
+  // Build charts based on current theme (CSS vars)
+  let charts = [];
+  function destroyCharts() { charts.forEach(c => c.destroy()); charts = []; }
+
+  {% if aggregate_labels is defined and aggregate_labels %}
+    function buildAgg() {
+      destroyCharts();
+      const aggLabels = {{ aggregate_labels|tojson }};
+      const aggValues = {{ aggregate_values|tojson }};
+      charts.push(new Chart(document.getElementById('aggChart'), {
+        type: 'bar',
+        data: {
+          labels: aggLabels,
+          datasets: [{ label: 'Amount', data: aggValues, backgroundColor: cssVar('--primary') || '#2d6cdf' }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: cssVar('--chart-tooltip-bg') || '#1f2a44',
+              titleColor: cssVar('--chart-tooltip-text') || '#fff',
+              bodyColor: cssVar('--chart-tooltip-text') || '#fff',
+              borderColor: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)',
+              borderWidth: 1,
+              callbacks: {
+                label: ctx => ' $' + fmt2.format(Number((ctx.parsed?.y ?? ctx.raw ?? 0)))
+              }
+            }
+          },
+          scales: {
+            x: { grid: { color: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)', drawBorder: false } },
+            y: {
+              grid: { color: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)', drawBorder: false },
+              ticks: { callback: v => '$' + fmt2.format(Number(v)) }
+            }
+          }
+        }
+      }));
+    }
+    buildAgg();
+  {% else %}
+    function buildDefault() {
+      destroyCharts();
+      const topCategories = {{ top_categories|tojson }};
+      const monthlyTotals = {{ monthly_totals|tojson }};
+
+      // Top categories (horizontal)
+      const catLabels = topCategories.map(x => x.Category);
+      const catValues = topCategories.map(x => x.Amount);
+      charts.push(new Chart(document.getElementById('catChart'), {
+        type: 'bar',
+        data: {
+          labels: catLabels,
+          datasets: [{ label: 'Amount', data: catValues, backgroundColor: cssVar('--accent') || '#4e79a7' }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: cssVar('--chart-tooltip-bg') || '#1f2a44',
+              titleColor: cssVar('--chart-tooltip-text') || '#fff',
+              bodyColor: cssVar('--chart-tooltip-text') || '#fff',
+              borderColor: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)',
+              borderWidth: 1,
+              callbacks: {
+                label: ctx => ' $' + fmt2.format(Number((ctx.parsed?.x ?? ctx.raw ?? 0)))
+              }
+            }
+          },
+          scales: {
+            y: { grid: { color: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)', drawBorder: false } },
+            x: {
+              grid: { color: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)', drawBorder: false },
+              ticks: { callback: v => '$' + fmt2.format(Number(v)) }
+            }
+          }
+        }
+      }));
+
+      // Monthly totals line
+      const trendLabels = monthlyTotals.map(x => x.Month);
+      const trendValues = monthlyTotals.map(x => x.Amount);
+      charts.push(new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: {
+          labels: trendLabels,
+          datasets: [{ label: 'Total', data: trendValues, borderColor: cssVar('--primary') || '#2d6cdf', fill: false, tension: 0.2 }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: cssVar('--chart-tooltip-bg') || '#1f2a44',
+              titleColor: cssVar('--chart-tooltip-text') || '#fff',
+              bodyColor: cssVar('--chart-tooltip-text') || '#fff',
+              borderColor: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)',
+              borderWidth: 1,
+              callbacks: {
+                label: ctx => ' $' + fmt2.format(Number((ctx.parsed?.y ?? ctx.raw ?? 0)))
+              }
+            }
+          },
+          scales: {
+            x: { grid: { color: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)', drawBorder: false } },
+            y: {
+              grid: { color: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)', drawBorder: false },
+              ticks: { callback: v => '$' + fmt2.format(Number(v)) }
+            }
+          }
+        }
+      }));
+
+      // Table filter
+      const searchInput = document.getElementById('search');
+      const table = document.getElementById('detailTable');
+      if (searchInput && table) {
+        searchInput.addEventListener('input', () => {
+          const q = searchInput.value.toLowerCase();
+          [...table.tBodies[0].rows].forEach(row => {
+            const text = row.innerText.toLowerCase().replace(/\s+/g, ' ');
+            row.style.display = text.includes(q) ? '' : 'none';
+          });
+        });
+      }
+    }
+    buildDefault();
+  {% endif %}
+
+  // Rebuild charts on theme change
+  window.addEventListener('theme-changed', () => {
+    {% if aggregate_labels is defined and aggregate_labels %}
+      buildAgg();
+    {% else %}
+      buildDefault();
+    {% endif %}
+  });
+
   // Mobile toggle for sidebar
   const toggleBtn = document.getElementById('filtersToggleBtn');
   const sidebar = document.getElementById('sidebar');
