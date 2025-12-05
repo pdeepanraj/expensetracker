@@ -3,6 +3,9 @@
 
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  /* Local page tweaks if needed (kept minimal; core styles live in style.css) */
+</style>
 {% endblock %}
 
 {% block header_meta %}
@@ -27,207 +30,271 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
 </div>
 {% endif %}
 
-<!-- Controls row: Filters + Dynamic Grouping side by side -->
-<div class="grid-2">
-  <!-- Filters -->
-  <div class="card">
-    <h3>Filters</h3>
-    <form method="get" action="/dashboard">
-      <div class="grid-2">
-        <div>
-          <label>Month</label>
-          <select name="month">
-            <option value="">All</option>
-            {% for m in months %}
-              <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label>CardName</label>
-          <select name="card">
-            <option value="">All</option>
-            {% for c in cards %}
-              <option value="{{ c }}" {% if selected_card == c %}selected{% endif %}>{{ c }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label>MainCategory</label>
-          <select name="main">
-            <option value="">All</option>
-            {% for mc in mains %}
-              <option value="{{ mc }}" {% if selected_main == mc %}selected{% endif %}>{{ mc }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label>Category</label>
-          <select name="cat">
-            <option value="">All</option>
-            {% for ct in cats %}
-              <option value="{{ ct }}" {% if selected_cat == ct %}selected{% endif %}>{{ ct }}</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-      <div class="actions">
-        <button type="submit">Apply</button>
-        <a class="btn secondary" href="/dashboard">Reset</a>
-      </div>
-    </form>
-  </div>
-
-  <!-- Dynamic Grouping -->
-  <div class="card">
-    <h3>Dynamic Grouping</h3>
-    <form method="get" action="/aggregate">
-      <div class="grid-2">
-        <div>
-          <label>Group by</label>
-          <div class="checkbox-group">
-            <label>
-              <input type="checkbox" name="group_by" value="Month"
-                     {% if aggregate_group_by and 'Month' in aggregate_group_by.split(',') %}checked{% endif %}>
-              Month
-            </label>
-            <label>
-              <input type="checkbox" name="group_by" value="CardName"
-                     {% if aggregate_group_by and 'CardName' in aggregate_group_by.split(',') %}checked{% endif %}>
-              CardName
-            </label>
-            <label>
-              <input type="checkbox" name="group_by" value="MainCategory"
-                     {% if aggregate_group_by and 'MainCategory' in aggregate_group_by.split(',') %}checked{% endif %}>
-              MainCategory
-            </label>
-            <label>
-              <input type="checkbox" name="group_by" value="Category"
-                     {% if (not aggregate_group_by) or 'Category' in aggregate_group_by.split(',') %}checked{% endif %}>
-              Category
-            </label>
-          </div>
-          <p class="muted">Select one or more grouping columns</p>
-        </div>
-        <div>
-          <label>Use current filters</label>
-          <div class="inline">
-            <select name="month">
-              <option value="">All</option>
-              {% for m in months %}
-                <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
-              {% endfor %}
-            </select>
-            <select name="card">
-              <option value="">All</option>
-              {% for c in cards %}
-                <option value="{{ c }}" {% if selected_card == c %}selected{% endif %}>{{ c }}</option>
-              {% endfor %}
-            </select>
-            <select name="main">
-              <option value="">All</option>
-              {% for mc in mains %}
-                <option value="{{ mc }}" {% if selected_main == mc %}selected{% endif %}>{{ mc }}</option>
-              {% endfor %}
-            </select>
-            <select name="cat">
-              <option value="">All</option>
-              {% for ct in cats %}
-                <option value="{{ ct }}" {% if selected_cat == ct %}selected{% endif %}>{{ ct }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <label for="min_amount">Minimum amount (optional)</label>
-          <input id="min_amount" name="min_amount" type="text" placeholder="e.g., 10" value="{{ aggregate_min_amount or '' }}">
-        </div>
-      </div>
-      <div class="actions">
-        <button type="submit">Run</button>
-      </div>
-    </form>
-  </div>
+<!-- Page intro -->
+<div class="card" style="padding: 20px; border: none; box-shadow: none; background: transparent; margin-bottom: 8px;">
+  <h3 style="font-size: 20px; margin: 0 0 6px;">Your Expenses</h3>
+  <p class="muted">Filter, group, and visualize your spend.</p>
 </div>
 
-{% if aggregate_labels is defined and aggregate_labels %}
-  <!-- Aggregate row: chart and table aligned -->
-  <div class="grid-2">
-    <div class="card">
-      <h3>Aggregate Results{% if aggregate_group_by %} (Group by: {{ aggregate_group_by }}{% if aggregate_month %}, Month={{ aggregate_month }}{% endif %}){% endif %}</h3>
-      <canvas id="aggChart" height="260"></canvas>
-    </div>
+<!-- Mobile toggle for sidebar -->
+<button id="filtersToggleBtn" class="btn secondary filters-toggle" type="button">Show filters</button>
 
+<!-- New layout: left sidebar + right content -->
+<div class="layout">
+  <!-- Left: Sidebar -->
+  <aside id="sidebar" class="sidebar collapsed">
+    <!-- Filters -->
     <div class="card">
-      <h3>Aggregate Table</h3>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              {% if aggregate_rows and aggregate_rows[0] %}
-                {% for k in aggregate_rows[0].keys() %}
-                  <th>{{ k }}</th>
-                {% endfor %}
-              {% else %}
-                <th>Group</th><th>Amount</th>
-              {% endif %}
-            </tr>
-          </thead>
-          <tbody>
-            {% for r in aggregate_rows %}
-            <tr>
-              {% for v in r.values() %}
-              <td>{{ v }}</td>
-              {% endfor %}
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <h3>Filters</h3>
+      <div class="accordion">
+        <div class="accordion-item" aria-expanded="true">
+          <div class="accordion-header">
+            <span>Time</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="accordion-panel">
+            <form method="get" action="/dashboard">
+              <div class="grid-2">
+                <div>
+                  <label>Month</label>
+                  <select name="month">
+                    <option value="">All</option>
+                    {% for m in months %}
+                      <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="actions">
+                <button type="submit">Apply</button>
+                <a class="btn secondary" href="/dashboard">Reset</a>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="accordion-item" aria-expanded="true">
+          <div class="accordion-header">
+            <span>Payment</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="accordion-panel">
+            <form method="get" action="/dashboard">
+              <div class="grid-2">
+                <div>
+                  <label>CardName</label>
+                  <select name="card">
+                    <option value="">All</option>
+                    {% for c in cards %}
+                      <option value="{{ c }}" {% if selected_card == c %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="actions">
+                <button type="submit">Apply</button>
+                <a class="btn secondary" href="/dashboard">Reset</a>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="accordion-item" aria-expanded="true">
+          <div class="accordion-header">
+            <span>Categories</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="accordion-panel">
+            <form method="get" action="/dashboard">
+              <div class="grid-2">
+                <div>
+                  <label>MainCategory</label>
+                  <select name="main">
+                    <option value="">All</option>
+                    {% for mc in mains %}
+                      <option value="{{ mc }}" {% if selected_main == mc %}selected{% endif %}>{{ mc }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div>
+                  <label>Category</label>
+                  <select name="cat">
+                    <option value="">All</option>
+                    {% for ct in cats %}
+                      <option value="{{ ct }}" {% if selected_cat == ct %}selected{% endif %}>{{ ct }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="actions">
+                <button type="submit">Apply</button>
+                <a class="btn secondary" href="/dashboard">Reset</a>
+              </div>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-{% else %}
-  <!-- Default charts row -->
-  <div class="grid-2">
-    <div class="card">
-      <h3>Top Categories{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
-      <canvas id="catChart" height="260"></canvas>
-    </div>
 
+    <!-- Dynamic Grouping -->
     <div class="card">
-      <h3>Monthly Total Trend</h3>
-      <canvas id="trendChart" height="260"></canvas>
+      <h3>Dynamic Grouping</h3>
+      <div class="accordion">
+        <div class="accordion-item" aria-expanded="true">
+          <div class="accordion-header">
+            <span>Group by</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="accordion-panel">
+            <form method="get" action="/aggregate">
+              <div class="grid-2">
+                <div>
+                  <div class="checkbox-group">
+                    <label>
+                      <input type="checkbox" name="group_by" value="Month"
+                             {% if aggregate_group_by and 'Month' in aggregate_group_by.split(',') %}checked{% endif %}>
+                      Month
+                    </label>
+                    <label>
+                      <input type="checkbox" name="group_by" value="CardName"
+                             {% if aggregate_group_by and 'CardName' in aggregate_group_by.split(',') %}checked{% endif %}>
+                      CardName
+                    </label>
+                    <label>
+                      <input type="checkbox" name="group_by" value="MainCategory"
+                             {% if aggregate_group_by and 'MainCategory' in aggregate_group_by.split(',') %}checked{% endif %}>
+                      MainCategory
+                    </label>
+                    <label>
+                      <input type="checkbox" name="group_by" value="Category"
+                             {% if (not aggregate_group_by) or 'Category' in aggregate_group_by.split(',') %}checked{% endif %}>
+                      Category
+                    </label>
+                  </div>
+                  <p class="muted">Select one or more grouping columns</p>
+                </div>
+                <div>
+                  <label>Use current filters</label>
+                  <div class="inline">
+                    <select name="month">
+                      <option value="">All</option>
+                      {% for m in months %}
+                        <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
+                      {% endfor %}
+                    </select>
+                    <select name="card">
+                      <option value="">All</option>
+                      {% for c in cards %}
+                        <option value="{{ c }}" {% if selected_card == c %}selected{% endif %}>{{ c }}</option>
+                      {% endfor %}
+                    </select>
+                    <select name="main">
+                      <option value="">All</option>
+                      {% for mc in mains %}
+                        <option value="{{ mc }}" {% if selected_main == mc %}selected{% endif %}>{{ mc }}</option>
+                      {% endfor %}
+                    </select>
+                    <select name="cat">
+                      <option value="">All</option>
+                      {% for ct in cats %}
+                        <option value="{{ ct }}" {% if selected_cat == ct %}selected{% endif %}>{{ ct }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <label for="min_amount">Minimum amount (optional)</label>
+                  <input id="min_amount" name="min_amount" type="text" placeholder="e.g., 10" value="{{ aggregate_min_amount or '' }}">
+                </div>
+              </div>
+              <div class="actions">
+                <button type="submit">Run</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
+  </aside>
 
-  <!-- Details table full-width -->
-  <div class="card">
-    <h3>Details{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
-    <input id="search" class="search" type="text" placeholder="Filter by text...">
-    <div class="table-scroll">
-      <table id="detailTable">
-        <thead>
-          <tr>
-            <th>CardName</th>
-            <th>MainCategory</th>
-            <th>Category</th>
-            <th>Description</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in latest_details %}
-          <tr>
-            <td>{{ r.CardName }}</td>
-            <td>{{ r.MainCategory }}</td>
-            <td>{{ r.Category }}</td>
-            <td>{{ r.Description }}</td>
-            <td>{{ "%.2f"|format(r.Amount or 0) }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-{% endif %}
+  <!-- Right: Main content -->
+  <section class="content">
+    {% if aggregate_labels is defined and aggregate_labels %}
+      <div class="grid-2">
+        <div class="card">
+          <h3>Aggregate Results{% if aggregate_group_by %} (Group by: {{ aggregate_group_by }}{% if aggregate_month %}, Month={{ aggregate_month }}{% endif %}){% endif %}</h3>
+          <canvas id="aggChart" height="260"></canvas>
+        </div>
+        <div class="card">
+          <h3>Aggregate Table</h3>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  {% if aggregate_rows and aggregate_rows[0] %}
+                    {% for k in aggregate_rows[0].keys() %}
+                      <th>{{ k }}</th>
+                    {% endfor %}
+                  {% else %}
+                    <th>Group</th><th>Amount</th>
+                  {% endif %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in aggregate_rows %}
+                <tr>
+                  {% for v in r.values() %}
+                  <td>{{ v }}</td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <div class="grid-2">
+        <div class="card">
+          <h3>Top Categories{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
+          <canvas id="catChart" height="260"></canvas>
+        </div>
+
+        <div class="card">
+          <h3>Monthly Total Trend</h3>
+          <canvas id="trendChart" height="260"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Details{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
+        <input id="search" class="search" type="text" placeholder="Filter by text...">
+        <div class="table-scroll">
+          <table id="detailTable">
+            <thead>
+              <tr>
+                <th>CardName</th>
+                <th>MainCategory</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in latest_details %}
+              <tr>
+                <td>{{ r.CardName }}</td>
+                <td>{{ r.MainCategory }}</td>
+                <td>{{ r.Category }}</td>
+                <td>{{ r.Description }}</td>
+                <td>{{ "%.2f"|format(r.Amount or 0) }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+  </section>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -245,19 +312,9 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
       responsive: true,
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => ' $' + Number((ctx.parsed && ctx.parsed.y) ?? ctx.raw ?? 0).toFixed(2)
-          }
-        }
+        tooltip: { callbacks: { label: ctx => ' $' + Number((ctx.parsed?.y ?? ctx.raw ?? 0)).toFixed(2) } }
       },
-      scales: {
-        y: {
-          ticks: {
-            callback: v => '$' + Number(v).toFixed(2)
-          }
-        }
-      }
+      scales: { y: { ticks: { callback: v => '$' + Number(v).toFixed(2) } } }
     }
   });
 </script>
@@ -280,17 +337,9 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
       responsive: true,
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => ' $' + Number((ctx.parsed && ctx.parsed.x) ?? ctx.raw ?? 0).toFixed(2)
-          }
-        }
+        tooltip: { callbacks: { label: ctx => ' $' + Number((ctx.parsed?.x ?? ctx.raw ?? 0)).toFixed(2) } }
       },
-      scales: {
-        x: {
-          ticks: { callback: v => '$' + Number(v).toFixed(2) }
-        }
-      }
+      scales: { x: { ticks: { callback: v => '$' + Number(v).toFixed(2) } } }
     }
   });
 
@@ -307,28 +356,43 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
       responsive: true,
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => ' $' + Number((ctx.parsed && ctx.parsed.y) ?? ctx.raw ?? 0).toFixed(2)
-          }
-        }
+        tooltip: { callbacks: { label: ctx => ' $' + Number((ctx.parsed?.y ?? ctx.raw ?? 0)).toFixed(2) } }
       },
-      scales: {
-        y: {
-          ticks: { callback: v => '$' + Number(v).toFixed(2) }
-        }
-      }
+      scales: { y: { ticks: { callback: v => '$' + Number(v).toFixed(2) } } }
     }
   });
 
   // Simple table filter
   const searchInput = document.getElementById('search');
   const table = document.getElementById('detailTable');
-  searchInput.addEventListener('input', () => {
-    const q = searchInput.value.toLowerCase();
-    [...table.tBodies[0].rows].forEach(row => {
-      const text = row.innerText.toLowerCase().replace(/\s+/g, ' ');
-      row.style.display = text.includes(q) ? '' : 'none';
+  if (searchInput && table) {
+    searchInput.addEventListener('input', () => {
+      const q = searchInput.value.toLowerCase();
+      [...table.tBodies[0].rows].forEach(row => {
+        const text = row.innerText.toLowerCase().replace(/\s+/g, ' ');
+        row.style.display = text.includes(q) ? '' : 'none';
+      });
+    });
+  }
+
+  // Sidebar behavior (mobile toggle and accordions)
+  const toggleBtn = document.getElementById('filtersToggleBtn');
+  const sidebar = document.getElementById('sidebar');
+  if (toggleBtn && sidebar) {
+    const syncLabel = () => {
+      const collapsed = sidebar.classList.contains('collapsed');
+      toggleBtn.textContent = collapsed ? 'Show filters' : 'Hide filters';
+    };
+    toggleBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed'); syncLabel();
+    });
+    syncLabel();
+  }
+  document.querySelectorAll('.accordion-header').forEach(h => {
+    h.addEventListener('click', () => {
+      const item = h.parentElement;
+      const expanded = item.getAttribute('aria-expanded') === 'true';
+      item.setAttribute('aria-expanded', expanded ? 'false' : 'true');
     });
   });
 </script>
