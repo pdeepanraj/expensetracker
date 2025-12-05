@@ -559,13 +559,15 @@ def aggregate():
         table_modified=get_table_metadata(TARGET_TABLE).get("modified"),
     )
 
+from markupsafe import escape
+
 @app.get("/review")
 def review_get():
     # Filters to narrow down rows to review (Month required)
     month = request.args.get("month", "").strip()
     card = request.args.get("card", "").strip() or None
     main = request.args.get("main", "").strip() or None
-    cat = request.args.get("cat", "").strip() or None
+    cat  = request.args.get("cat", "").strip() or None
 
     months, cards, mains, cats = get_distinct_filters()
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
@@ -587,31 +589,37 @@ def review_get():
         """
         rows = bq_query(sql, params=qp)
 
+    # Optional: pass a status message (e.g., from POST)
+    msg = request.args.get("msg", "").strip()
+    msg_type = request.args.get("msg_type", "").strip()  # 'ok' or 'error'
+
     return render_template(
         "review.html",
         project=BQ_PROJECT, dataset=BQ_DATASET,
         months=months, cards=cards, mains=mains, cats=cats,
         selected_month=month, selected_card=card, selected_main=main, selected_cat=cat,
-        review_rows=rows
+        review_rows=rows,
+        message=msg, message_type=msg_type
     )
 
 @app.post("/review")
 def review_post():
     # Inputs from the form
-    rowhash = request.form.get("rowhash", "").strip()
+    rowhash    = request.form.get("rowhash", "").strip()
     percentage = request.form.get("percentage", "").strip()
-    note = request.form.get("note", "").strip()
-    month = request.form.get("month", "").strip()  # for redirect back with context
+    note       = request.form.get("note", "").strip()
+    month      = request.form.get("month", "").strip()  # for redirect back with context
 
     if not rowhash or not percentage:
-        return "rowhash and percentage are required", 400
+        return redirect(url_for("review_get", month=month, msg="rowhash and percentage are required", msg_type="error"), code=303)
 
+    # Validate percentage
     try:
         pct = float(percentage)
         if pct < 0 or pct > 100:
-            return "percentage must be between 0 and 100", 400
+            return redirect(url_for("review_get", month=month, msg="percentage must be between 0 and 100", msg_type="error"), code=303)
     except ValueError:
-        return "percentage must be numeric", 400
+        return redirect(url_for("review_get", month=month, msg="percentage must be numeric", msg_type="error"), code=303)
 
     # Fetch original row to compute adjusted amount
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
@@ -623,9 +631,14 @@ def review_post():
     """
     recs = bq_query(sel_sql, params={"rowhash": rowhash})
     if not recs:
-        return "Row not found", 404
+        return redirect(url_for("review_get", month=month, msg="Row not found", msg_type="error"), code=303)
+
     original_amount = float(recs[0].get("Amount") or 0.0)
-    existing_comment = recs[0].get("Comment") or ""
+    existing_comment = (recs[0].get("Comment") or "").strip()
+
+    # Safeguard: don’t adjust twice if already reviewed
+    if "[REVIEW]" in existing_comment:
+        return redirect(url_for("review_get", month=month, msg="This row was already reviewed. No changes applied.", msg_type="error"), code=303)
 
     # Compute share
     share_amount = round(original_amount * (pct / 100.0), 2)
@@ -658,8 +671,9 @@ def review_post():
     )
     job.result()
 
-    # Redirect back to review page for the same month
-    return redirect(url_for("review_get", month=month), code=303)
+    msg = f"Adjusted to {fmt_share} ({pct:.2f}%). Review note saved."
+    return redirect(url_for("review_get", month=month, msg=msg, msg_type="ok"), code=303)
+
 
 
 @app.get("/status")
