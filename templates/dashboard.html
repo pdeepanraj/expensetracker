@@ -243,9 +243,20 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
     },
     options: {
       responsive: true,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ' $' + Number((ctx.parsed && ctx.parsed.y) ?? ctx.raw ?? 0).toFixed(2)
+          }
+        }
+      },
       scales: {
-        y: { ticks: { callback: v => '$' + v } }
+        y: {
+          ticks: {
+            callback: v => '$' + Number(v).toFixed(2)
+          }
+        }
       }
     }
   });
@@ -255,7 +266,7 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
   const topCategories = {{ top_categories|tojson }};
   const monthlyTotals = {{ monthly_totals|tojson }};
 
-  // Top categories bar chart
+  // Top categories bar chart (horizontal)
   const catLabels = topCategories.map(x => x.Category);
   const catValues = topCategories.map(x => x.Amount);
   new Chart(document.getElementById('catChart'), {
@@ -267,8 +278,19 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
     options: {
       indexAxis: 'y',
       responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { x: { ticks: { callback: v => '$' + v } } }
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ' $' + Number((ctx.parsed && ctx.parsed.x) ?? ctx.raw ?? 0).toFixed(2)
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { callback: v => '$' + Number(v).toFixed(2) }
+        }
+      }
     }
   });
 
@@ -283,8 +305,19 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
     },
     options: {
       responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { y: { ticks: { callback: v => '$' + v } } }
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ' $' + Number((ctx.parsed && ctx.parsed.y) ?? ctx.raw ?? 0).toFixed(2)
+          }
+        }
+      },
+      scales: {
+        y: {
+          ticks: { callback: v => '$' + Number(v).toFixed(2) }
+        }
+      }
     }
   });
 
