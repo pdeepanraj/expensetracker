@@ -6,42 +6,58 @@ Repo: {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="card">
-  <h2>CSV files{% if files and files|length > 0 %} ({{ files|length }}){% endif %}</h2>
+<div class="card" style="padding: 16px; border: none; box-shadow: none; background: transparent; margin-bottom: 8px;">
+  <h3 style="margin:0 0 6px;">CSV files{% if files and files|length > 0 %} ({{ files|length }}){% endif %}</h3>
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
+</div>
 
-  {% if files and files|length > 0 %}
-  <form method="post" action="/process">
-    <input type="hidden" name="owner" value="{{ owner }}">
-    <input type="hidden" name="repo" value="{{ repo }}">
-    <input type="hidden" name="branch" value="{{ branch }}">
-    <input type="hidden" name="path" value="{{ path }}">
-
-    <div class="select-all">
-      <label><input type="checkbox" id="selectAll"> Select All</label>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="card">
+      <h3>Actions</h3>
+      <div class="accordion">
+        <div class="accordion-item" aria-expanded="true">
+          <div class="accordion-header">
+            <span>Select</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="accordion-panel">
+            <label><input type="checkbox" id="selectAll"> Select All</label>
+          </div>
+        </div>
+      </div>
     </div>
+  </aside>
 
-    <div class="checkbox-list">
-      {% for f in files %}
-        <label class="checkbox-item">
-          <input type="checkbox" name="csv_paths" value="{{ f.path }}"> {{ f.name }}
-        </label>
-      {% endfor %}
+  <section class="content">
+    <div class="card">
+      {% if files and files|length > 0 %}
+      <form method="post" action="/process">
+        <input type="hidden" name="owner" value="{{ owner }}">
+        <input type="hidden" name="repo" value="{{ repo }}">
+        <input type="hidden" name="branch" value="{{ branch }}">
+        <input type="hidden" name="path" value="{{ path }}">
+
+        <div class="checkbox-list">
+          {% for f in files %}
+            <label class="checkbox-item">
+              <input type="checkbox" name="csv_paths" value="{{ f.path }}"> {{ f.name }}
+            </label>
+          {% endfor %}
+        </div>
+
+        <label>categories_grouped.json path in repo (optional)</label>
+        <input type="text" name="json_path" placeholder="categories_grouped.json">
+
+        <div class="actions">
+          <button type="submit">Run Pipeline</button>
+        </div>
+      </form>
+      {% else %}
+        <p class="muted">No CSV files found in this folder.</p>
+      {% endif %}
     </div>
-
-    <label>Card Name</label>
-    <input type="text" name="card_name" value="Uploaded" required>
-
-    <label>categories_grouped.json path in repo (optional)</label>
-    <input type="text" name="json_path" placeholder="categories_grouped.json">
-
-    <div class="actions">
-      <button type="submit">Run Pipeline</button>
-    </div>
-  </form>
-  {% else %}
-    <p class="muted">No CSV files found in this folder.</p>
-  {% endif %}
+  </section>
 </div>
 {% endblock %}
 
@@ -53,5 +69,13 @@ Repo: {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}
       document.querySelectorAll('input[name="csv_paths"]').forEach(cb => cb.checked = selectAll.checked);
     });
   }
+  // Accordions
+  document.querySelectorAll('.accordion-header').forEach(h => {
+    h.addEventListener('click', () => {
+      const item = h.parentElement;
+      const expanded = item.getAttribute('aria-expanded') === 'true';
+      item.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+    });
+  });
 </script>
 {% endblock %}
