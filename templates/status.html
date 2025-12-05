@@ -11,8 +11,11 @@
   <p class="muted">Dataset and recent activity</p>
 </div>
 
+<button id="filtersToggleBtn" class="btn secondary filters-toggle" type="button">Show filters</button>
+
 <div class="layout">
-  <aside class="sidebar">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar collapsed">
     <div class="card">
       <h3>Actions</h3>
       <div class="accordion">
@@ -24,6 +27,7 @@
           <div class="accordion-panel">
             <div class="inline" style="flex-direction: column; align-items: stretch;">
               <a class="btn" href="/dashboard">Open Dashboard</a>
+              <a class="btn secondary" href="/">Home</a>
             </div>
           </div>
         </div>
@@ -31,6 +35,7 @@
     </div>
   </aside>
 
+  <!-- Content -->
   <section class="content">
     <div class="grid-2">
       <div class="card">
@@ -77,6 +82,21 @@
 
 {% block scripts %}
 <script>
+  // Mobile sidebar toggle
+  const toggleBtn = document.getElementById('filtersToggleBtn');
+  const sidebar = document.getElementById('sidebar');
+  if (toggleBtn && sidebar) {
+    const syncLabel = () => {
+      const collapsed = sidebar.classList.contains('collapsed');
+      toggleBtn.textContent = collapsed ? 'Show filters' : 'Hide filters';
+    };
+    toggleBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+      syncLabel();
+    });
+    syncLabel();
+  }
+
   // Accordions
   document.querySelectorAll('.accordion-header').forEach(h => {
     h.addEventListener('click', () => {
