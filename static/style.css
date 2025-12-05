@@ -63,6 +63,7 @@ body {
   margin-bottom: 24px;
   box-shadow: var(--shadow);
 }
+.card h2 { margin: 0 0 8px; font-size: 22px; }
 .card h3 { margin: 0 0 10px; font-size: 18px; }
 .card .muted { margin-top: 6px; }
 
@@ -153,21 +154,15 @@ canvas {
 }
 
 /* Small utilities */
-.kpi {
-  display:flex; gap: 16px; flex-wrap: wrap;
-}
+.kpi { display:flex; gap: 16px; flex-wrap: wrap; }
 .kpi .pill {
   background: #ffffff; border: 1px solid var(--border); border-radius: 999px;
   padding: 8px 12px; box-shadow: var(--shadow);
 }
-.hr {
-  height: 1px; background: var(--border); border: 0; margin: 16px 0;
-}
+.hr { height: 1px; background: var(--border); border: 0; margin: 16px 0; }
 
 /* Focus visible for accessibility */
-:focus-visible {
-  outline: none; box-shadow: var(--focus-ring);
-}
+:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* Responsive tweaks */
 @media (max-width: 700px) {
@@ -182,3 +177,44 @@ canvas {
   to   { opacity: 1; transform: translateY(0); }
 }
 .card { animation: cardIn 220ms ease; }
+
+/* ------- Sidebar layout additions ------- */
+
+/* Two-column layout: sidebar + content */
+.layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+}
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+/* Sidebar behavior */
+.sidebar .card { margin-bottom: 24px; }
+/* Stack inner grid vertically inside sidebar for compact controls */
+.sidebar .grid-2 { grid-template-columns: 1fr; gap: 12px; }
+
+/* Sticky sidebar on desktop */
+@media (min-width: 901px) {
+  .sidebar { position: sticky; top: 24px; align-self: start; }
+}
+
+/* Accordions */
+.accordion { border-top: 1px solid var(--border); margin-top: 8px; }
+.accordion-item { border-bottom: 1px solid var(--border); }
+.accordion-header {
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer; padding: 10px 0; font-weight: 600;
+}
+.accordion-header .chev { transition: transform 160ms ease; }
+.accordion-item[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.accordion-panel { display: none; padding: 8px 0 12px; }
+.accordion-item[aria-expanded="true"] .accordion-panel { display: block; }
+
+/* Mobile filters toggle */
+.filters-toggle { display: none; margin-bottom: 12px; }
+@media (max-width: 900px) {
+  .filters-toggle { display: inline-block; }
+  .sidebar.collapsed { display: none; }
+}
