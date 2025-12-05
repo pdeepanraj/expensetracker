@@ -11,8 +11,11 @@ Repo: {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
 </div>
 
+<button id="filtersToggleBtn" class="btn secondary filters-toggle" type="button">Show filters</button>
+
 <div class="layout">
-  <aside class="sidebar">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar collapsed">
     <div class="card">
       <h3>Actions</h3>
       <div class="accordion">
@@ -25,10 +28,23 @@ Repo: {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}
             <label><input type="checkbox" id="selectAll"> Select All</label>
           </div>
         </div>
+        <div class="accordion-item" aria-expanded="false">
+          <div class="accordion-header">
+            <span>Navigation</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="accordion-panel">
+            <div class="inline" style="flex-direction: column; align-items: stretch;">
+              <a class="btn" href="/dashboard">Open Dashboard</a>
+              <a class="btn secondary" href="/status">View Status</a>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </aside>
 
+  <!-- Content -->
   <section class="content">
     <div class="card">
       {% if files and files|length > 0 %}
@@ -63,12 +79,29 @@ Repo: {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}
 
 {% block scripts %}
 <script>
+  // Select all helper
   const selectAll = document.getElementById('selectAll');
   if (selectAll) {
     selectAll.addEventListener('change', () => {
       document.querySelectorAll('input[name="csv_paths"]').forEach(cb => cb.checked = selectAll.checked);
     });
   }
+
+  // Mobile sidebar toggle
+  const toggleBtn = document.getElementById('filtersToggleBtn');
+  const sidebar = document.getElementById('sidebar');
+  if (toggleBtn && sidebar) {
+    const syncLabel = () => {
+      const collapsed = sidebar.classList.contains('collapsed');
+      toggleBtn.textContent = collapsed ? 'Show filters' : 'Hide filters';
+    };
+    toggleBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+      syncLabel();
+    });
+    syncLabel();
+  }
+
   // Accordions
   document.querySelectorAll('.accordion-header').forEach(h => {
     h.addEventListener('click', () => {
