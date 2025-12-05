@@ -227,14 +227,18 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
               </tr>
             </thead>
             <tbody>
-              {% for r in aggregate_rows %}
-              <tr>
-                {% for k, v in r.items() %} {% if k == 'Amount' %} {{ (v or 0)|currency }} {% else %} {{ v }} {% endif %} {% endfor %}
-                <td>{{ v }}</td>
-                {% endfor %}
-              </tr>
-              {% endfor %}
-            </tbody>
+  {% for r in aggregate_rows %}
+  <tr>
+    {% for k, v in r.items() %}
+      {% if k == 'Amount' %}
+        <td>{{ (v or 0)|currency }}</td>
+      {% else %}
+        <td>{{ v }}</td>
+      {% endif %}
+    {% endfor %}
+  </tr>
+  {% endfor %}
+</tbody>
           </table>
         </div>
       </div>
