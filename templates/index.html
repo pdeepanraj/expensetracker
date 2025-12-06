@@ -1,67 +1,122 @@
 {% extends "base.html" %}
-{% block title %}Select GitHub Repo{% endblock %}
+{% block title %}Review & Adjust{% endblock %}
+
+{% block header_meta %}
+{{ project }}.{{ dataset }}.all_positive_monthly
+{% endblock %}
 
 {% block content %}
-<div class="card" style="padding: 16px; border: none; box-shadow: none; background: transparent; margin-bottom: 8px;">
-  <h3 style="margin:0 0 6px;">Select GitHub Repository</h3>
-  <p class="muted">List CSV files and run the pipeline.</p>
+<div class="card" style="padding:16px; border:none; box-shadow:none; background:transparent; margin-bottom:8px;">
+  <h3 style="margin:0 0 6px;">Review & Adjust</h3>
+  <p class="muted">Select a month and optional filters, then set your percentage share and note per transaction.</p>
 </div>
+
+{% if message %}
+<div class="card" style="border-color: {{ 'var(--border)' if message_type != 'error' else '#ffccd2' }};">
+  <p class="{{ 'muted' if message_type != 'error' else 'error' }}">{{ message }}</p>
+</div>
+{% endif %}
 
 <button id="filtersToggleBtn" class="btn secondary filters-toggle" type="button">Show filters</button>
 
 <div class="layout">
-  <!-- Sidebar -->
+  <!-- Sidebar: filters -->
   <aside id="sidebar" class="sidebar collapsed">
     <div class="card">
-      <h3>Quick Links</h3>
-      <div class="accordion">
-        <div class="accordion-item" aria-expanded="true">
-          <div class="accordion-header">
-            <span>Navigate</span>
-            <span class="chev">›</span>
+      <h3>Filters</h3>
+      <form method="get" action="/review">
+        <div class="grid-2">
+          <div>
+            <label>Month</label>
+            <select name="month" required>
+              <option value="">-- Select --</option>
+              {% for m in months %}
+                <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
+              {% endfor %}
+            </select>
           </div>
-          <div class="accordion-panel">
-            <div class="inline" style="flex-direction: column; align-items: stretch;">
-              <a class="btn" href="/dashboard">Open Dashboard</a>
-              <a class="btn secondary" href="/status">View Status</a>
-            </div>
+          <div>
+            <label>CardName</label>
+            <select name="card">
+              <option value="">All</option>
+              {% for c in cards %}
+                <option value="{{ c }}" {% if selected_card == c %}selected{% endif %}>{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>MainCategory</label>
+            <select name="main">
+              <option value="">All</option>
+              {% for mc in mains %}
+                <option value="{{ mc }}" {% if selected_main == mc %}selected{% endif %}>{{ mc }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>Category</label>
+            <select name="cat">
+              <option value="">All</option>
+              {% for ct in cats %}
+                <option value="{{ ct }}" {% if selected_cat == ct %}selected{% endif %}>{{ ct }}</option>
+              {% endfor %}
+            </select>
           </div>
         </div>
-        <div class="accordion-item" aria-expanded="false">
-          <div class="accordion-header">
-            <span>Tips</span>
-            <span class="chev">›</span>
-          </div>
-          <div class="accordion-panel">
-            <p class="muted">Use the sidebar filters on the dashboard to narrow your view by month, card, and categories.</p>
-          </div>
+        <div class="actions">
+          <button type="submit">Load</button>
+          <a class="btn secondary" href="/review">Reset</a>
         </div>
-      </div>
+      </form>
     </div>
   </aside>
 
-  <!-- Content -->
+  <!-- Content: table with inline reviewers -->
   <section class="content">
     <div class="card">
-      <h2>Select GitHub Repository</h2>
-      <form method="get" action="/list">
-        <label>Owner (user or org)</label>
-        <input type="text" name="owner" required placeholder="octocat">
-
-        <label>Repo</label>
-        <input type="text" name="repo" required placeholder="hello-world">
-
-        <label>Branch (default main)</label>
-        <input type="text" name="branch" placeholder="main">
-
-        <label>Path (folder within repo, default root)</label>
-        <input type="text" name="path" placeholder="">
-
-        <div class="actions">
-          <button type="submit">List CSV files</button>
-          <a class="btn secondary" href="/dashboard">View Dashboard</a>
-        </div>
-      </form>
+      <h3>Transactions{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
+      <div class="table-scroll">
+        <table id="reviewTable">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>CardName</th>
+              <th>MainCategory</th>
+              <th>Category</th>
+              <th>Description</th>
+              <th>Amount</th>
+              <th>Comment</th>
+              <th>Review</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in review_rows %}
+            <tr>
+              <td>{{ r.Month }}</td>
+              <td>{{ r.CardName }}</td>
+              <td>{{ r.MainCategory }}</td>
+              <td>{{ r.Category }}</td>
+              <td>{{ r.Description }}</td>
+              <td>{{ (r.Amount or 0)|currency }}</td>
+              <td>{{ r.Comment }}</td>
+              <td>
+                <form method="post" action="/review" class="inline">
+                  <input type="hidden" name="rowhash" value="{{ r.RowHash }}">
+                  <input type="hidden" name="month" value="{{ selected_month or '' }}">
+                  <label style="margin:0;">%</label>
+                  <input type="text" name="percentage" placeholder="e.g., 25" style="max-width:140px;">
+                  <input type="text" name="note" placeholder="Optional note..." style="flex:1;">
+                  <button type="submit">Apply</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+            {% if not review_rows %}
+            <tr><td colspan="8" class="muted">No rows loaded. Choose a month and click Load.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
     </div>
   </section>
 </div>
@@ -83,14 +138,5 @@
     });
     syncLabel();
   }
-
-  // Accordions
-  document.querySelectorAll('.accordion-header').forEach(h => {
-    h.addEventListener('click', () => {
-      const item = h.parentElement;
-      const expanded = item.getAttribute('aria-expanded') === 'true';
-      item.setAttribute('aria-expanded', expanded ? 'false' : 'true');
-    });
-  });
 </script>
 {% endblock %}
