@@ -365,6 +365,51 @@ def process():
     except Exception as e:
         return f"Error: {type(e).__name__}: {e}", 500
 
+@app.post("/upload")
+def upload():
+    if not validate_dataset(BQ_PROJECT, BQ_DATASET):
+        return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
+
+    files = request.files.getlist("files")
+    json_file = request.files.get("json_cfg")
+
+    if not files:
+        return "Please select at least one file.", 400
+
+    # Optional classifier config from uploaded JSON
+    if json_file and json_file.filename:
+        try:
+            cfg = json.loads(json_file.stream.read().decode("utf-8"))
+            tmp_path = "/tmp/categories_grouped.json"
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(cfg, f)
+            classifier = make_classifier_grouped(tmp_path)
+        except Exception as e:
+            return f"Error reading JSON config: {e}", 400
+    else:
+        classifier = make_classifier_grouped("categories_grouped.json")
+
+    frames = []
+    try:
+        for f in files:
+            if not f.filename:
+                continue
+            b = f.read()
+            df = fetch_csv_to_df_bytes(b)
+            # derive card name from filename (same logic as GitHub path)
+            derived_card = derive_card_name_from_path(f.filename)
+            df_clean = clean_and_standardize(df, card_name=derived_card)
+            frames.append(df_clean)
+
+        result = run_pipeline(frames, classifier)
+        records = result["all_positive_monthly"]
+        new_rows = append_non_duplicates(records, TARGET_TABLE)
+        latest_month = str(result.get("latest_month"))
+        return redirect(url_for("dashboard", month=latest_month, loaded=new_rows), code=303)
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {e}", 500
+
+
 @app.get("/dashboard")
 def dashboard():
     if not validate_dataset(BQ_PROJECT, BQ_DATASET):
