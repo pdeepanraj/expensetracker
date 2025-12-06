@@ -278,3 +278,33 @@ canvas {
   .filters-toggle { display: inline-block; }
   .sidebar.collapsed { display: none; }
 }
+
+/* Review form input visibility fixes */
+.review-inline input[type="number"],
+.review-inline input[type="text"],
+.review-pct,
+.review-note {
+  color: var(--text);
+  background: #fff;              /* use a solid light background */
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+html[data-theme="dark"] .review-inline input[type="number"],
+html[data-theme="dark"] .review-inline input[type="text"],
+html[data-theme="dark"] .review-pct,
+html[data-theme="dark"] .review-note {
+  color: #f4f6f8;                /* light text in dark mode */
+  background: #101318;           /* dark input surface */
+  border: 1px solid rgba(255,255,255,0.14);
+}
+
+/* Ensure inputs aren’t clipped and accept focus */
+.review-inline { display: grid; grid-template-columns: auto 140px 1fr auto; gap: 8px; align-items: center; }
+.review-inline input { min-width: 0; }
+
+/* Lift content above any overlapping layers */
+.content { position: relative; z-index: 2; }
+.table-scroll { position: relative; z-index: 1; }
+
