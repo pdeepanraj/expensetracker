@@ -8,7 +8,25 @@
 {% block content %}
 <div class="card" style="padding:16px; border:none; box-shadow:none; background:transparent; margin-bottom:8px;">
   <h3 style="margin:0 0 6px;">Credit Card Bills</h3>
-  <p class="muted">Track due dates, amounts for {{ bill_month }}, and mark paid.</p>
+  <p class="muted">Track due dates, amounts, and payments. Viewing: {{ bill_month }}</p>
+</div>
+
+<div class="card">
+  <form method="get" action="/bills" class="inline" style="flex-wrap:wrap; gap:12px; align-items: end;">
+    <div>
+      <label for="m">Month</label>
+      <input type="month" id="m" name="m" value="{{ bill_month }}">
+    </div>
+    <div class="actions">
+      <button type="submit">Go</button>
+      {% if prev_month %}
+      <a class="btn secondary" href="/bills?m={{ prev_month }}">« {{ prev_month }}</a>
+      {% endif %}
+      {% if next_month %}
+      <a class="btn secondary" href="/bills?m={{ next_month }}">{{ next_month }} »</a>
+      {% endif %}
+    </div>
+  </form>
 </div>
 
 <div class="grid-2">
@@ -83,6 +101,7 @@
             {% if not b.Paid %}
             <form method="post" action="/bills/mark_paid" class="inline">
               <input type="hidden" name="row_id" value="{{ b.RowId }}">
+              <input type="hidden" name="bill_month" value="{{ bill_month }}">
               <button type="submit">Mark Paid</button>
             </form>
             {% else %}
