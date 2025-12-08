@@ -8,11 +8,12 @@
 {% block content %}
 <div class="card" style="padding:16px; border:none; box-shadow:none; background:transparent; margin-bottom:8px;">
   <h3 style="margin:0 0 6px;">Credit Card Bills</h3>
-  <p class="muted">Track due dates, amounts, and payments. Viewing: {{ bill_month }}</p>
+  <p class="muted">Track due dates, monthly amounts, and payments. Viewing: {{ bill_month }}</p>
 </div>
 
+<!-- Month picker + Unpaid filter -->
 <div class="card">
-  <form method="get" action="/bills" class="inline" style="flex-wrap:wrap; gap:12px; align-items:end;">
+  <form method="get" action="{{ url_for('bills') }}" class="inline" style="flex-wrap:wrap; gap:12px; align-items:end;">
     <div>
       <label for="m">Month</label>
       <input type="month" id="m" name="m" value="{{ bill_month }}">
@@ -24,10 +25,10 @@
     <div class="actions">
       <button type="submit">Go</button>
       {% if prev_month %}
-      <a class="btn secondary" href="/bills?m={{ prev_month }}{% if unpaid_only %}&unpaid=1{% endif %}">« {{ prev_month }}</a>
+      <a class="btn secondary" href="{{ url_for('bills') }}?m={{ prev_month }}{% if unpaid_only %}&unpaid=1{% endif %}">« {{ prev_month }}</a>
       {% endif %}
       {% if next_month %}
-      <a class="btn secondary" href="/bills?m={{ next_month }}{% if unpaid_only %}&unpaid=1{% endif %}">{{ next_month }} »</a>
+      <a class="btn secondary" href="{{ url_for('bills') }}?m={{ next_month }}{% if unpaid_only %}&unpaid=1{% endif %}">{{ next_month }} »</a>
       {% endif %}
     </div>
   </form>
@@ -43,14 +44,14 @@
       <div class="pill"><strong>Unpaid:</strong> {{ summary.UnpaidCount|intgroup }}</div>
     </div>
     {% if cards|length == 0 %}
-      <p class="muted" style="margin-top:8px;">No cards found. Add your first card with due date below.</p>
+      <p class="muted" style="margin-top:8px;">No cards found yet. Add your first card and due date below.</p>
     {% endif %}
   </div>
 
-  <!-- Add New Card (master) -->
+  <!-- Add New Card (master record with default Due Day) -->
   <div class="card">
     <h3>Add New Card</h3>
-    <form method="post" action="/bills/add_card" class="inline" style="flex-wrap:wrap; gap:12px;">
+    <form method="post" action="{{ url_for('bills_add_card') }}" class="inline" style="flex-wrap:wrap; gap:12px;">
       <input type="hidden" name="view_month" value="{{ bill_month }}">
       <div style="min-width:200px; flex:1;">
         <label>Card Name</label>
@@ -68,46 +69,50 @@
         <button type="submit">Add Card</button>
       </div>
     </form>
+    {% if cards|length > 0 %}
+      <p class="muted" style="margin-top:8px;">Existing cards:</p>
+      <div class="kpi">
+        {% for c in cards %}
+          <div class="pill">{{ c.CardName }} — Due Day: {{ c.DueDay }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
   </div>
 </div>
 
-<div class="grid-2">
-  <!-- Add/Update this month -->
-  <div class="card">
-    <h3>Add or Update Bill ({{ bill_month }})</h3>
-    <form method="post" action="/bills/add" class="inline" style="flex-wrap:wrap; gap:12px;">
-      <input type="hidden" name="bill_month" value="{{ bill_month }}">
-      <div style="min-width:200px; flex:1;">
-        <label>Card</label>
-        <select name="card" required>
-          <option value="">-- Select --</option>
-          {% for c in cards %}
-          <option value="{{ c.CardName }}">{{ c.CardName }}</option>
-          {% endfor %}
-        </select>
-        {% if cards|length == 0 %}
-        <p class="muted" style="margin:6px 0 0;">Add a card first to use this form.</p>
-        {% endif %}
-      </div>
-      <div style="min-width:120px;">
-        <label>Due day</label>
-        <input type="number" name="due_day" min="1" max="31" placeholder="e.g., 15">
-      </div>
-      <div style="min-width:160px;">
-        <label>Amount</label>
-        <input type="number" name="amount" step="0.01" min="0" placeholder="e.g., 350.00" required>
-      </div>
-      <div style="min-width:220px; flex:1;">
-        <label>Note</label>
-        <input type="text" name="note" placeholder="Optional note...">
-      </div>
-      <div class="actions">
-        <button type="submit" {% if cards|length == 0 %}disabled{% endif %}>Save</button>
-      </div>
-    </form>
-  </div>
+<!-- Add/Update monthly bill (reuses card’s master Due Day) -->
+<div class="card">
+  <h3>Add or Update Bill ({{ bill_month }})</h3>
+  <form method="post" action="{{ url_for('bills_add') }}" class="inline" style="flex-wrap:wrap; gap:12px;">
+    <input type="hidden" name="bill_month" value="{{ bill_month }}">
+    <div style="min-width:200px; flex:1;">
+      <label>Card</label>
+      <select name="card" required>
+        <option value="">-- Select --</option>
+        {% for c in cards %}
+        <option value="{{ c.CardName }}">{{ c.CardName }}</option>
+        {% endfor %}
+      </select>
+      {% if cards|length == 0 %}
+      <p class="muted" style="margin:6px 0 0;">Add a card first to use this form.</p>
+      {% endif %}
+    </div>
+    <div style="min-width:160px;">
+      <label>Amount</label>
+      <input type="number" name="amount" step="0.01" min="0" placeholder="e.g., 350.00" required>
+    </div>
+    <div style="min-width:220px; flex:1;">
+      <label>Note</label>
+      <input type="text" name="note" placeholder="Optional note...">
+    </div>
+    <div class="actions">
+      <button type="submit" {% if cards|length == 0 %}disabled{% endif %}>Save</button>
+    </div>
+  </form>
+  <p class="muted" style="margin-top:8px;">Due Day is taken from the card’s default (set above) when creating a month entry.</p>
 </div>
 
+<!-- Current month bills -->
 <div class="card">
   <h3>Current Month Bills ({{ bill_month }})</h3>
   <div class="table-scroll">
@@ -125,7 +130,7 @@
       </thead>
       <tbody>
         {% for b in bills %}
-        <tr data-dueday piping="{{ b.DueDay }}" data-paid="{{ '1' if b.Paid else '0' }}">
+        <tr data-paid="{{ '1' if b.Paid else '0' }}">
           <td>{{ b.CardName }}</td>
           <td>{{ b.DueDay }}</td>
           <td>{{ (b.Amount or 0)|currency }}</td>
@@ -134,7 +139,7 @@
           <td>{{ b.Note or '' }}</td>
           <td>
             {% if not b.Paid %}
-            <form method="post" action="/bills/mark_paid" class="inline">
+            <form method="post" action="{{ url_for('bills_mark_paid') }}" class="inline">
               <input type="hidden" name="row_id" value="{{ b.RowId }}">
               <input type="hidden" name="bill_month" value="{{ bill_month }}">
               <button type="submit">Mark Paid</button>
@@ -156,33 +161,32 @@
 
 {% block scripts %}
 <script>
-  // Due soon highlight (next 7 days)
+  // Due soon highlight for unpaid rows within next 7 days of the real current date (only if viewing the current month)
   (function() {
     const tbl = document.getElementById('billsTable');
     if (!tbl) return;
     const ym = tbl.dataset.month || '';
-    const [y, m] = ym.split('-').map(Number);
-    if (!y || !m) return;
     const today = new Date();
-    const base = new Date(y, m - 1, 1);
-    const daysInMonth = new Date(y, m, 0).getDate();
+    const nowKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2,'0')}`;
+    const sameMonth = (ym === nowKey);
 
-    // Define "due soon" window: next 7 days (relative to current real date if same month, else just within first week logic)
-    const nowMonthKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
-    const sameMonthView = (nowMonthKey === ym);
+    if (!sameMonth) return;
+
+    const daysInMonth = (y, m) => new Date(y, m, 0).getDate();
+    const [y, m] = ym.split('-').map(Number);
+    const dim = daysInMonth(y, m);
 
     [...tbl.tBodies[0].rows].forEach(row => {
+      const paid = row.dataset.paid === '1';
+      if (paid) return;
       const dueDayCell = row.cells[1];
       if (!dueDayCell) return;
       const dueDay = Number(dueDayCell.textContent.trim());
-      if (!dueDay || dueDay < 1 || dueDay > daysInMonth) return;
-
-      if (sameMonthView) {
-        const dueDate = new Date(y, m - 1, dueDay);
-        const diffDays = Math.ceil((dueDate - today) / (1000*60*60*24));
-        if (diffDays >= 0 && diffDays <= 7 && row.dataset.paid === '0') {
-          row.style.background = 'rgba(255, 200, 0, 0.15)';  // subtle highlight
-        }
+      if (!dueDay || dueDay < 1 || dueDay > dim) return;
+      const dueDate = new Date(y, m - 1, dueDay);
+      const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+      if (diffDays >= 0 && diffDays <= 7) {
+        row.style.background = 'rgba(255, 200, 0, 0.15)';  // subtle highlight
       }
     });
   })();
