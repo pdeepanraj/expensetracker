@@ -946,6 +946,7 @@ def bills():
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
     ensure_bills_table()
     import datetime as dt
+
     qs_month = request.args.get("m", "").strip()
     unpaid_only = request.args.get("unpaid", "").strip() == "1"
     bill_month = qs_month if qs_month else month_str(dt.date.today())
@@ -1004,6 +1005,8 @@ def bills_add_card():
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
     ensure_bills_table()
     card = (request.form.get("card") or "").strip()
+
+
 due_day = (request.form.get("due_day") or "").strip()
 note = (request.form.get("note") or "").strip()
 view_month = (request.form.get("view_month") or "").strip() or month_str()
@@ -1039,11 +1042,10 @@ job = client.query(
             bigquery.ScalarQueryParameter("Note", "STRING", note or "CARD_MASTER"),
             bigquery.ScalarQueryParameter("RowId", "STRING", row_id),
         ]
-    )
+    ),
 )
 job.result()
 return redirect(url_for("bills", m=view_month), code=303)
-
 
 
 @app.post("/bills/add")
@@ -1052,6 +1054,8 @@ def bills_add():
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
     ensure_bills_table()
     card = (request.form.get("card") or "").strip()
+
+
 amount = (request.form.get("amount") or "").strip()
 note = (request.form.get("note") or "").strip()
 bill_month = (request.form.get("bill_month") or "").strip() or month_str()
@@ -1101,11 +1105,10 @@ job = client.query(
             bigquery.ScalarQueryParameter("Note", "STRING", note),
             bigquery.ScalarQueryParameter("RowId", "STRING", row_id),
         ]
-    )
+    ),
 )
 job.result()
 return redirect(url_for("bills", m=bill_month), code=303)
-
 
 
 @app.post("/bills/mark_paid")
@@ -1114,6 +1117,8 @@ def bills_mark_paid():
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
     ensure_bills_table()
     row_id = (request.form.get("row_id") or "").strip()
+
+
 bill_month = (request.form.get("bill_month") or "").strip() or month_str()
 if not row_id:
     return redirect(url_for("bills", m=bill_month), code=303)
@@ -1129,11 +1134,10 @@ job = client.query(
     upd_sql,
     job_config=bigquery.QueryJobConfig(
         query_parameters=[bigquery.ScalarQueryParameter("RowId", "STRING", row_id)]
-    )
+    ),
 )
 job.result()
 return redirect(url_for("bills", m=bill_month), code=303)
-
 
 
 if __name__ == "__main__":
