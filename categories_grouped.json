@@ -5,7 +5,7 @@
         { "category": "ALDI", "keywords": ["aldi"] },
         { "category": "Spice of India", "keywords": ["spice of indi","spice of"] },
         { "category": "FoodTown", "keywords": ["foodtown"] },
-        { "category": "Farmers Market", "keywords": ["tropical farm"] },
+        { "category": "Farmers Market", "keywords": ["tropical farmwest"] },
         { "category": "Publix", "keywords": ["publix"] },
         { "category": "Costco", "keywords": ["costco whse"] },
         { "category": "SAMS", "keywords": ["sam's club", "sams club"] },
@@ -41,7 +41,7 @@
       "main": "Toll",
       "categories": [
         { "category": "Sunpass", "keywords": ["sunpass"] },
-        { "category": "Parking", "keywords": ["parking", "atm.tk", " st pk ", "city of naples","nic*-dep ft"] }
+        { "category": "Parking", "keywords": ["parking", "atm.tk", " st pk ", "city of naples","nic*-dep ft","airportparkingreservat","top of the"] }
       ]
     },
     {
@@ -66,7 +66,7 @@
         { "category": "Office Food", "keywords": ["aramark"] },
         { "category": "BurgerKing", "keywords": ["burger king"] },
         { "category": "Wendys", "keywords": ["wendy's"] },
-        { "category": "Indian Restaurant", "keywords": ["the indian bistro", "paradise biryani", "indian cuisine", "hyderabad cafe","deccanspice"] },
+        { "category": "Indian Restaurant", "keywords": ["the indian bistro", "paradise biryani", "indian cuisine", "hyderabad cafe","deccanspice","spo*deccanspiceindianp"] },
         { "category": "Wingstop", "keywords": ["wingstop"] }
       ]
     },
@@ -81,7 +81,7 @@
       "categories": [
         { "category": "Walmart", "keywords": ["walmart.com", "wal-mart", "wmt plus"] },
         { "category": "Amazon", "keywords": ["amazon"] },
-        { "category": "Bath&Body", "keywords": ["bathandbody", "bath & body"] },
+        { "category": "Bath&Body", "keywords": ["bathandbody", "bath & body", "bathandbodyworks.com"] },
         { "category": "Temu", "keywords": ["temu"] },
         { "category": "BJS", "keywords": ["bjs wholesale"] },
         { "category": "OldNavy", "keywords": ["old navy"] },
@@ -89,7 +89,7 @@
         { "category": "Macys", "keywords": ["macys"] },
         { "category": "Target", "keywords": ["target"] },
         { "category": "Dress", "keywords": ["ross stores", "carters", "children's place"] },
-        { "category": "DollarTree", "keywords": ["dollar tree", "dollar gene", "dollartree", "claires"] },
+        { "category": "DollarTree", "keywords": ["dollar tree", "dollar gene", "dollartree", "claires", "dollar genera*"] },
         { "category": "Burlington", "keywords": ["burlington"] },
         { "category": "FeDex", "keywords": ["fedex"] },
         { "category": "HomeDepot", "keywords": ["home depot", "office depot"] },
@@ -130,7 +130,7 @@
     {
       "main": "Interest",
       "categories": [
-        { "category": "Interest", "keywords": ["interest charge","balance transfer fee","interest"] }
+        { "category": "Interest", "keywords": ["interest charged","balance transfer fee","interest"] }
       ]
     },
     {
