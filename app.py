@@ -794,14 +794,16 @@ def bills():
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
     ensure_bills_table()
 
-    # Current month and next due info
     import datetime as dt
-    now = dt.date.today()
-    this_month = month_str(now)
+    # Read month from querystring, default to current month
+    qs_month = request.args.get("m", "").strip()
+    if qs_month:
+        bill_month = qs_month
+    else:
+        bill_month = month_str(dt.date.today())
 
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
 
-    # Summary: this month totals and unpaid count
     summary_sql = f"""
       SELECT
         COALESCE(SUM(Amount), 0) AS TotalAmount,
@@ -810,19 +812,17 @@ def bills():
       FROM {table_id}
       WHERE BillMonth = @m
     """
-    summary = bq_query(summary_sql, {"m": this_month})
+    summary = bq_query(summary_sql, {"m": bill_month})
     summary = summary[0] if summary else {"TotalAmount": 0, "PaidCount": 0, "UnpaidCount": 0}
 
-    # List cards for this month, ordered by due day
     rows_sql = f"""
       SELECT CardName, DueDay, BillMonth, Amount, Paid, PaidAt, Note, RowId
       FROM {table_id}
       WHERE BillMonth = @m
       ORDER BY DueDay, CardName
     """
-    rows = bq_query(rows_sql, {"m": this_month})
+    rows = bq_query(rows_sql, {"m": bill_month})
 
-    # Also get distinct cards and their default due days from any existing data
     cards_sql = f"""
       SELECT CardName, ANY_VALUE(DueDay) AS DueDay
       FROM {table_id}
@@ -831,15 +831,26 @@ def bills():
     """
     cards = bq_query(cards_sql)
 
+    # Compute prev/next months for quick nav
+    try:
+        y, mo = map(int, bill_month.split("-"))
+        cur = dt.date(y, mo, 1)
+        prev_m = (cur.replace(day=1) - dt.timedelta(days=1)).strftime("%Y-%m")
+        # Add ~32 days to ensure next month
+        next_m = (cur + dt.timedelta(days=32)).replace(day=1).strftime("%Y-%m")
+    except Exception:
+        prev_m, next_m = "", ""
+
     return render_template(
         "bills.html",
         project=BQ_PROJECT, dataset=BQ_DATASET,
-        bill_month=this_month,
+        bill_month=bill_month,
         summary=summary,
         bills=rows,
-        cards=cards
+        cards=cards,
+        prev_month=prev_m,
+        next_month=next_m
     )
-
 @app.post("/bills/add")
 def bills_add():
     if not validate_dataset(BQ_PROJECT, BQ_DATASET):
@@ -853,16 +864,14 @@ def bills_add():
     bill_month = (request.form.get("bill_month") or "").strip() or month_str()
 
     if not card or not due_day or not amount:
-        return redirect(url_for("bills"), code=303)
+        return redirect(url_for("bills", m=bill_month), code=303)
 
     try:
         due_day_int = int(due_day)
         amt = float(amount)
     except Exception:
-        return redirect(url_for("bills"), code=303)
+        return redirect(url_for("bills", m=bill_month), code=303)
 
-    # Upsert by (CardName, BillMonth)
-    import datetime as dt
     row_id = hashlib.sha256(f"{card}|{bill_month}".encode("utf-8")).hexdigest()[:16]
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
     upd_sql = f"""
@@ -890,7 +899,7 @@ def bills_add():
         )
     )
     job.result()
-    return redirect(url_for("bills"), code=303)
+    return redirect(url_for("bills", m=bill_month), code=303)
 
 @app.post("/bills/mark_paid")
 def bills_mark_paid():
@@ -899,8 +908,9 @@ def bills_mark_paid():
     ensure_bills_table()
 
     row_id = (request.form.get("row_id") or "").strip()
+    bill_month = (request.form.get("bill_month") or "").strip() or month_str()
     if not row_id:
-        return redirect(url_for("bills"), code=303)
+        return redirect(url_for("bills", m=bill_month), code=303)
 
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
     upd_sql = f"""
@@ -916,7 +926,8 @@ def bills_mark_paid():
         )
     )
     job.result()
-    return redirect(url_for("bills"), code=303)
+    return redirect(url_for("bills", m=bill_month), code=303)
+
 
 
 if __name__ == "__main__":
