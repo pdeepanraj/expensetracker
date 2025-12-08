@@ -89,7 +89,10 @@
         <p class="muted" style="margin:6px 0 0;">Add a card first to use this form.</p>
         {% endif %}
       </div>
-     
+      <div style="min-width:120px;">
+        <label>Due day</label>
+        <input type="number" name="due_day" min="1" max="31" placeholder="e.g., 15" required>
+      </div>
       <div style="min-width:160px;">
         <label>Amount</label>
         <input type="number" name="amount" step="0.01" min="0" placeholder="e.g., 350.00" required>
