@@ -908,6 +908,55 @@ def bills_add_card():
     job.result()
     return redirect(url_for("bills", m=view_month), code=303)
 
+@app.post("/bills/add")
+def bills_add():
+    if not validate_dataset(BQ_PROJECT, BQ_DATASET):
+        return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
+    ensure_bills_table()
+
+    card = (request.form.get("card") or "").strip()
+    due_day = (request.form.get("due_day") or "").strip()
+    amount = (request.form.get("amount") or "").strip()
+    note = (request.form.get("note") or "").strip()
+    bill_month = (request.form.get("bill_month") or "").strip() or month_str()
+
+    if not card or not due_day or not amount:
+        return redirect(url_for("bills", m=bill_month), code=303)
+
+    try:
+        due_day_int = int(due_day)
+        amt = float(amount)
+    except Exception:
+        return redirect(url_for("bills", m=bill_month), code=303)
+
+    row_id = hashlib.sha256(f"{card}|{bill_month}".encode("utf-8")).hexdigest()[:16]
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
+    upd_sql = f"""
+      MERGE {table_id} T
+      USING (SELECT @CardName AS CardName, @BillMonth AS BillMonth) S
+      ON T.CardName = S.CardName AND T.BillMonth = S.BillMonth
+      WHEN MATCHED THEN
+        UPDATE SET Amount=@Amount, DueDay=@DueDay, Note=@Note
+      WHEN NOT MATCHED THEN
+        INSERT (CardName, DueDay, BillMonth, Amount, Paid, PaidAt, Note, RowId)
+        VALUES (@CardName, @DueDay, @BillMonth, @Amount, FALSE, NULL, @Note, @RowId)
+    """
+    client = bq_client()
+    job = client.query(
+        upd_sql,
+        job_config=bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("CardName", "STRING", card),
+                bigquery.ScalarQueryParameter("DueDay", "INT64", due_day_int),
+                bigquery.ScalarQueryParameter("BillMonth", "STRING", bill_month),
+                bigquery.ScalarQueryParameter("Amount", "FLOAT", amt),
+                bigquery.ScalarQueryParameter("Note", "STRING", note),
+                bigquery.ScalarQueryParameter("RowId", "STRING", row_id),
+            ]
+        )
+    )
+    job.result()
+    return redirect(url_for("bills", m=bill_month), code=303)
 
 
 @app.post("/bills/mark_paid")
