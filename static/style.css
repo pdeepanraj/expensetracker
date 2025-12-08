@@ -308,3 +308,11 @@ html[data-theme="dark"] .review-note {
 .content { position: relative; z-index: 2; }
 .table-scroll { position: relative; z-index: 1; }
 
+/* This improves clarity when a row is selected. */
+.selectable { cursor: pointer; } 
+.selectable.selected { background: #eaf1ff; } 
+html[data-theme="dark"] 
+.selectable.selected { background: #1a2130; }
+
+
+
