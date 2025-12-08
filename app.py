@@ -327,6 +327,19 @@ def month_str(dt=None):
     dt = dt or _dt.date.today()
     return dt.strftime("%Y-%m")
 
+MASTER_MONTH = "MASTER"  # special BillMonth for card master records
+
+def get_card_masters():
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
+    sql = f"""
+      SELECT CardName, ANY_VALUE(DueDay) AS DueDay
+      FROM {table_id}
+      WHERE BillMonth = @m
+      GROUP BY CardName
+      ORDER BY CardName
+    """
+    return bq_query(sql, {"m": MASTER_MONTH})
+
 
 # ---------------- Routes ----------------
 @app.get("/")
@@ -795,15 +808,13 @@ def bills():
     ensure_bills_table()
 
     import datetime as dt
-    # Read month from querystring, default to current month
     qs_month = request.args.get("m", "").strip()
-    if qs_month:
-        bill_month = qs_month
-    else:
-        bill_month = month_str(dt.date.today())
+    unpaid_only = request.args.get("unpaid", "").strip() == "1"
+    bill_month = qs_month if qs_month else month_str(dt.date.today())
 
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
 
+    # Summary for selected month
     summary_sql = f"""
       SELECT
         COALESCE(SUM(Amount), 0) AS TotalAmount,
@@ -811,32 +822,29 @@ def bills():
         SUM(CASE WHEN NOT Paid THEN 1 ELSE 0 END) AS UnpaidCount
       FROM {table_id}
       WHERE BillMonth = @m
+      {"AND NOT Paid" if unpaid_only else ""}
     """
     summary = bq_query(summary_sql, {"m": bill_month})
     summary = summary[0] if summary else {"TotalAmount": 0, "PaidCount": 0, "UnpaidCount": 0}
 
+    # Rows for the month
     rows_sql = f"""
       SELECT CardName, DueDay, BillMonth, Amount, Paid, PaidAt, Note, RowId
       FROM {table_id}
       WHERE BillMonth = @m
+      {"AND NOT Paid" if unpaid_only else ""}
       ORDER BY DueDay, CardName
     """
-    rows = bq_query(rows_sql, {"m": bill_month})
+    bills = bq_query(rows_sql, {"m": bill_month})
 
-    cards_sql = f"""
-      SELECT CardName, ANY_VALUE(DueDay) AS DueDay
-      FROM {table_id}
-      GROUP BY CardName
-      ORDER BY CardName
-    """
-    cards = bq_query(cards_sql)
+    # Card masters (for the Add form)
+    cards = get_card_masters()
 
-    # Compute prev/next months for quick nav
+    # prev/next month
     try:
         y, mo = map(int, bill_month.split("-"))
         cur = dt.date(y, mo, 1)
         prev_m = (cur.replace(day=1) - dt.timedelta(days=1)).strftime("%Y-%m")
-        # Add ~32 days to ensure next month
         next_m = (cur + dt.timedelta(days=32)).replace(day=1).strftime("%Y-%m")
     except Exception:
         prev_m, next_m = "", ""
@@ -846,60 +854,61 @@ def bills():
         project=BQ_PROJECT, dataset=BQ_DATASET,
         bill_month=bill_month,
         summary=summary,
-        bills=rows,
-        cards=cards,
-        prev_month=prev_m,
-        next_month=next_m
+        bills=bills,
+        cards=cards,                 # may be empty initially
+        unpaid_only=unpaid_only,
+        prev_month=prev_m, next_month=next_m
     )
-@app.post("/bills/add")
-def bills_add():
+
+@app.post("/bills/add_card")
+def bills_add_card():
     if not validate_dataset(BQ_PROJECT, BQ_DATASET):
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
     ensure_bills_table()
 
     card = (request.form.get("card") or "").strip()
     due_day = (request.form.get("due_day") or "").strip()
-    amount = (request.form.get("amount") or "").strip()
     note = (request.form.get("note") or "").strip()
-    bill_month = (request.form.get("bill_month") or "").strip() or month_str()
+    view_month = (request.form.get("view_month") or "").strip() or month_str()
 
-    if not card or not due_day or not amount:
-        return redirect(url_for("bills", m=bill_month), code=303)
+    if not card or not due_day:
+        return redirect(url_for("bills", m=view_month), code=303)
 
     try:
         due_day_int = int(due_day)
-        amt = float(amount)
     except Exception:
-        return redirect(url_for("bills", m=bill_month), code=303)
+        return redirect(url_for("bills", m=view_month), code=303)
 
-    row_id = hashlib.sha256(f"{card}|{bill_month}".encode("utf-8")).hexdigest()[:16]
+    # Create a stable master RowId for the card
+    row_id = hashlib.sha256(f"{card}|{MASTER_MONTH}".encode("utf-8")).hexdigest()[:16]
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
-    upd_sql = f"""
+    up_sql = f"""
       MERGE {table_id} T
       USING (SELECT @CardName AS CardName, @BillMonth AS BillMonth) S
       ON T.CardName = S.CardName AND T.BillMonth = S.BillMonth
       WHEN MATCHED THEN
-        UPDATE SET Amount=@Amount, DueDay=@DueDay, Note=@Note
+        UPDATE SET DueDay=@DueDay, Note=@Note
       WHEN NOT MATCHED THEN
         INSERT (CardName, DueDay, BillMonth, Amount, Paid, PaidAt, Note, RowId)
-        VALUES (@CardName, @DueDay, @BillMonth, @Amount, FALSE, NULL, @Note, @RowId)
+        VALUES (@CardName, @DueDay, @BillMonth, 0.0, FALSE, NULL, @Note, @RowId)
     """
     client = bq_client()
     job = client.query(
-        upd_sql,
+        up_sql,
         job_config=bigquery.QueryJobConfig(
             query_parameters=[
                 bigquery.ScalarQueryParameter("CardName", "STRING", card),
+                bigquery.ScalarQueryParameter("BillMonth", "STRING", MASTER_MONTH),
                 bigquery.ScalarQueryParameter("DueDay", "INT64", due_day_int),
-                bigquery.ScalarQueryParameter("BillMonth", "STRING", bill_month),
-                bigquery.ScalarQueryParameter("Amount", "FLOAT", amt),
-                bigquery.ScalarQueryParameter("Note", "STRING", note),
+                bigquery.ScalarQueryParameter("Note", "STRING", note or "CARD_MASTER"),
                 bigquery.ScalarQueryParameter("RowId", "STRING", row_id),
             ]
         )
     )
     job.result()
-    return redirect(url_for("bills", m=bill_month), code=303)
+    return redirect(url_for("bills", m=view_month), code=303)
+
+
 
 @app.post("/bills/mark_paid")
 def bills_mark_paid():
