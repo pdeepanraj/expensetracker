@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Credit Card Bills{% endblock %}
+
+{% block header_meta %}
+{{ project }}.{{ dataset }}.credit_card_bills
+{% endblock %}
+
+{% block content %}
+<div class="card" style="padding:16px; border:none; box-shadow:none; background:transparent; margin-bottom:8px;">
+  <h3 style="margin:0 0 6px;">Credit Card Bills</h3>
+  <p class="muted">Track due dates, amounts, and payments. Viewing: {{ bill_month }}</p>
+</div>
+
+<div class="card">
+  <form method="get" action="/bills" class="inline" style="flex-wrap:wrap; gap:12px; align-items: end;">
+    <div>
+      <label for="m">Month</label>
+      <input type="month" id="m" name="m" value="{{ bill_month }}">
+    </div>
+    <div class="actions">
+      <button type="submit">Go</button>
+      {% if prev_month %}
+      <a class="btn secondary" href="/bills?m={{ prev_month }}">« {{ prev_month }}</a>
+      {% endif %}
+      {% if next_month %}
+      <a class="btn secondary" href="/bills?m={{ next_month }}">{{ next_month }} »</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<div class="grid-2">
+  <!-- Summary -->
+  <div class="card">
+    <h3>Summary ({{ bill_month }})</h3>
+    <div class="kpi">
+      <div class="pill"><strong>Total:</strong> {{ (summary.TotalAmount or 0)|currency }}</div>
+      <div class="pill"><strong>Paid:</strong> {{ summary.PaidCount|intgroup }}</div>
+      <div class="pill"><strong>Unpaid:</strong> {{ summary.UnpaidCount|intgroup }}</div>
+    </div>
+  </div>
+
+  <!-- Add/Update this month -->
+  <div class="card">
+    <h3>Add or Update Bill ({{ bill_month }})</h3>
+    <form method="post" action="/bills/add" class="inline" style="flex-wrap:wrap; gap:12px;">
+      <input type="hidden" name="bill_month" value="{{ bill_month }}">
+      <div style="min-width:180px; flex:1;">
+        <label>Card</label>
+        <select name="card" required>
+          <option value="">-- Select --</option>
+          {% for c in cards %}
+          <option value="{{ c.CardName }}">{{ c.CardName }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="min-width:120px;">
+        <label>Due day</label>
+        <input type="number" name="due_day" min="1" max="31" placeholder="e.g., 15" required>
+      </div>
+      <div style="min-width:160px;">
+        <label>Amount</label>
+        <input type="number" name="amount" step="0.01" min="0" placeholder="e.g., 350.00" required>
+      </div>
+      <div style="min-width:220px; flex:1;">
+        <label>Note</label>
+        <input type="text" name="note" placeholder="Optional note...">
+      </div>
+      <div class="actions">
+        <button type="submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Current Month Bills ({{ bill_month }})</h3>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>CardName</th>
+          <th>DueDay</th>
+          <th>Amount</th>
+          <th>Paid</th>
+          <th>PaidAt</th>
+          <th>Note</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in bills %}
+        <tr>
+          <td>{{ b.CardName }}</td>
+          <td>{{ b.DueDay }}</td>
+          <td>{{ (b.Amount or 0)|currency }}</td>
+          <td>{{ 'Yes' if b.Paid else 'No' }}</td>
+          <td>{{ b.PaidAt or '' }}</td>
+          <td>{{ b.Note or '' }}</td>
+          <td>
+            {% if not b.Paid %}
+            <form method="post" action="/bills/mark_paid" class="inline">
+              <input type="hidden" name="row_id" value="{{ b.RowId }}">
+              <input type="hidden" name="bill_month" value="{{ bill_month }}">
+              <button type="submit">Mark Paid</button>
+            </form>
+            {% else %}
+            <span class="badge">Completed</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not bills %}
+        <tr><td colspan="7" class="muted">No bills saved for {{ bill_month }} yet.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

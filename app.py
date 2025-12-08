@@ -301,6 +301,33 @@ def apply_filters_where(params: dict) -> tuple[str, dict]:
         qp["cat"] = params["cat"]
     return ("WHERE " + " AND ".join(where)) if where else "", qp
 
+#----------Credit card Bills--------------------
+BILLS_TABLE = "credit_card_bills"
+
+def ensure_bills_table():
+    client = bq_client()
+    table_id = f"{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}"
+    schema = [
+        bigquery.SchemaField("CardName", "STRING"),
+        bigquery.SchemaField("DueDay", "INTEGER"),
+        bigquery.SchemaField("BillMonth", "STRING"),
+        bigquery.SchemaField("Amount", "FLOAT"),
+        bigquery.SchemaField("Paid", "BOOL"),
+        bigquery.SchemaField("PaidAt", "TIMESTAMP"),
+        bigquery.SchemaField("Note", "STRING"),
+        bigquery.SchemaField("RowId", "STRING"),
+    ]
+    try:
+        client.get_table(table_id)
+    except Exception:
+        client.create_table(bigquery.Table(table_id, schema=schema))
+
+def month_str(dt=None):
+    import datetime as _dt
+    dt = dt or _dt.date.today()
+    return dt.strftime("%Y-%m")
+
+
 # ---------------- Routes ----------------
 @app.get("/")
 def index():
@@ -760,6 +787,148 @@ def status():
         month_stats=month_stats,
         last_insert=last_insert,
     )
+
+@app.get("/bills")
+def bills():
+    if not validate_dataset(BQ_PROJECT, BQ_DATASET):
+        return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
+    ensure_bills_table()
+
+    import datetime as dt
+    # Read month from querystring, default to current month
+    qs_month = request.args.get("m", "").strip()
+    if qs_month:
+        bill_month = qs_month
+    else:
+        bill_month = month_str(dt.date.today())
+
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
+
+    summary_sql = f"""
+      SELECT
+        COALESCE(SUM(Amount), 0) AS TotalAmount,
+        SUM(CASE WHEN Paid THEN 1 ELSE 0 END) AS PaidCount,
+        SUM(CASE WHEN NOT Paid THEN 1 ELSE 0 END) AS UnpaidCount
+      FROM {table_id}
+      WHERE BillMonth = @m
+    """
+    summary = bq_query(summary_sql, {"m": bill_month})
+    summary = summary[0] if summary else {"TotalAmount": 0, "PaidCount": 0, "UnpaidCount": 0}
+
+    rows_sql = f"""
+      SELECT CardName, DueDay, BillMonth, Amount, Paid, PaidAt, Note, RowId
+      FROM {table_id}
+      WHERE BillMonth = @m
+      ORDER BY DueDay, CardName
+    """
+    rows = bq_query(rows_sql, {"m": bill_month})
+
+    cards_sql = f"""
+      SELECT CardName, ANY_VALUE(DueDay) AS DueDay
+      FROM {table_id}
+      GROUP BY CardName
+      ORDER BY CardName
+    """
+    cards = bq_query(cards_sql)
+
+    # Compute prev/next months for quick nav
+    try:
+        y, mo = map(int, bill_month.split("-"))
+        cur = dt.date(y, mo, 1)
+        prev_m = (cur.replace(day=1) - dt.timedelta(days=1)).strftime("%Y-%m")
+        # Add ~32 days to ensure next month
+        next_m = (cur + dt.timedelta(days=32)).replace(day=1).strftime("%Y-%m")
+    except Exception:
+        prev_m, next_m = "", ""
+
+    return render_template(
+        "bills.html",
+        project=BQ_PROJECT, dataset=BQ_DATASET,
+        bill_month=bill_month,
+        summary=summary,
+        bills=rows,
+        cards=cards,
+        prev_month=prev_m,
+        next_month=next_m
+    )
+@app.post("/bills/add")
+def bills_add():
+    if not validate_dataset(BQ_PROJECT, BQ_DATASET):
+        return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
+    ensure_bills_table()
+
+    card = (request.form.get("card") or "").strip()
+    due_day = (request.form.get("due_day") or "").strip()
+    amount = (request.form.get("amount") or "").strip()
+    note = (request.form.get("note") or "").strip()
+    bill_month = (request.form.get("bill_month") or "").strip() or month_str()
+
+    if not card or not due_day or not amount:
+        return redirect(url_for("bills", m=bill_month), code=303)
+
+    try:
+        due_day_int = int(due_day)
+        amt = float(amount)
+    except Exception:
+        return redirect(url_for("bills", m=bill_month), code=303)
+
+    row_id = hashlib.sha256(f"{card}|{bill_month}".encode("utf-8")).hexdigest()[:16]
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
+    upd_sql = f"""
+      MERGE {table_id} T
+      USING (SELECT @CardName AS CardName, @BillMonth AS BillMonth) S
+      ON T.CardName = S.CardName AND T.BillMonth = S.BillMonth
+      WHEN MATCHED THEN
+        UPDATE SET Amount=@Amount, DueDay=@DueDay, Note=@Note
+      WHEN NOT MATCHED THEN
+        INSERT (CardName, DueDay, BillMonth, Amount, Paid, PaidAt, Note, RowId)
+        VALUES (@CardName, @DueDay, @BillMonth, @Amount, FALSE, NULL, @Note, @RowId)
+    """
+    client = bq_client()
+    job = client.query(
+        upd_sql,
+        job_config=bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("CardName", "STRING", card),
+                bigquery.ScalarQueryParameter("DueDay", "INT64", due_day_int),
+                bigquery.ScalarQueryParameter("BillMonth", "STRING", bill_month),
+                bigquery.ScalarQueryParameter("Amount", "FLOAT", amt),
+                bigquery.ScalarQueryParameter("Note", "STRING", note),
+                bigquery.ScalarQueryParameter("RowId", "STRING", row_id),
+            ]
+        )
+    )
+    job.result()
+    return redirect(url_for("bills", m=bill_month), code=303)
+
+@app.post("/bills/mark_paid")
+def bills_mark_paid():
+    if not validate_dataset(BQ_PROJECT, BQ_DATASET):
+        return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
+    ensure_bills_table()
+
+    row_id = (request.form.get("row_id") or "").strip()
+    bill_month = (request.form.get("bill_month") or "").strip() or month_str()
+    if not row_id:
+        return redirect(url_for("bills", m=bill_month), code=303)
+
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
+    upd_sql = f"""
+      UPDATE {table_id}
+      SET Paid = TRUE, PaidAt = CURRENT_TIMESTAMP()
+      WHERE RowId = @RowId
+    """
+    client = bq_client()
+    job = client.query(
+        upd_sql,
+        job_config=bigquery.QueryJobConfig(
+            query_parameters=[bigquery.ScalarQueryParameter("RowId", "STRING", row_id)]
+        )
+    )
+    job.result()
+    return redirect(url_for("bills", m=bill_month), code=303)
+
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
