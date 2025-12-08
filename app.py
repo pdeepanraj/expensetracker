@@ -867,46 +867,46 @@ def bills_add_card():
     ensure_bills_table()
 
     card = (request.form.get("card") or "").strip()
-    due_day = (request.form.get("due_day") or "").strip()
-    note = (request.form.get("note") or "").strip()
-    view_month = (request.form.get("view_month") or "").strip() or month_str()
+due_day = (request.form.get("due_day") or "").strip()
+note = (request.form.get("note") or "").strip()
+view_month = (request.form.get("view_month") or "").strip() or month_str()
 
-    if not card or not due_day:
-        return redirect(url_for("bills", m=view_month), code=303)
-
-    try:
-        due_day_int = int(due_day)
-    except Exception:
-        return redirect(url_for("bills", m=view_month), code=303)
-
-    # Create a stable master RowId for the card
-    row_id = hashlib.sha256(f"{card}|{MASTER_MONTH}".encode("utf-8")).hexdigest()[:16]
-    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
-    up_sql = f"""
-      MERGE {table_id} T
-      USING (SELECT @CardName AS CardName, @BillMonth AS BillMonth) S
-      ON T.CardName = S.CardName AND T.BillMonth = S.BillMonth
-      WHEN MATCHED THEN
-        UPDATE SET DueDay=@DueDay, Note=@Note
-      WHEN NOT MATCHED THEN
-        INSERT (CardName, DueDay, BillMonth, Amount, Paid, PaidAt, Note, RowId)
-        VALUES (@CardName, @DueDay, @BillMonth, 0.0, FALSE, NULL, @Note, @RowId)
-    """
-    client = bq_client()
-    job = client.query(
-        up_sql,
-        job_config=bigquery.QueryJobConfig(
-            query_parameters=[
-                bigquery.ScalarQueryParameter("CardName", "STRING", card),
-                bigquery.ScalarQueryParameter("BillMonth", "STRING", MASTER_MONTH),
-                bigquery.ScalarQueryParameter("DueDay", "INT64", due_day_int),
-                bigquery.ScalarQueryParameter("Note", "STRING", note or "CARD_MASTER"),
-                bigquery.ScalarQueryParameter("RowId", "STRING", row_id),
-            ]
-        )
-    )
-    job.result()
+if not card or not due_day:
     return redirect(url_for("bills", m=view_month), code=303)
+
+try:
+    due_day_int = int(due_day)
+except Exception:
+    return redirect(url_for("bills", m=view_month), code=303)
+
+row_id = hashlib.sha256(f"{card}|{MASTER_MONTH}".encode("utf-8")).hexdigest()[:16]
+table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
+up_sql = f"""
+  MERGE {table_id} T
+  USING (SELECT @CardName AS CardName, @BillMonth AS BillMonth) S
+  ON T.CardName = S.CardName AND T.BillMonth = S.BillMonth
+  WHEN MATCHED THEN
+    UPDATE SET DueDay=@DueDay, Note=@Note
+  WHEN NOT MATCHED THEN
+    INSERT (CardName, DueDay, BillMonth, Amount, Paid, PaidAt, Note, RowId)
+    VALUES (@CardName, @DueDay, @BillMonth, 0.0, FALSE, NULL, @Note, @RowId)
+"""
+client = bq_client()
+job = client.query(
+    up_sql,
+    job_config=bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("CardName", "STRING", card),
+            bigquery.ScalarQueryParameter("BillMonth", "STRING", MASTER_MONTH),
+            bigquery.ScalarQueryParameter("DueDay", "INT64", due_day_int),
+            bigquery.ScalarQueryParameter("Note", "STRING", note or "CARD_MASTER"),
+            bigquery.ScalarQueryParameter("RowId", "STRING", row_id),
+        ]
+    )
+)
+job.result()
+return redirect(url_for("bills", m=view_month), code=303)
+
 
 @app.post("/bills/add")
 def bills_add():
@@ -915,48 +915,62 @@ def bills_add():
     ensure_bills_table()
 
     card = (request.form.get("card") or "").strip()
-    due_day = (request.form.get("due_day") or "").strip()
-    amount = (request.form.get("amount") or "").strip()
-    note = (request.form.get("note") or "").strip()
-    bill_month = (request.form.get("bill_month") or "").strip() or month_str()
+amount = (request.form.get("amount") or "").strip()
+note = (request.form.get("note") or "").strip()
+bill_month = (request.form.get("bill_month") or "").strip() or month_str()
 
-    if not card or not due_day or not amount:
-        return redirect(url_for("bills", m=bill_month), code=303)
-
-    try:
-        due_day_int = int(due_day)
-        amt = float(amount)
-    except Exception:
-        return redirect(url_for("bills", m=bill_month), code=303)
-
-    row_id = hashlib.sha256(f"{card}|{bill_month}".encode("utf-8")).hexdigest()[:16]
-    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
-    upd_sql = f"""
-      MERGE {table_id} T
-      USING (SELECT @CardName AS CardName, @BillMonth AS BillMonth) S
-      ON T.CardName = S.CardName AND T.BillMonth = S.BillMonth
-      WHEN MATCHED THEN
-        UPDATE SET Amount=@Amount, DueDay=@DueDay, Note=@Note
-      WHEN NOT MATCHED THEN
-        INSERT (CardName, DueDay, BillMonth, Amount, Paid, PaidAt, Note, RowId)
-        VALUES (@CardName, @DueDay, @BillMonth, @Amount, FALSE, NULL, @Note, @RowId)
-    """
-    client = bq_client()
-    job = client.query(
-        upd_sql,
-        job_config=bigquery.QueryJobConfig(
-            query_parameters=[
-                bigquery.ScalarQueryParameter("CardName", "STRING", card),
-                bigquery.ScalarQueryParameter("DueDay", "INT64", due_day_int),
-                bigquery.ScalarQueryParameter("BillMonth", "STRING", bill_month),
-                bigquery.ScalarQueryParameter("Amount", "FLOAT", amt),
-                bigquery.ScalarQueryParameter("Note", "STRING", note),
-                bigquery.ScalarQueryParameter("RowId", "STRING", row_id),
-            ]
-        )
-    )
-    job.result()
+if not card or not amount:
     return redirect(url_for("bills", m=bill_month), code=303)
+
+try:
+    amt = float(amount)
+except Exception:
+    return redirect(url_for("bills", m=bill_month), code=303)
+
+table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
+
+# Look up default DueDay from master record
+dd_sql = f"""
+  SELECT ANY_VALUE(DueDay) AS DueDay
+  FROM {table_id}
+  WHERE BillMonth = @master AND CardName = @card
+  LIMIT 1
+"""
+dd_rows = bq_query(dd_sql, {"master": MASTER_MONTH, "card": card})
+if not dd_rows or dd_rows[0].get("DueDay") is None:
+    # No master set; ask user to add a card first
+    return redirect(url_for("bills", m=bill_month), code=303)
+
+due_day_int = int(dd_rows[0]["DueDay"])
+
+# Upsert by (CardName, BillMonth); reuse master due day for inserts
+row_id = hashlib.sha256(f"{card}|{bill_month}".encode("utf-8")).hexdigest()[:16]
+upd_sql = f"""
+  MERGE {table_id} T
+  USING (SELECT @CardName AS CardName, @BillMonth AS BillMonth) S
+  ON T.CardName = S.CardName AND T.BillMonth = S.BillMonth
+  WHEN MATCHED THEN
+    UPDATE SET Amount=@Amount, Note=@Note
+  WHEN NOT MATCHED THEN
+    INSERT (CardName, DueDay, BillMonth, Amount, Paid, PaidAt, Note, RowId)
+    VALUES (@CardName, @DueDay, @BillMonth, @Amount, FALSE, NULL, @Note, @RowId)
+"""
+client = bq_client()
+job = client.query(
+    upd_sql,
+    job_config=bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("CardName", "STRING", card),
+            bigquery.ScalarQueryParameter("BillMonth", "STRING", bill_month),
+            bigquery.ScalarQueryParameter("DueDay", "INT64", due_day_int),
+            bigquery.ScalarQueryParameter("Amount", "FLOAT", amt),
+            bigquery.ScalarQueryParameter("Note", "STRING", note),
+            bigquery.ScalarQueryParameter("RowId", "STRING", row_id),
+        ]
+    )
+)
+job.result()
+return redirect(url_for("bills", m=bill_month), code=303)
 
 
 @app.post("/bills/mark_paid")
