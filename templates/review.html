@@ -183,7 +183,6 @@
 
   // Table row selection populates panel
   const table = document.getElementById('reviewTable');
-  const panel = document.getElementById('reviewPanel');
   const panelHint = document.getElementById('panelHint');
   const panelContent = document.getElementById('panelContent');
 
@@ -201,9 +200,9 @@
   const fPct     = document.getElementById('fPct');
   const fNote    = document.getElementById('fNote');
   const clearBtn = document.getElementById('clearPanel');
+  const reviewForm = document.getElementById('reviewForm');
 
   function selectRow(tr) {
-    // Populate panel fields
     const data = tr.dataset;
     const origAmt = Number(data.amount || 0);
     pMonth.textContent = data.month || '';
@@ -215,7 +214,6 @@
     pComment.textContent = data.comment || '';
 
     fRowhash.value = data.rowhash || '';
-    // Preserve selected month context (already in fMonth; keep)
     fPct.value = '';
     fNote.value = '';
     pShare.textContent = '$' + fmt2.format(0);
@@ -224,7 +222,6 @@
     panelContent.style.display = '';
   }
 
-  // Live compute share
   function computeShare() {
     const amtText = pAmount.textContent.replace(/[^0-9.\-]/g, '') || '0';
     const origAmt = Number(amtText);
@@ -233,23 +230,42 @@
     pShare.textContent = '$' + fmt2.format(share);
   }
 
-  // Wire events
+  // Row click handling
   if (table) {
     table.addEventListener('click', (e) => {
       const tr = e.target.closest('tr.selectable');
       if (tr) {
-        // highlight selection
         [...table.tBodies[0].rows].forEach(r => r.classList.remove('selected'));
         tr.classList.add('selected');
         selectRow(tr);
       }
     });
   }
+
   fPct && fPct.addEventListener('input', computeShare);
+
+  // Confirm before submit and prevent double submit
+  reviewForm && reviewForm.addEventListener('submit', (e) => {
+    const pct = Number(fPct.value || 0);
+    const shareText = pShare.textContent || '$0.00';
+    if (isNaN(pct) || pct <= 0 || pct > 100) {
+      e.preventDefault();
+      alert('Please enter a valid percentage between 0 and 100.');
+      return;
+    }
+    const ok = confirm(`Apply this review?\n\nPercentage: ${pct.toFixed(2)}%\nYour share: ${shareText}\n\nThis will write to BigQuery.`);
+    if (!ok) {
+      e.preventDefault();
+      return;
+    }
+    // disable the button to avoid double-submit
+    const btn = reviewForm.querySelector('button[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Applying...'; }
+  });
+
   clearBtn && clearBtn.addEventListener('click', () => {
     panelContent.style.display = 'none';
     panelHint.style.display = '';
-    // clear selection highlight
     if (table) [...table.tBodies[0].rows].forEach(r => r.classList.remove('selected'));
   });
 </script>
