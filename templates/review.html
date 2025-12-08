@@ -2,18 +2,26 @@
 {% block title %}Review & Adjust{% endblock %}
 
 {% block header_meta %}
-{{ project }}.{{ dataset }}.{{ 'all_positive_monthly' }}
+{{ project }}.{{ dataset }}.all_positive_monthly
 {% endblock %}
 
 {% block content %}
 <div class="card" style="padding:16px; border:none; box-shadow:none; background:transparent; margin-bottom:8px;">
   <h3 style="margin:0 0 6px;">Review & Adjust</h3>
-  <p class="muted">Select a month and optional filters, then set your percentage share and note per transaction.</p>
+  <p class="muted">Select a record from the table. Edit your percentage and note in the review box, preview your share, then Apply to BigQuery.</p>
 </div>
+
+{% if message %}
+<div class="card" style="border-color: {{ 'var(--border)' if message_type != 'error' else '#ffccd2' }};">
+  <p class="{{ 'muted' if message_type != 'error' else 'error' }}">{{ message }}</p>
+</div>
+{% endif %}
+
+<button id="filtersToggleBtn" class="btn secondary filters-toggle" type="button">Show filters</button>
 
 <div class="layout">
   <!-- Sidebar: filters -->
-  <aside class="sidebar">
+  <aside id="sidebar" class="sidebar collapsed">
     <div class="card">
       <h3>Filters</h3>
       <form method="get" action="/review">
@@ -63,58 +71,186 @@
     </div>
   </aside>
 
-  <!-- Content: table with inline reviewers -->
+  <!-- Content: table (left) + review panel (right) -->
   <section class="content">
-    <div class="card">
-      <h3>Transactions{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Month</th>
-              <th>CardName</th>
-              <th>MainCategory</th>
-              <th>Category</th>
-              <th>Description</th>
-              <th>Amount</th>
-              <th>Comment</th>
-              <th>Review</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for r in review_rows %}
-            <tr>
-              <td>{{ r.Month }}</td>
-              <td>{{ r.CardName }}</td>
-              <td>{{ r.MainCategory }}</td>
-              <td>{{ r.Category }}</td>
-              <td>{{ r.Description }}</td>
-              <td>{{ (r.Amount or 0)|currency }}</td>
-              <td>{{ r.Comment }}</td>
-              <td>
-                <form method="post" action="/review" class="inline">
-                  <input type="hidden" name="rowhash" value="{{ r.RowHash }}">
-                  <input type="hidden" name="month" value="{{ selected_month or '' }}">
-                  <label style="margin:0;">%</label>
-                  <input type="text" name="percentage" placeholder="e.g., 25" style="max-width:80px;">
-                  <input type="text" name="note" placeholder="Optional note..." style="flex:1;">
-                  <button type="submit">Apply</button>
-                </form>
-              </td>
-            </tr>
-            {% endfor %}
-            {% if not review_rows %}
-            <tr><td colspan="8" class="muted">No rows loaded. Choose a month and click Load.</td></tr>
-            {% endif %}
-          </tbody>
-        </table>
+    <div class="grid-2">
+      <!-- Table -->
+      <div class="card">
+        <h3>Transactions{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
+        <div class="table-scroll">
+          <table id="reviewTable">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>CardName</th>
+                <th>MainCategory</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Amount</th>
+                <th>Comment</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in review_rows %}
+              <tr class="selectable"
+                  data-rowhash="{{ r.RowHash }}"
+                  data-month="{{ r.Month }}"
+                  data-card="{{ r.CardName }}"
+                  data-main="{{ r.MainCategory }}"
+                  data-cat="{{ r.Category }}"
+                  data-desc="{{ r.Description }}"
+                  data-amount="{{ r.Amount or 0 }}"
+                  data-comment="{{ r.Comment or '' }}">
+                <td>{{ r.Month }}</td>
+                <td>{{ r.CardName }}</td>
+                <td>{{ r.MainCategory }}</td>
+                <td>{{ r.Category }}</td>
+                <td>{{ r.Description }}</td>
+                <td>{{ (r.Amount or 0)|currency }}</td>
+                <td>{{ r.Comment }}</td>
+              </tr>
+              {% endfor %}
+              {% if not review_rows %}
+              <tr><td colspan="7" class="muted">No rows loaded. Choose a month and click Load.</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Review panel -->
+      <div class="card" id="reviewPanel">
+        <h3>Review Box</h3>
+        <p class="muted" id="panelHint">Select a row to review.</p>
+
+        <div id="panelContent" style="display:none;">
+          <div class="kpi">
+            <div class="pill"><strong>Month:</strong> <span id="pMonth"></span></div>
+            <div class="pill"><strong>Card:</strong> <span id="pCard"></span></div>
+            <div class="pill"><strong>Main:</strong> <span id="pMain"></span></div>
+            <div class="pill"><strong>Category:</strong> <span id="pCat"></span></div>
+          </div>
+          <p><strong>Description:</strong> <span id="pDesc"></span></p>
+          <p><strong>Original Amount:</strong> <span id="pAmount"></span></p>
+          <p><strong>Existing Comment:</strong> <span id="pComment"></span></p>
+          <hr class="hr">
+
+          <form method="post" action="/review" id="reviewForm">
+            <input type="hidden" name="rowhash" id="fRowhash">
+            <input type="hidden" name="month" id="fMonth" value="{{ selected_month or '' }}">
+
+            <label>Percentage (%)</label>
+            <input type="number" name="percentage" id="fPct" step="0.01" min="0" max="100" placeholder="e.g., 25">
+
+            <label>Note (optional)</label>
+            <input type="text" name="note" id="fNote" placeholder="Your note...">
+
+            <div class="kpi" style="margin-top: 12px;">
+              <div class="pill"><strong>Your share:</strong> <span id="pShare">$0.00</span></div>
+            </div>
+
+            <div class="actions" style="margin-top: 12px;">
+              <button type="submit">Apply to BigQuery</button>
+              <button type="button" class="btn secondary" id="clearPanel">Clear</button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   </section>
 </div>
-{% if message %}
-<div class="card" style="border-color: {{ 'var(--border)' if message_type != 'error' else '#ffccd2' }};">
-  <p class="{{ 'muted' if message_type != 'error' else 'error' }}">{{ message }}</p>
-</div>
-{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Mobile sidebar toggle
+  const toggleBtn = document.getElementById('filtersToggleBtn');
+  const sidebar = document.getElementById('sidebar');
+  if (toggleBtn && sidebar) {
+    const syncLabel = () => {
+      const collapsed = sidebar.classList.contains('collapsed');
+      toggleBtn.textContent = collapsed ? 'Show filters' : 'Hide filters';
+    };
+    toggleBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+      syncLabel();
+    });
+    syncLabel();
+  }
+
+  // Helper: format currency
+  const fmt2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // Table row selection populates panel
+  const table = document.getElementById('reviewTable');
+  const panel = document.getElementById('reviewPanel');
+  const panelHint = document.getElementById('panelHint');
+  const panelContent = document.getElementById('panelContent');
+
+  const pMonth = document.getElementById('pMonth');
+  const pCard  = document.getElementById('pCard');
+  const pMain  = document.getElementById('pMain');
+  const pCat   = document.getElementById('pCat');
+  const pDesc  = document.getElementById('pDesc');
+  const pAmount= document.getElementById('pAmount');
+  const pComment = document.getElementById('pComment');
+  const pShare = document.getElementById('pShare');
+
+  const fRowhash = document.getElementById('fRowhash');
+  const fMonth   = document.getElementById('fMonth');
+  const fPct     = document.getElementById('fPct');
+  const fNote    = document.getElementById('fNote');
+  const clearBtn = document.getElementById('clearPanel');
+
+  function selectRow(tr) {
+    // Populate panel fields
+    const data = tr.dataset;
+    const origAmt = Number(data.amount || 0);
+    pMonth.textContent = data.month || '';
+    pCard.textContent  = data.card || '';
+    pMain.textContent  = data.main || '';
+    pCat.textContent   = data.cat || '';
+    pDesc.textContent  = data.desc || '';
+    pAmount.textContent= '$' + fmt2.format(origAmt);
+    pComment.textContent = data.comment || '';
+
+    fRowhash.value = data.rowhash || '';
+    // Preserve selected month context (already in fMonth; keep)
+    fPct.value = '';
+    fNote.value = '';
+    pShare.textContent = '$' + fmt2.format(0);
+
+    panelHint.style.display = 'none';
+    panelContent.style.display = '';
+  }
+
+  // Live compute share
+  function computeShare() {
+    const amtText = pAmount.textContent.replace(/[^0-9.\-]/g, '') || '0';
+    const origAmt = Number(amtText);
+    const pct = Number(fPct.value || 0);
+    const share = origAmt * (pct / 100);
+    pShare.textContent = '$' + fmt2.format(share);
+  }
+
+  // Wire events
+  if (table) {
+    table.addEventListener('click', (e) => {
+      const tr = e.target.closest('tr.selectable');
+      if (tr) {
+        // highlight selection
+        [...table.tBodies[0].rows].forEach(r => r.classList.remove('selected'));
+        tr.classList.add('selected');
+        selectRow(tr);
+      }
+    });
+  }
+  fPct && fPct.addEventListener('input', computeShare);
+  clearBtn && clearBtn.addEventListener('click', () => {
+    panelContent.style.display = 'none';
+    panelHint.style.display = '';
+    // clear selection highlight
+    if (table) [...table.tBodies[0].rows].forEach(r => r.classList.remove('selected'));
+  });
+</script>
 {% endblock %}
