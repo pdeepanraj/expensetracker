@@ -14,7 +14,7 @@ from pipeline import make_classifier_grouped, clean_and_standardize, run_pipelin
 app = Flask(__name__, template_folder="templates")
 
 # ---------------- Jinja filters for formatting ----------------
-@app.template_filter('currency')
+@app.template_filter("currency")
 def currency_filter(value):
     """
     Format a numeric value as US currency with thousand separators and two decimals.
@@ -26,7 +26,8 @@ def currency_filter(value):
     except Exception:
         return value
 
-@app.template_filter('intgroup')
+
+@app.template_filter("intgroup")
 def int_group_filter(value):
     """
     Format integers with thousand separators.
@@ -43,6 +44,7 @@ def int_group_filter(value):
         except Exception:
             return value
 
+
 # Environment variables expected:
 #   BQ_PROJECT = your GCP project ID (e.g., "deepanexpense")
 #   BQ_DATASET = BigQuery dataset (e.g., "expense_analytics")
@@ -53,10 +55,14 @@ GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")  # optional
 
 # ---------------- GitHub helpers ----------------
 def gh_headers():
-    h = {"Accept": "application/vnd.github.v3+json", "User-Agent": "expense-tracker-app"}
+    h = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "expense-tracker-app",
+    }
     if GITHUB_TOKEN:
         h["Authorization"] = f"token {GITHUB_TOKEN}"
     return h
+
 
 def gh_list_dir(owner: str, repo: str, path: str | None, ref: str | None):
     base = f"https://api.github.com/repos/{owner}/{repo}/contents"
@@ -73,11 +79,13 @@ def gh_list_dir(owner: str, repo: str, path: str | None, ref: str | None):
         return data, None
     return [], None
 
+
 def gh_fetch_raw(owner: str, repo: str, path: str, ref: str):
     url = f"https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{path}"
     r = requests.get(url, headers=gh_headers(), timeout=60)
     r.raise_for_status()
     return r.content
+
 
 # ---------------- Ingest helpers ----------------
 def fetch_csv_to_df_bytes(b: bytes) -> pd.DataFrame:
@@ -88,6 +96,7 @@ def fetch_csv_to_df_bytes(b: bytes) -> pd.DataFrame:
             return pd.read_excel(io.BytesIO(b))
         except Exception as e:
             raise ValueError(f"Unable to parse file as CSV or Excel: {e}")
+
 
 def derive_card_name_from_path(path: str) -> str:
     """
@@ -102,6 +111,7 @@ def derive_card_name_from_path(path: str) -> str:
     # Normalize to upper with underscores
     return name.replace(" ", "_").upper()
 
+
 def load_classifier_from_repo(owner: str, repo: str, ref: str, json_path: str | None):
     if json_path:
         b = gh_fetch_raw(owner, repo, json_path.strip("/"), ref)
@@ -112,6 +122,7 @@ def load_classifier_from_repo(owner: str, repo: str, ref: str, json_path: str | 
         return make_classifier_grouped(tmp_path)
     else:
         return make_classifier_grouped("categories_grouped.json")
+
 
 # ---------------- BigQuery helpers ----------------
 def bq_client() -> bigquery.Client:
@@ -124,6 +135,7 @@ def bq_client() -> bigquery.Client:
         raise RuntimeError("Missing env var BQ_DATASET")
     return bigquery.Client(project=proj)
 
+
 def validate_dataset(project_id: str, dataset_id: str) -> bool:
     client = bq_client()
     ds_ref = bigquery.DatasetReference(project_id, dataset_id)
@@ -135,16 +147,19 @@ def validate_dataset(project_id: str, dataset_id: str) -> bool:
         print(f"[DATASET] Not found or inaccessible {project_id}.{dataset_id}: {e}")
         return False
 
+
 def bq_query(sql: str, params: dict | None = None) -> list[dict]:
     client = bq_client()
     job_config = bigquery.QueryJobConfig()
     if params:
         job_config.query_parameters = [
-            bigquery.ScalarQueryParameter(k, "STRING", str(v)) for k, v in params.items()
+            bigquery.ScalarQueryParameter(k, "STRING", str(v))
+            for k, v in params.items()
         ]
     job = client.query(sql, job_config=job_config)
     rows = list(job.result())
     return [dict(row) for row in rows]
+
 
 # Target table
 TARGET_TABLE = "all_positive_monthly"
@@ -160,6 +175,7 @@ TARGET_SCHEMA = [
     bigquery.SchemaField("RowHash", "STRING"),
 ]
 
+
 def ensure_table(table_name: str, schema: list[bigquery.SchemaField]):
     client = bq_client()
     dataset_ref = bigquery.DatasetReference(BQ_PROJECT, BQ_DATASET)
@@ -172,10 +188,20 @@ def ensure_table(table_name: str, schema: list[bigquery.SchemaField]):
         client.create_table(table)
         print(f"[TABLE] Created: {table_ref.table_id}")
 
+
 def compute_row_hash(rec: dict) -> str:
-    key_fields = ["Month", "CardName", "MainCategory", "Category", "Description", "Amount", "Comment"]
+    key_fields = [
+        "Month",
+        "CardName",
+        "MainCategory",
+        "Category",
+        "Description",
+        "Amount",
+        "Comment",
+    ]
     payload = "|".join(str(rec.get(k, "")).strip() for k in key_fields)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
 
 def get_table_metadata(table_name: str):
     client = bq_client()
@@ -188,6 +214,7 @@ def get_table_metadata(table_name: str):
         "created": getattr(table, "created", None),
         "modified": getattr(table, "modified", None),
     }
+
 
 def append_non_duplicates(records: list[dict], table_name: str):
     """
@@ -223,7 +250,9 @@ def append_non_duplicates(records: list[dict], table_name: str):
     job = client.load_table_from_json(
         records,
         staging_id,
-        job_config=bigquery.LoadJobConfig(schema=staging_schema, write_disposition="WRITE_TRUNCATE"),
+        job_config=bigquery.LoadJobConfig(
+            schema=staging_schema, write_disposition="WRITE_TRUNCATE"
+        ),
     )
     job.result()
 
@@ -257,6 +286,7 @@ def append_non_duplicates(records: list[dict], table_name: str):
 
     return cnt
 
+
 # ---------------- Filters helpers ----------------
 def get_distinct_filters():
     """
@@ -280,6 +310,7 @@ def get_distinct_filters():
     cats = sorted([c for c in r.get("cats", []) if c])
     return months, cards, mains, cats
 
+
 def apply_filters_where(params: dict) -> tuple[str, dict]:
     """
     Build WHERE clause and parameters for dashboard queries.
@@ -301,8 +332,10 @@ def apply_filters_where(params: dict) -> tuple[str, dict]:
         qp["cat"] = params["cat"]
     return ("WHERE " + " AND ".join(where)) if where else "", qp
 
-#----------Credit card Bills--------------------
+
+# ----------Credit card Bills--------------------
 BILLS_TABLE = "credit_card_bills"
+
 
 def ensure_bills_table():
     client = bq_client()
@@ -322,12 +355,16 @@ def ensure_bills_table():
     except Exception:
         client.create_table(bigquery.Table(table_id, schema=schema))
 
+
 def month_str(dt=None):
     import datetime as _dt
+
     dt = dt or _dt.date.today()
     return dt.strftime("%Y-%m")
 
+
 MASTER_MONTH = "MASTER"  # special BillMonth for card master records
+
 
 def get_card_masters():
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
@@ -346,6 +383,7 @@ def get_card_masters():
 def index():
     return render_template("index.html")
 
+
 @app.get("/list")
 def list_csvs():
     owner = request.args.get("owner", "").strip()
@@ -361,7 +399,16 @@ def list_csvs():
         for it in items:
             if it.get("type") == "file" and it.get("name", "").lower().endswith(".csv"):
                 files.append({"name": it["name"], "path": it["path"]})
-    return render_template("list.html", owner=owner, repo=repo, branch=branch, path=path, files=files, error=err)
+    return render_template(
+        "list.html",
+        owner=owner,
+        repo=repo,
+        branch=branch,
+        path=path,
+        files=files,
+        error=err,
+    )
+
 
 @app.post("/process")
 def process():
@@ -377,7 +424,10 @@ def process():
 
     try:
         if not validate_dataset(BQ_PROJECT, BQ_DATASET):
-            return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not found or not accessible.", 500
+            return (
+                f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not found or not accessible.",
+                500,
+            )
 
         classifier = load_classifier_from_repo(owner, repo, branch, json_path)
 
@@ -400,10 +450,13 @@ def process():
 
         # Redirect to dashboard with the latest month just processed
         latest_month = str(result.get("latest_month"))
-        return redirect(url_for("dashboard", month=latest_month, loaded=new_rows), code=303)
+        return redirect(
+            url_for("dashboard", month=latest_month, loaded=new_rows), code=303
+        )
 
     except Exception as e:
         return f"Error: {type(e).__name__}: {e}", 500
+
 
 @app.post("/upload")
 def upload():
@@ -445,7 +498,9 @@ def upload():
         records = result["all_positive_monthly"]
         new_rows = append_non_duplicates(records, TARGET_TABLE)
         latest_month = str(result.get("latest_month"))
-        return redirect(url_for("dashboard", month=latest_month, loaded=new_rows), code=303)
+        return redirect(
+            url_for("dashboard", month=latest_month, loaded=new_rows), code=303
+        )
     except Exception as e:
         return f"Error: {type(e).__name__}: {e}", 500
 
@@ -458,14 +513,19 @@ def dashboard():
     loaded = request.args.get("loaded", "")
     # Dropdown filters
     months, cards, mains, cats = get_distinct_filters()
-    
+
     # Selected filters from query params
     selected_month = request.args.get("month", "").strip() or None
     selected_card = request.args.get("card", "").strip() or None
     selected_main = request.args.get("main", "").strip() or None
     selected_cat = request.args.get("cat", "").strip() or None
 
-    filter_params = {"month": selected_month, "card": selected_card, "main": selected_main, "cat": selected_cat}
+    filter_params = {
+        "month": selected_month,
+        "card": selected_card,
+        "main": selected_main,
+        "cat": selected_cat,
+    }
     where_sql, qp = apply_filters_where(filter_params)
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
     meta = get_table_metadata(TARGET_TABLE)
@@ -491,9 +551,14 @@ def dashboard():
             aggregate_min_amount="",
             aggregate_rows=[],
             # Filters
-            months=months, cards=cards, mains=mains, cats=cats,
-            selected_month=selected_month, selected_card=selected_card,
-            selected_main=selected_main, selected_cat=selected_cat,
+            months=months,
+            cards=cards,
+            mains=mains,
+            cats=cats,
+            selected_month=selected_month,
+            selected_card=selected_card,
+            selected_main=selected_main,
+            selected_cat=selected_cat,
             loaded=loaded,
             # Status metadata
             table_modified=meta.get("modified"),
@@ -552,12 +617,18 @@ def dashboard():
         aggregate_min_amount="",
         aggregate_rows=[],
         # Filters
-        months=months, cards=cards, mains=mains, cats=cats,
-        selected_month=selected_month, selected_card=selected_card,
-        selected_main=selected_main, selected_cat=selected_cat,
+        months=months,
+        cards=cards,
+        mains=mains,
+        cats=cats,
+        selected_month=selected_month,
+        selected_card=selected_card,
+        selected_main=selected_main,
+        selected_cat=selected_cat,
         loaded=loaded,
         table_modified=meta.get("modified"),
     )
+
 
 # ---------- Dynamic Aggregate route ----------
 def normalize_group_by_param(vals: list[str]) -> list[str]:
@@ -565,6 +636,7 @@ def normalize_group_by_param(vals: list[str]) -> list[str]:
     if not vals:
         return []
     return [v for v in vals if v in allowed]
+
 
 @app.get("/aggregate")
 def aggregate():
@@ -592,7 +664,12 @@ def aggregate():
 
     months, cards, mains, cats = get_distinct_filters()
 
-    filter_params = {"month": selected_month, "card": selected_card, "main": selected_main, "cat": selected_cat}
+    filter_params = {
+        "month": selected_month,
+        "card": selected_card,
+        "main": selected_main,
+        "cat": selected_cat,
+    }
     where_sql, qp = apply_filters_where(filter_params)
 
     select_cols = ", ".join(group_cols)
@@ -619,6 +696,7 @@ def aggregate():
 
     def label_for_row(r):
         return " / ".join(str(r.get(c, "")) for c in group_cols)
+
     labels = [label_for_row(r) for r in rows]
     values = [float(r.get("Amount") or 0) for r in rows]
 
@@ -637,14 +715,21 @@ def aggregate():
         aggregate_month=selected_month or "",
         aggregate_min_amount=min_amount or "",
         aggregate_rows=rows,
-        months=months, cards=cards, mains=mains, cats=cats,
-        selected_month=selected_month, selected_card=selected_card,
-        selected_main=selected_main, selected_cat=selected_cat,
+        months=months,
+        cards=cards,
+        mains=mains,
+        cats=cats,
+        selected_month=selected_month,
+        selected_card=selected_card,
+        selected_main=selected_main,
+        selected_cat=selected_cat,
         loaded="",
         table_modified=get_table_metadata(TARGET_TABLE).get("modified"),
     )
 
+
 from markupsafe import escape
+
 
 @app.get("/review")
 def review_get():
@@ -652,7 +737,7 @@ def review_get():
     month = request.args.get("month", "").strip()
     card = request.args.get("card", "").strip() or None
     main = request.args.get("main", "").strip() or None
-    cat  = request.args.get("cat", "").strip() or None
+    cat = request.args.get("cat", "").strip() or None
 
     months, cards, mains, cats = get_distinct_filters()
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
@@ -661,9 +746,15 @@ def review_get():
     if month:
         where = ["Month = @month"]
         qp = {"month": month}
-        if card: where.append("CardName = @card"); qp["card"] = card
-        if main: where.append("MainCategory = @main"); qp["main"] = main
-        if cat:  where.append("Category = @cat"); qp["cat"] = cat
+        if card:
+            where.append("CardName = @card")
+            qp["card"] = card
+        if main:
+            where.append("MainCategory = @main")
+            qp["main"] = main
+        if cat:
+            where.append("Category = @cat")
+            qp["cat"] = cat
         where_sql = "WHERE " + " AND ".join(where)
         sql = f"""
           SELECT Month, CardName, MainCategory, Category, Description, Amount, Comment, RowHash
@@ -680,31 +771,64 @@ def review_get():
 
     return render_template(
         "review.html",
-        project=BQ_PROJECT, dataset=BQ_DATASET,
-        months=months, cards=cards, mains=mains, cats=cats,
-        selected_month=month, selected_card=card, selected_main=main, selected_cat=cat,
+        project=BQ_PROJECT,
+        dataset=BQ_DATASET,
+        months=months,
+        cards=cards,
+        mains=mains,
+        cats=cats,
+        selected_month=month,
+        selected_card=card,
+        selected_main=main,
+        selected_cat=cat,
         review_rows=rows,
-        message=msg, message_type=msg_type
+        message=msg,
+        message_type=msg_type,
     )
+
 
 @app.post("/review")
 def review_post():
     # Inputs from the form
-    rowhash    = request.form.get("rowhash", "").strip()
+    rowhash = request.form.get("rowhash", "").strip()
     percentage = request.form.get("percentage", "").strip()
-    note       = request.form.get("note", "").strip()
-    month      = request.form.get("month", "").strip()  # for redirect back with context
+    note = request.form.get("note", "").strip()
+    month = request.form.get("month", "").strip()  # for redirect back with context
 
     if not rowhash or not percentage:
-        return redirect(url_for("review_get", month=month, msg="rowhash and percentage are required", msg_type="error"), code=303)
+        return redirect(
+            url_for(
+                "review_get",
+                month=month,
+                msg="rowhash and percentage are required",
+                msg_type="error",
+            ),
+            code=303,
+        )
 
     # Validate percentage
     try:
         pct = float(percentage)
         if pct < 0 or pct > 100:
-            return redirect(url_for("review_get", month=month, msg="percentage must be between 0 and 100", msg_type="error"), code=303)
+            return redirect(
+                url_for(
+                    "review_get",
+                    month=month,
+                    msg="percentage must be between 0 and 100",
+                    msg_type="error",
+                ),
+                code=303,
+            )
     except ValueError:
-        return redirect(url_for("review_get", month=month, msg="percentage must be numeric", msg_type="error"), code=303)
+        return redirect(
+            url_for(
+                "review_get",
+                month=month,
+                msg="percentage must be numeric",
+                msg_type="error",
+            ),
+            code=303,
+        )
 
     # Fetch original row to compute adjusted amount
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
@@ -716,14 +840,25 @@ def review_post():
     """
     recs = bq_query(sel_sql, params={"rowhash": rowhash})
     if not recs:
-        return redirect(url_for("review_get", month=month, msg="Row not found", msg_type="error"), code=303)
+        return redirect(
+            url_for("review_get", month=month, msg="Row not found", msg_type="error"),
+            code=303,
+        )
 
     original_amount = float(recs[0].get("Amount") or 0.0)
     existing_comment = (recs[0].get("Comment") or "").strip()
 
     # Safeguard: don’t adjust twice if already reviewed
     if "[REVIEW]" in existing_comment:
-        return redirect(url_for("review_get", month=month, msg="This row was already reviewed. No changes applied.", msg_type="error"), code=303)
+        return redirect(
+            url_for(
+                "review_get",
+                month=month,
+                msg="This row was already reviewed. No changes applied.",
+                msg_type="error",
+            ),
+            code=303,
+        )
 
     # Compute share
     share_amount = round(original_amount * (pct / 100.0), 2)
@@ -732,7 +867,9 @@ def review_post():
     fmt_orig = f"${original_amount:,.2f}"
     fmt_share = f"${share_amount:,.2f}"
     structured = f"[REVIEW] Original: {fmt_orig}, Share: {pct:.2f}% -> {fmt_share}"
-    final_comment = structured if not existing_comment else f"{existing_comment} | {structured}"
+    final_comment = (
+        structured if not existing_comment else f"{existing_comment} | {structured}"
+    )
     if note:
         final_comment = f"{final_comment}. Note: {escape(note)}"
 
@@ -752,13 +889,14 @@ def review_post():
                 bigquery.ScalarQueryParameter("comment", "STRING", final_comment),
                 bigquery.ScalarQueryParameter("rowhash", "STRING", rowhash),
             ]
-        )
+        ),
     )
     job.result()
 
     msg = f"Adjusted to {fmt_share} ({pct:.2f}%). Review note saved."
-    return redirect(url_for("review_get", month=month, msg=msg, msg_type="ok"), code=303)
-
+    return redirect(
+        url_for("review_get", month=month, msg=msg, msg_type="ok"), code=303
+    )
 
 
 @app.get("/status")
@@ -801,6 +939,7 @@ def status():
         last_insert=last_insert,
     )
 
+
 @app.get("/bills")
 def bills():
     if not validate_dataset(BQ_PROJECT, BQ_DATASET):
@@ -808,6 +947,7 @@ def bills():
     ensure_bills_table()
 
     import datetime as dt
+
     qs_month = request.args.get("m", "").strip()
     unpaid_only = request.args.get("unpaid", "").strip() == "1"
     bill_month = qs_month if qs_month else month_str(dt.date.today())
@@ -825,7 +965,9 @@ def bills():
       {"AND NOT Paid" if unpaid_only else ""}
     """
     summary = bq_query(summary_sql, {"m": bill_month})
-    summary = summary[0] if summary else {"TotalAmount": 0, "PaidCount": 0, "UnpaidCount": 0}
+    summary = (
+        summary[0] if summary else {"TotalAmount": 0, "PaidCount": 0, "UnpaidCount": 0}
+    )
 
     # Rows for the month
     rows_sql = f"""
@@ -851,14 +993,17 @@ def bills():
 
     return render_template(
         "bills.html",
-        project=BQ_PROJECT, dataset=BQ_DATASET,
+        project=BQ_PROJECT,
+        dataset=BQ_DATASET,
         bill_month=bill_month,
         summary=summary,
         bills=bills,
-        cards=cards,                 # may be empty initially
+        cards=cards,  # may be empty initially
         unpaid_only=unpaid_only,
-        prev_month=prev_m, next_month=next_m
+        prev_month=prev_m,
+        next_month=next_m,
     )
+
 
 @app.post("/bills/add_card")
 def bills_add_card():
@@ -867,6 +1012,8 @@ def bills_add_card():
     ensure_bills_table()
 
     card = (request.form.get("card") or "").strip()
+
+
 due_day = (request.form.get("due_day") or "").strip()
 note = (request.form.get("note") or "").strip()
 view_month = (request.form.get("view_month") or "").strip() or month_str()
@@ -902,7 +1049,7 @@ job = client.query(
             bigquery.ScalarQueryParameter("Note", "STRING", note or "CARD_MASTER"),
             bigquery.ScalarQueryParameter("RowId", "STRING", row_id),
         ]
-    )
+    ),
 )
 job.result()
 return redirect(url_for("bills", m=view_month), code=303)
@@ -915,6 +1062,8 @@ def bills_add():
     ensure_bills_table()
 
     card = (request.form.get("card") or "").strip()
+
+
 amount = (request.form.get("amount") or "").strip()
 note = (request.form.get("note") or "").strip()
 bill_month = (request.form.get("bill_month") or "").strip() or month_str()
@@ -967,7 +1116,7 @@ job = client.query(
             bigquery.ScalarQueryParameter("Note", "STRING", note),
             bigquery.ScalarQueryParameter("RowId", "STRING", row_id),
         ]
-    )
+    ),
 )
 job.result()
 return redirect(url_for("bills", m=bill_month), code=303)
@@ -995,11 +1144,10 @@ def bills_mark_paid():
         upd_sql,
         job_config=bigquery.QueryJobConfig(
             query_parameters=[bigquery.ScalarQueryParameter("RowId", "STRING", row_id)]
-        )
+        ),
     )
     job.result()
     return redirect(url_for("bills", m=bill_month), code=303)
-
 
 
 if __name__ == "__main__":
