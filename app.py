@@ -692,13 +692,12 @@ def bills():
     summary = bq_query(summary_sql, {"m": bill_month})
     summary = summary[0] if summary else {"TotalAmount": 0, "PaidCount": 0, "UnpaidCount": 0}
 
-    rows_sql = f"""
-      SELECT CardName, DueDay, BillMonth, Amount, Paid, PaidAt, Note, RowId
-      FROM {table_id}
-      WHERE BillMonth = @m
-      {"AND NOT Paid" if unpaid_only else ""}
-      ORDER BY DueDay, CardName
-    """
+    rows_sql = f""" SELECT CardName, DueDay, BillMonth, Amount, Paid, PaidAt, Note, RowId 
+    FROM {table_id} 
+    WHERE BillMonth = @m 
+    {"AND NOT Paid" if unpaid_only else ""} 
+    ORDER BY CASE WHEN Paid THEN 1 ELSE 0 END ASC, DueDay ASC, CardName ASC 
+    """ 
     bills_rows = bq_query(rows_sql, {"m": bill_month})
 
     cards = get_card_masters()
