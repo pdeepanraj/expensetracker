@@ -1000,35 +1000,47 @@ def categories_add_post():
     if not category or not keywords_raw:
         return redirect(url_for("categories_get", desc=desc, msg="Category and keywords are required", msg_type="error"))
 
+    # Normalize keywords (keep apostrophes and punctuation intact)
     keywords = [k.strip().lower() for k in keywords_raw.split(",") if k.strip()]
 
-    # Insert into BigQuery config
+    # Insert into BigQuery config (uses JSON insert, safe for apostrophes)
     insert_keywords_bq(main, category, keywords)
 
     # Reclassify existing 'Other' rows in BigQuery that match new keywords
     table_id = f"{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}"
-    ors = [f"REGEXP_CONTAINS(LOWER(Description), r'\\b{re.escape(kw)}\\b')" for kw in keywords]
-    where_kw = " OR ".join(ors) if ors else "FALSE"
+
+    # Build parameterized REGEXP_CONTAINS predicates to avoid SQL quoting issues
+    params = [
+        bigquery.ScalarQueryParameter("category", "STRING", category),
+        bigquery.ScalarQueryParameter("main", "STRING", main),
+    ]
+    cond_parts = []
+    for i, kw in enumerate(keywords):
+        # Respect default boundary logic: use word boundaries for word-only keywords, else substring
+        use_boundaries = bool(re.fullmatch(r'[\w\s]+', kw))
+        pattern = (r"\b" + re.escape(kw) + r"\b") if use_boundaries else re.escape(kw)
+        pname = f"pat{i}"
+        params.append(bigquery.ScalarQueryParameter(pname, "STRING", pattern))
+        cond_parts.append(f"REGEXP_CONTAINS(LOWER(Description), @{pname})")
+
+    cond_sql = " OR ".join(cond_parts) if cond_parts else "FALSE"
 
     upd_sql = f"""
     UPDATE `{table_id}`
     SET Category = @category, MainCategory = @main
     WHERE LOWER(IFNULL(Category, 'other')) = 'other'
-      AND ({where_kw})
+      AND ({cond_sql})
     """
+
     client = bq_client()
     job = client.query(
         upd_sql,
-        job_config=bigquery.QueryJobConfig(
-            query_parameters=[
-                bigquery.ScalarQueryParameter("category", "STRING", category),
-                bigquery.ScalarQueryParameter("main", "STRING", main),
-            ]
-        )
+        job_config=bigquery.QueryJobConfig(query_parameters=params)
     )
     job.result()
 
     return redirect(url_for("categories_get", desc=desc, msg=f"Added '{category}' under '{main}' and updated matching rows.", msg_type="ok"))
+
 
 @app.post("/categories/reclassify_monthly")
 def categories_reclassify_monthly():
