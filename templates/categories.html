@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Categories{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h3>Category Tester</h3>
+  <form method="get" action="{{ url_for('categories_get') }}" class="inline" style="gap:12px;">
+    <label for="desc">Description</label>
+    <input id="desc" name="desc" type="text" value="{{ description }}" style="min-width:360px;">
+    <button class="btn secondary" type="submit">Check</button>
+  </form>
+  {% if description %}
+    <p class="muted">Result: MainCategory = <b>{{ result_main }}</b>, Category = <b>{{ result_cat }}</b></p>
+  {% endif %}
+  {% if result_cat == 'Other' or result_cat == '' %}
+  <hr>
+  <h4>Add New Category</h4>
+  <form method="post" action="{{ url_for('categories_add_post') }}" class="inline" style="gap:12px;">
+    <input type="hidden" name="desc" value="{{ description }}">
+    <label for="main">Main</label>
+    <select id="main" name="main">
+      {% for m in mains %}
+        <option value="{{ m }}">{{ m }}</option>
+      {% endfor %}
+      <option value="Misc">Misc</option>
+    </select>
+    <label for="category">Category</label>
+    <input id="category" name="category" type="text" placeholder="e.g., Local Cafe">
+    <label for="keywords">Keywords (comma separated)</label>
+    <input id="keywords" name="keywords" type="text" placeholder="e.g., cafe, local cafe, lcafe">
+    <button class="btn" type="submit">Add & Reclassify</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
