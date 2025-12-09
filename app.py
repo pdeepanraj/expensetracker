@@ -346,6 +346,24 @@ def fetch_other_monthly(limit: int = 200):
     """
     return list(client.query(sql).result())
 
+def fetch_categories_by_main() -> dict[str, list[str]]:
+    client = bq_client()
+    sql = f"""
+    SELECT Main, Category
+    FROM `{CATEGORY_TABLE}`
+    WHERE Main IS NOT NULL AND Category IS NOT NULL
+    GROUP BY Main, Category
+    """
+    by_main: dict[str, set[str]] = {}
+    for r in client.query(sql).result():
+        m = str(r.Main).strip()
+        c = str(r.Category).strip()
+        if m and c:
+            by_main.setdefault(m, set()).add(c)
+    # convert to sorted lists
+    return {m: sorted(list(cats)) for m, cats in by_main.items()}
+
+
 # ---------------- Routes: index/list/process ----------------
 @app.get("/")
 def index():
@@ -957,6 +975,7 @@ def categories_get():
 
     rows = fetch_categories_bq()
     mains = sorted({r[0] for r in rows})  # r[0] = Main
+    categories_by_main = fetch_categories_by_main()
     other_rows = fetch_other_monthly(limit=200)
 
     return render_template(
@@ -965,6 +984,7 @@ def categories_get():
         result_cat=cat,
         result_main=main,
         mains=mains,
+        categories_by_main=categories_by_main,
         message=msg,
         message_type=msg_type,
         other_rows=other_rows
