@@ -3,28 +3,51 @@ import json
 import re
 from pathlib import Path
 from typing import List, Tuple
+from google.cloud import bigquery
 
 EXCLUDE_KEYWORDS = ['citi flex', 'online payment', 'biltprotect rent ach credit', 'ach bt']
 
+# ---------- BigQuery-backed category config (drop-in replacement) ----------
+# The following three functions keep the same names and signatures as your JSON version.
+# They now read category data from BigQuery table: deepanexpense.expense_analytics.category_config.
+
+BQ_CATEGORY_TABLE = "deepanexpense.expense_analytics.category_config"
+
 def load_grouped_category_config(json_path: str):
-    path = Path(json_path)
-    if not path.exists():
-        raise FileNotFoundError(f"Category JSON not found at: {path.resolve()}")
-    with path.open('r', encoding='utf-8') as f:
-        config = json.load(f)
-    for main_block in config:
-        if 'main' not in main_block or 'categories' not in main_block:
-            raise ValueError(f"Invalid main block: {main_block}")
-        if not isinstance(main_block['categories'], list):
-            raise ValueError(f"'categories' must be a list in block: {main_block}")
-        for entry in main_block['categories']:
-            if not {'category', 'keywords'} <= set(entry.keys()):
-                raise ValueError(f"Invalid category entry: {entry}")
-            if not isinstance(entry['keywords'], list) or not all(isinstance(k, str) for k in entry['keywords']):
-                raise ValueError(f"'keywords' must be a list of strings in: {entry}")
-    return config
+    """
+    Signature preserved. Instead of loading JSON from disk, this fetches:
+      Main, Category, Keyword
+    from BigQuery and returns a list of dicts shaped like your former JSON,
+    e.g. [{ "main": "...", "categories": [ { "category": "...", "keywords": [...] }, ... ] }, ...]
+    """
+    client = bigquery.Client()
+    sql = f"""
+    SELECT Main, Category, Keyword
+    FROM `{BQ_CATEGORY_TABLE}`
+    WHERE Main IS NOT NULL AND Category IS NOT NULL AND Keyword IS NOT NULL
+    """
+    rows = list(client.query(sql).result())
+    grouped: dict[str, dict[str, list[str]]] = {}
+    for r in rows:
+        m = str(r.Main).strip()
+        c = str(r.Category).strip()
+        k = str(r.Keyword).strip()
+        if not (m and c and k):
+            continue
+        grouped.setdefault(m, {}).setdefault(c, []).append(k)
+
+    config_like_json: List[dict] = []
+    for m, cats in grouped.items():
+        config_like_json.append({
+            "main": m,
+            "categories": [{"category": c, "keywords": kws} for c, kws in cats.items()]
+        })
+    return config_like_json
 
 def build_regex_index_grouped(config, use_word_boundaries: bool = True):
+    """
+    Unchanged signature/behavior; now uses the BigQuery-sourced 'config' from above.
+    """
     regex_index: List[Tuple[re.Pattern, str, str]] = []
     for main_block in config:
         main = main_block['main']
@@ -35,12 +58,15 @@ def build_regex_index_grouped(config, use_word_boundaries: bool = True):
                 if use_word_boundaries and re.fullmatch(r'[\w\s]+', base.lower()):
                     pattern = re.compile(rf'\b{re.escape(base)}\b', re.IGNORECASE)
                 else:
-                    # Plain substring, case-insensitive
                     pattern = re.compile(re.escape(base), re.IGNORECASE)
                 regex_index.append((pattern, cat, main))
     return regex_index
 
 def make_classifier_grouped(config_path: str, use_word_boundaries: bool = True):
+    """
+    Unchanged signature. 'config_path' is ignored but accepted to preserve call sites.
+    Classifier is built from BigQuery categories.
+    """
     config = load_grouped_category_config(config_path)
     regex_index = build_regex_index_grouped(config, use_word_boundaries=use_word_boundaries)
     def classify(desc: str):
@@ -50,6 +76,8 @@ def make_classifier_grouped(config_path: str, use_word_boundaries: bool = True):
                 return cat, main
         return "Other", "Other"
     return classify
+
+# ---------- Your existing pipeline utilities (unchanged) ----------
 
 def normalize_amount_columns(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = [c.strip() for c in df.columns]
@@ -212,4 +240,3 @@ def run_pipeline(frames: List[pd.DataFrame], classifier):
         "latest_year": latest_year,
         "latest_year_main_totals": latest_year_main_totals.to_dict(orient='records'),
     }
-

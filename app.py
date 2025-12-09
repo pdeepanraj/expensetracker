@@ -1,4 +1,3 @@
-
 # app.py
 import io
 import os
@@ -88,15 +87,17 @@ def derive_card_name_from_path(path: str) -> str:
     return name.replace(" ", "_").upper()
 
 def load_classifier_from_repo(owner: str, repo: str, ref: str, json_path: str | None):
+    """
+    Signature preserved; if json_path is provided we still fetch it, but we DO NOT
+    rely on local JSON. We just pass a dummy path to make_classifier_grouped, which
+    now reads from BigQuery regardless of the path value.
+    """
     if json_path:
-        b = gh_fetch_raw(owner, repo, json_path.strip("/"), ref)
-        cfg = json.loads(b.decode("utf-8"))
-        tmp_path = "/tmp/categories_grouped.json"
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            json.dump(cfg, f)
-        return make_classifier_grouped(tmp_path)
+        # Keep behavior of fetching the file, but we won't use it for classification.
+        _ = gh_fetch_raw(owner, repo, json_path.strip("/"), ref)
+        return make_classifier_grouped("/dev/null")
     else:
-        return make_classifier_grouped("categories_grouped.json")
+        return make_classifier_grouped("/dev/null")
 
 # ---------------- BigQuery helpers ----------------
 def bq_client() -> bigquery.Client:
@@ -260,65 +261,64 @@ def apply_filters_where(params: dict) -> tuple[str, dict]:
         where.append("Category = @cat"); qp["cat"] = params["cat"]
     return ("WHERE " + " AND ".join(where)) if where else "", qp
 
-# ---- Category config helpers ----
+# ---- Category test & add page (now BigQuery-backed) ----
 
-CATEGORIES_JSON_PATH = Path("categories_grouped.json")
+CATEGORY_TABLE = f"{BQ_PROJECT}.{BQ_DATASET}.category_config"
+MONTHLY_SRC = f"{BQ_PROJECT}.{BQ_DATASET}.all_positive_monthly"
 
-def read_categories() -> List[Dict[str, Any]]:
-    with CATEGORIES_JSON_PATH.open("r", encoding="utf-8") as f:
-        return json.load(f)
+def fetch_categories_bq() -> list[tuple[str, str, str]]:
+    client = bq_client()
+    sql = f"""
+    SELECT Main, Category, Keyword
+    FROM `{CATEGORY_TABLE}`
+    WHERE Main IS NOT NULL AND Category IS NOT NULL AND Keyword IS NOT NULL
+    """
+    return [(r.Main, r.Category, r.Keyword) for r in client.query(sql).result()]
 
-def write_categories(cfg: List[Dict[str, Any]]):
-    # simple pretty print, keep structure consistent
-    with CATEGORIES_JSON_PATH.open("w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=2, ensure_ascii=False)
-
-def add_category(cfg: List[Dict[str, Any]], main: str, category: str, keywords: List[str]) -> List[Dict[str, Any]]:
-    for block in cfg:
-        if block.get("main") == main:
-            block.setdefault("categories", [])
-            for entry in block["categories"]:
-                if entry.get("category") == category:
-                    existing = {k.strip().lower() for k in entry.get("keywords", []) if k.strip()}
-                    for k in keywords:
-                        ek = k.strip().lower()
-                        if ek:
-                            existing.add(ek)
-                    entry["keywords"] = sorted(existing)
-                    return cfg
-            block["categories"].append({"category": category, "keywords": [k.strip().lower() for k in keywords if k.strip()]})
-            return cfg
-    cfg.append({
-        "main": main,
-        "categories": [
-            {"category": category, "keywords": [k.strip().lower() for k in keywords if k.strip()]}
-        ]
-    })
-    return cfg
-
-# build regex index exactly like your build_regex_index_grouped, but callable here
-def build_regex_index_for_runtime(cfg: List[Dict[str, Any]], use_word_boundaries: bool = True) -> List[Tuple[re.Pattern, str, str]]:
-    idx: List[Tuple[re.Pattern, str, str]] = []
-    for block in cfg:
-        main = block.get("main")
-        for entry in block.get("categories", []):
-            cat = entry.get("category")
-            for kw in entry.get("keywords", []):
-                base = kw
-                if use_word_boundaries:
-                    pat = re.compile(rf"\b{re.escape(base)}\b", re.IGNORECASE)
-                else:
-                    pat = re.compile(re.escape(base), re.IGNORECASE)
-                idx.append((pat, cat, main))
+def build_regex_index_bq(use_word_boundaries: bool = True):
+    idx = []
+    for main, cat, kw in fetch_categories_bq():
+        base = (kw or "").strip()
+        if not base:
+            continue
+        if use_word_boundaries:
+            pat = re.compile(rf"\b{re.escape(base)}\b", re.IGNORECASE)
+        else:
+            pat = re.compile(re.escape(base), re.IGNORECASE)
+        idx.append((pat, cat, main))
     return idx
 
-
-def classify_with_index(text: str, regex_index: List[Tuple[re.Pattern, str, str]]) -> Tuple[str, str]:
+def classify_with_bq_index(text: str, regex_index) -> tuple[str, str]:
     t = (text or "").strip()
     for pattern, cat, main in regex_index:
         if pattern.search(t):
             return cat, main
     return "Other", "Other"
+
+def insert_keywords_bq(main: str, category: str, keywords: list[str]):
+    client = bq_client()
+    existing = {(m.lower(), c.lower(), k.lower()) for m, c, k in fetch_categories_bq()}
+    to_insert = []
+    for k in keywords:
+        key = (main.lower(), category.lower(), k.lower())
+        if key not in existing and k.strip():
+            to_insert.append({"Main": main, "Category": category, "Keyword": k.strip().lower()})
+    if not to_insert:
+        return
+    errors = client.insert_rows_json(CATEGORY_TABLE, to_insert)
+    if errors:
+        raise RuntimeError(f"Insert errors: {errors}")
+
+def fetch_other_monthly(limit: int = 200):
+    client = bq_client()
+    sql = f"""
+    SELECT Month, CardName, Description, Amount
+    FROM `{MONTHLY_SRC}`
+    WHERE LOWER(IFNULL(MainCategory,'other')) = 'other'
+    ORDER BY Month DESC, Amount DESC
+    LIMIT {limit}
+    """
+    return list(client.query(sql).result())
 
 # ---------------- Routes: index/list/process ----------------
 @app.get("/")
@@ -918,18 +918,21 @@ def bills_mark_paid():
     job.result()
     return redirect(url_for("bills", m=bill_month), code=303)
 
-
-# ---- Category test & add page ----
+# ---- Category test & add page (now reading/writing BigQuery) ----
 
 @app.get("/categories")
 def categories_get():
     desc = request.args.get("desc", "").strip()
     msg = request.args.get("msg", "").strip()
     msg_type = request.args.get("msg_type", "").strip()
-    cfg = read_categories()
-    regex_index = build_regex_index_for_runtime(cfg)
-    cat, main = classify_with_index(desc, regex_index) if desc else ("", "")
-    mains = [block.get("main") for block in cfg]
+
+    regex_index = build_regex_index_bq()
+    cat, main = classify_with_bq_index(desc, regex_index) if desc else ("", "")
+
+    rows = fetch_categories_bq()
+    mains = sorted({m for (m, _, _) in rows})
+    other_rows = fetch_other_monthly(limit=200)
+
     return render_template(
         "categories.html",
         description=desc,
@@ -937,9 +940,9 @@ def categories_get():
         result_main=main,
         mains=mains,
         message=msg,
-        message_type=msg_type
+        message_type=msg_type,
+        other_rows=other_rows
     )
-
 
 @app.post("/categories/add")
 def categories_add_post():
@@ -953,17 +956,12 @@ def categories_add_post():
 
     keywords = [k.strip().lower() for k in keywords_raw.split(",") if k.strip()]
 
-    cfg = read_categories()
-    cfg = add_category(cfg, main, category, keywords)
-    write_categories(cfg)
+    # Insert into BigQuery config
+    insert_keywords_bq(main, category, keywords)
 
     # Reclassify existing 'Other' rows in BigQuery that match new keywords
     table_id = f"{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}"
-
-    ors = []
-    for kw in keywords:
-        # Use LOWER for robustness; boundaries approximate classifier behavior
-        ors.append(f"REGEXP_CONTAINS(LOWER(Description), r'\\b{re.escape(kw)}\\b')")
+    ors = [f"REGEXP_CONTAINS(LOWER(Description), r'\\b{re.escape(kw)}\\b')" for kw in keywords]
     where_kw = " OR ".join(ors) if ors else "FALSE"
 
     upd_sql = f"""
@@ -972,7 +970,6 @@ def categories_add_post():
     WHERE LOWER(IFNULL(Category, 'other')) = 'other'
       AND ({where_kw})
     """
-
     client = bq_client()
     job = client.query(
         upd_sql,
@@ -987,6 +984,41 @@ def categories_add_post():
 
     return redirect(url_for("categories_get", desc=desc, msg=f"Added '{category}' under '{main}' and updated matching rows.", msg_type="ok"))
 
+@app.post("/categories/reclassify_monthly")
+def categories_reclassify_monthly():
+    month = (request.form.get("month", "") or "").strip()
+    card = (request.form.get("card", "") or "").strip()
+    desc = (request.form.get("desc", "") or "").strip()
+    main = (request.form.get("main", "") or "").strip()
+    category = (request.form.get("category", "") or "").strip()
+
+    if not (month and card and desc and main and category):
+        return redirect(url_for("categories_get", msg="All fields required to reclassify this row.", msg_type="error"))
+
+    table_id = f"{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}"
+    upd_sql = f"""
+    UPDATE `{table_id}`
+    SET MainCategory = @main, Category = @category
+    WHERE Month = @month
+      AND CardName = @card
+      AND LOWER(TRIM(Description)) = LOWER(TRIM(@desc))
+    """
+    client = bq_client()
+    job = client.query(
+        upd_sql,
+        job_config=bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("main", "STRING", main),
+                bigquery.ScalarQueryParameter("category", "STRING", category),
+                bigquery.ScalarQueryParameter("month", "STRING", month),
+                bigquery.ScalarQueryParameter("card", "STRING", card),
+                bigquery.ScalarQueryParameter("desc", "STRING", desc),
+            ]
+        )
+    )
+    job.result()
+
+    return redirect(url_for("categories_get", msg="Row reclassified.", msg_type="ok"))
 
 # ---------------- Entrypoint ----------------
 if __name__ == "__main__":
