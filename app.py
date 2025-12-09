@@ -266,15 +266,6 @@ def apply_filters_where(params: dict) -> tuple[str, dict]:
 CATEGORY_TABLE = f"{BQ_PROJECT}.{BQ_DATASET}.category_config"
 MONTHLY_SRC = f"{BQ_PROJECT}.{BQ_DATASET}.all_positive_monthly"
 
-def fetch_categories_bq() -> list[tuple[str, str, str]]:
-    client = bq_client()
-    sql = f"""
-    SELECT Main, Category, Keyword
-    FROM `{CATEGORY_TABLE}`
-    WHERE Main IS NOT NULL AND Category IS NOT NULL AND Keyword IS NOT NULL
-    """
-    return [(r.Main, r.Category, r.Keyword) for r in client.query(sql).result()]
-
 def fetch_categories_bq() -> list[tuple[str, str, str, bool | None]]:
     client = bq_client()
     sql = f"""
@@ -292,6 +283,7 @@ def fetch_categories_bq() -> list[tuple[str, str, str, bool | None]]:
         out.append((r.Main, r.Category, r.Keyword, ub))
     return out
 
+
 def build_regex_index_bq(use_word_boundaries: bool = True):
     idx = []
     for main, cat, kw, ub in fetch_categories_bq():
@@ -306,6 +298,7 @@ def build_regex_index_bq(use_word_boundaries: bool = True):
             pat = re.compile(re.escape(base), re.IGNORECASE)
         idx.append((pat, cat, main))
     return idx
+
 
 
 def classify_with_bq_index(text: str, regex_index) -> tuple[str, str]:
@@ -963,7 +956,7 @@ def categories_get():
     cat, main = classify_with_bq_index(desc, regex_index) if desc else ("", "")
 
     rows = fetch_categories_bq()
-    mains = sorted({m for (m, _, _) in rows})
+    mains = sorted({r[0] for r in rows})  # r[0] = Main
     other_rows = fetch_other_monthly(limit=200)
 
     return render_template(
