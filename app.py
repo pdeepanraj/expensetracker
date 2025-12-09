@@ -987,6 +987,79 @@ def categories_add_post():
 
     return redirect(url_for("categories_get", desc=desc, msg=f"Added '{category}' under '{main}' and updated matching rows.", msg_type="ok"))
 
+# ---- Pull 'Other' rows from all_positive_monthly and reclassify ----
+
+MONTHLY_SRC = "deepanexpense.expense_analytics.all_positive_monthly"
+
+def fetch_other_monthly(limit: int = 200):
+    client = bq_client()
+    sql = f"""
+    SELECT Month, CardName, Description, Amount
+    FROM `{MONTHLY_SRC}`
+    WHERE LOWER(IFNULL(MainCategory,'other')) = 'other'
+    ORDER BY Month DESC, Amount DESC
+    LIMIT {limit}
+    """
+    return list(client.query(sql).result())
+
+@app.get("/categories")
+def categories_get():
+    # ... existing code ...
+    # also fetch “Other” monthly rows
+    other_rows = fetch_other_monthly(limit=200)
+    return render_template(
+        "categories.html",
+        description=desc,
+        result_cat=cat,
+        result_main=main,
+        mains=mains,
+        message=msg,
+        message_type=msg_type,
+        other_rows=other_rows
+    )
+
+@app.post("/categories/reclassify_monthly")
+def categories_reclassify_monthly():
+    # Inputs from inline form per row
+    month = (request.form.get("month", "") or "").strip()
+    card = (request.form.get("card", "") or "").strip()
+    desc = (request.form.get("desc", "") or "").strip()
+    main = (request.form.get("main", "") or "").strip()
+    category = (request.form.get("category", "") or "").strip()
+
+    if not (month and card and desc and main and category):
+        return redirect(url_for("categories_get", msg="All fields required to reclassify this row.", msg_type="error"))
+
+    # Update base transactions table
+    table_id = f"{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}"
+
+    # Match by Month, CardName, and Description (case insensitive for description)
+    # If you have RowHash in your base table, it’s better to use that. Replace WHERE accordingly.
+    upd_sql = f"""
+    UPDATE `{table_id}`
+    SET MainCategory = @main, Category = @category
+    WHERE Month = @month
+      AND CardName = @card
+      AND LOWER(TRIM(Description)) = LOWER(TRIM(@desc))
+    """
+
+    client = bq_client()
+    job = client.query(
+        upd_sql,
+        job_config=bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("main", "STRING", main),
+                bigquery.ScalarQueryParameter("category", "STRING", category),
+                bigquery.ScalarQueryParameter("month", "STRING", month),
+                bigquery.ScalarQueryParameter("card", "STRING", card),
+                bigquery.ScalarQueryParameter("desc", "STRING", desc),
+            ]
+        )
+    )
+    job.result()
+
+    return redirect(url_for("categories_get", msg="Row reclassified.", msg_type="ok"))
+
 
 # ---------------- Entrypoint ----------------
 if __name__ == "__main__":
