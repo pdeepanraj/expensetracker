@@ -22,14 +22,14 @@
   {% if result_cat == 'Other' or result_cat == '' %}
   <hr>
   <h4>Add New Category</h4>
-  <p class="muted">Adds keywords to BigQuery table: {{ project if project else 'deepanexpense' }}.{{ dataset if dataset else 'expense_analytics' }}.category_config, and reclassifies matching “Other” rows.</p>
+  <p class="muted">Adds keywords to BigQuery table: {{ project if project else 'deepanexpense' }}.{{ dataset if dataset else 'expense_analytics' }}.category_config, then reclassifies matching “Other” rows.</p>
   <form method="post" action="{{ url_for('categories_add_post') }}" class="inline" style="gap:12px; align-items:flex-end;">
     <input type="hidden" name="desc" value="{{ description }}">
     <div>
       <label for="main">Main</label><br>
       <select id="main" name="main">
         {% for m in mains %}
-          <option value="{{ m }}">{{ m }}</option>
+          <option value="{{ m }}" {% if m == result_main %}selected{% endif %}>{{ m }}</option>
         {% endfor %}
         <option value="Misc">Misc</option>
       </select>
@@ -70,16 +70,21 @@
         <td>{{ r.Description }}</td>
         <td>{{ r.Amount|currency }}</td>
         <td>
-          <form method="post" action="{{ url_for('categories_reclassify_monthly') }}" class="inline" style="gap:8px;">
+          <form method="post" action="{{ url_for('categories_reclassify_monthly') }}" class="inline reclass-form" style="gap:8px;">
             <input type="hidden" name="month" value="{{ r.Month }}">
             <input type="hidden" name="card" value="{{ r.CardName }}">
             <input type="hidden" name="desc" value="{{ r.Description }}">
-            <select name="main">
+
+            <!-- Main dropdown -->
+            <select name="main" class="main-select">
               {% for m in mains %}
                 <option value="{{ m }}">{{ m }}</option>
               {% endfor %}
             </select>
-            <input type="text" name="category" placeholder="Category" style="min-width:160px;">
+
+            <!-- Category dropdown; populated based on Main -->
+            <select name="category" class="category-select"></select>
+
             <button class="btn secondary" type="submit">Update</button>
           </form>
         </td>
@@ -93,4 +98,47 @@
     </tbody>
   </table>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  // categories_by_main is provided by app.py: { "MainA": ["Cat1","Cat2"], ... }
+  const byMain = {{ (categories_by_main or {})|tojson }};
+
+  function populateCategorySelect(mainSel, catSel) {
+    const main = mainSel.value;
+    const cats = byMain[main] || [];
+    // Remember current selection if possible
+    const current = catSel.value;
+    // Clear
+    catSel.innerHTML = "";
+    // Fill
+    cats.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c;
+      opt.textContent = c;
+      catSel.appendChild(opt);
+    });
+    // Restore selection or pick first
+    if (current && cats.includes(current)) {
+      catSel.value = current;
+    } else if (cats.length > 0) {
+      catSel.value = cats[0];
+    }
+    // Disable if no categories
+    catSel.disabled = cats.length === 0;
+  }
+
+  // Initialize all reclass forms
+  document.querySelectorAll("form.reclass-form").forEach(form => {
+    const mainSel = form.querySelector(".main-select");
+    const catSel  = form.querySelector(".category-select");
+    if (mainSel && catSel) {
+      populateCategorySelect(mainSel, catSel);
+      mainSel.addEventListener("change", () => populateCategorySelect(mainSel, catSel));
+    }
+  });
+})();
+</script>
 {% endblock %}
