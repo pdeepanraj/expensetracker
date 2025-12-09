@@ -32,4 +32,47 @@
   </form>
   {% endif %}
 </div>
+
+<hr>
+<h4>Reclassify ‘Other’ from Monthly Summary</h4>
+<p class="muted">Source: deepanexpense.expense_analytics.all_positive_monthly</p>
+
+<div class="table-scroll">
+  <table>
+    <thead>
+      <tr>
+        <th>Month</th>
+        <th>Card</th>
+        <th>Description</th>
+        <th>Amount</th>
+        <th>Set Main/Category</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in other_rows %}
+      <tr>
+        <td>{{ r.Month }}</td>
+        <td>{{ r.CardName }}</td>
+        <td>{{ r.Description }}</td>
+        <td>{{ r.Amount }}</td>
+        <td>
+          <form method="post" action="{{ url_for('categories_reclassify_monthly') }}" class="inline" style="gap:8px;">
+            <input type="hidden" name="month" value="{{ r.Month }}">
+            <input type="hidden" name="card" value="{{ r.CardName }}">
+            <input type="hidden" name="desc" value="{{ r.Description }}">
+            <select name="main">
+              {% for m in mains %}
+                <option value="{{ m }}">{{ m }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" name="category" placeholder="Category" style="min-width:160px;">
+            <button class="btn secondary" type="submit">Update</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
 {% endblock %}
