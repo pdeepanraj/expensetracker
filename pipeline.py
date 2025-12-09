@@ -7,34 +7,44 @@ from google.cloud import bigquery
 
 EXCLUDE_KEYWORDS = ['citi flex', 'online payment', 'biltprotect rent ach credit', 'ach bt']
 
-# ---------- BigQuery-backed category config (drop-in replacement) ----------
-# The following three functions keep the same names and signatures as your JSON version.
-# They now read category data from BigQuery table: deepanexpense.expense_analytics.category_config.
-
+# ---------- BigQuery-backed category config (with optional UseBoundaries) ----------
 BQ_CATEGORY_TABLE = "deepanexpense.expense_analytics.category_config"
 
 def load_grouped_category_config(json_path: str):
     """
-    Signature preserved. Instead of loading JSON from disk, this fetches:
-      Main, Category, Keyword
-    from BigQuery and returns a list of dicts shaped like your former JSON,
-    e.g. [{ "main": "...", "categories": [ { "category": "...", "keywords": [...] }, ... ] }, ...]
+    Signature preserved. Fetches Main, Category, Keyword, UseBoundaries (optional)
+    from BigQuery and returns a JSON-like grouped structure your code expects:
+      [
+        { "main": M, "categories": [
+            { "category": C, "keywords": [ { "text": K, "use_boundaries": True|False|None }, ... ] }
+          ] },
+        ...
+      ]
+    We keep keywords as dicts here to carry the flag into build_regex_index_grouped.
     """
     client = bigquery.Client()
     sql = f"""
-    SELECT Main, Category, Keyword
+    SELECT Main, Category, Keyword, UseBoundaries
     FROM `{BQ_CATEGORY_TABLE}`
     WHERE Main IS NOT NULL AND Category IS NOT NULL AND Keyword IS NOT NULL
     """
     rows = list(client.query(sql).result())
-    grouped: dict[str, dict[str, list[str]]] = {}
+
+    grouped: dict[str, dict[str, list[dict]]] = {}
     for r in rows:
         m = str(r.Main).strip()
         c = str(r.Category).strip()
         k = str(r.Keyword).strip()
+        ub = None
+        # Safe read if column exists; if not, remains None
+        try:
+            ub = bool(r.UseBoundaries) if r.UseBoundaries is not None else None
+        except Exception:
+            ub = None
+
         if not (m and c and k):
             continue
-        grouped.setdefault(m, {}).setdefault(c, []).append(k)
+        grouped.setdefault(m, {}).setdefault(c, []).append({"text": k, "use_boundaries": ub})
 
     config_like_json: List[dict] = []
     for m, cats in grouped.items():
@@ -44,28 +54,54 @@ def load_grouped_category_config(json_path: str):
         })
     return config_like_json
 
-def build_regex_index_grouped(config, use_word_boundaries: bool = True):
+def _default_use_boundaries_for_keyword(kw: str) -> bool:
     """
-    Unchanged signature/behavior; now uses the BigQuery-sourced 'config' from above.
+    Default behavior:
+    - If keyword is letters/digits/spaces only => True (use \\b...\\b)
+    - Else (contains punctuation) => False (plain substring)
+    """
+    return bool(re.fullmatch(r'[\w\s]+', kw.lower()))
+
+def build_regex_index_grouped(config, use_word_boundaries: bool = True) -> List[Tuple[re.Pattern, str, str]]:
+    """
+    Builds regex index. For each keyword dict:
+      - If 'use_boundaries' is True => compile with word boundaries
+      - If 'use_boundaries' is False => plain substring (case-insensitive)
+      - If None => use default rule based on keyword content
+    The outer 'use_word_boundaries' parameter is retained for compatibility. If it is False,
+    we force plain substring for all keywords regardless of per-keyword flag.
     """
     regex_index: List[Tuple[re.Pattern, str, str]] = []
     for main_block in config:
         main = main_block['main']
         for entry in main_block['categories']:
             cat = entry['category']
-            for kw in entry['keywords']:
-                base = kw
-                if use_word_boundaries and re.fullmatch(r'[\w\s]+', base.lower()):
+            for kw_entry in entry['keywords']:
+                # Backward compatibility: allow old config that had plain strings
+                if isinstance(kw_entry, str):
+                    kw_text = kw_entry
+                    ub = _default_use_boundaries_for_keyword(kw_text)
+                else:
+                    kw_text = kw_entry.get("text", "")
+                    ub = kw_entry.get("use_boundaries")
+                    if ub is None:
+                        ub = _default_use_boundaries_for_keyword(kw_text)
+
+                base = kw_text
+                if not base:
+                    continue
+
+                if use_word_boundaries and ub:
                     pattern = re.compile(rf'\b{re.escape(base)}\b', re.IGNORECASE)
                 else:
                     pattern = re.compile(re.escape(base), re.IGNORECASE)
+
                 regex_index.append((pattern, cat, main))
     return regex_index
 
 def make_classifier_grouped(config_path: str, use_word_boundaries: bool = True):
     """
-    Unchanged signature. 'config_path' is ignored but accepted to preserve call sites.
-    Classifier is built from BigQuery categories.
+    Unchanged signature. 'config_path' ignored; reads from BigQuery.
     """
     config = load_grouped_category_config(config_path)
     regex_index = build_regex_index_grouped(config, use_word_boundaries=use_word_boundaries)
@@ -78,7 +114,6 @@ def make_classifier_grouped(config_path: str, use_word_boundaries: bool = True):
     return classify
 
 # ---------- Your existing pipeline utilities (unchanged) ----------
-
 def normalize_amount_columns(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = [c.strip() for c in df.columns]
     lower_map = {c.lower(): c for c in df.columns}
@@ -201,7 +236,6 @@ def run_pipeline(frames: List[pd.DataFrame], classifier):
     )
 
     # ---------- JSON-serializable casts ----------
-    # Period -> string for Month
     for df in [
         latest_positive_monthly,
         all_positive_monthly,
@@ -212,7 +246,6 @@ def run_pipeline(frames: List[pd.DataFrame], classifier):
         if 'Month' in df.columns:
             df['Month'] = df['Month'].astype(str)
 
-    # Ensure numeric types are plain Python-compatible
     for df, cols in [
         (latest_positive_monthly, ['Amount']),
         (all_positive_monthly, ['Amount']),
@@ -225,11 +258,9 @@ def run_pipeline(frames: List[pd.DataFrame], classifier):
             if c in df.columns:
                 df[c] = pd.to_numeric(df[c], errors='coerce').astype(float)
 
-    # Year as int
     if 'Year' in latest_year_main_totals.columns:
         latest_year_main_totals['Year'] = pd.to_numeric(latest_year_main_totals['Year'], errors='coerce').astype('Int64').astype('int')
 
-    # ---------- return ----------
     return {
         "latest_month": str(latest_month) if latest_month is not pd.NaT else None,
         "positive_monthly": latest_positive_monthly.to_dict(orient='records'),

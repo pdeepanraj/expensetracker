@@ -275,18 +275,38 @@ def fetch_categories_bq() -> list[tuple[str, str, str]]:
     """
     return [(r.Main, r.Category, r.Keyword) for r in client.query(sql).result()]
 
+def fetch_categories_bq() -> list[tuple[str, str, str, bool | None]]:
+    client = bq_client()
+    sql = f"""
+    SELECT Main, Category, Keyword, UseBoundaries
+    FROM `{CATEGORY_TABLE}`
+    WHERE Main IS NOT NULL AND Category IS NOT NULL AND Keyword IS NOT NULL
+    """
+    out = []
+    for r in client.query(sql).result():
+        ub = None
+        try:
+            ub = bool(r.UseBoundaries) if r.UseBoundaries is not None else None
+        except Exception:
+            ub = None
+        out.append((r.Main, r.Category, r.Keyword, ub))
+    return out
+
 def build_regex_index_bq(use_word_boundaries: bool = True):
     idx = []
-    for main, cat, kw in fetch_categories_bq():
+    for main, cat, kw, ub in fetch_categories_bq():
         base = (kw or "").strip()
         if not base:
             continue
-        if use_word_boundaries:
+        if ub is None:
+            ub = _default_use_boundaries_for_keyword(base)
+        if use_word_boundaries and ub:
             pat = re.compile(rf"\b{re.escape(base)}\b", re.IGNORECASE)
         else:
             pat = re.compile(re.escape(base), re.IGNORECASE)
         idx.append((pat, cat, main))
     return idx
+
 
 def classify_with_bq_index(text: str, regex_index) -> tuple[str, str]:
     t = (text or "").strip()
@@ -295,19 +315,32 @@ def classify_with_bq_index(text: str, regex_index) -> tuple[str, str]:
             return cat, main
     return "Other", "Other"
 
+def _default_use_boundaries_for_keyword(kw: str) -> bool:
+    return bool(re.fullmatch(r'[\w\s]+', kw.lower()))
+
 def insert_keywords_bq(main: str, category: str, keywords: list[str]):
     client = bq_client()
-    existing = {(m.lower(), c.lower(), k.lower()) for m, c, k in fetch_categories_bq()}
+    # fetch existing to dedupe
+    sql = f"SELECT Main, Category, Keyword FROM `{CATEGORY_TABLE}`"
+    existing_rows = list(client.query(sql).result())
+    existing = {(str(r.Main).lower(), str(r.Category).lower(), str(r.Keyword).lower()) for r in existing_rows}
+
     to_insert = []
     for k in keywords:
-        key = (main.lower(), category.lower(), k.lower())
-        if key not in existing and k.strip():
-            to_insert.append({"Main": main, "Category": category, "Keyword": k.strip().lower()})
+        k_norm = k.strip().lower()
+        key = (main.lower(), category.lower(), k_norm)
+        if k_norm and key not in existing:
+            use_boundaries = _default_use_boundaries_for_keyword(k_norm)
+            to_insert.append({"Main": main, "Category": category, "Keyword": k_norm, "UseBoundaries": use_boundaries})
+
     if not to_insert:
         return
+
+    # Use a load job or insert_rows_json; insert_rows_json supports extra column
     errors = client.insert_rows_json(CATEGORY_TABLE, to_insert)
     if errors:
         raise RuntimeError(f"Insert errors: {errors}")
+
 
 def fetch_other_monthly(limit: int = 200):
     client = bq_client()
