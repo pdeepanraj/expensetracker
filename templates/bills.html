@@ -34,6 +34,63 @@
   </form>
 </div>
 
+<!-- Current Month Bills: moved up to be right after month picker -->
+<div class="card">
+  <h3>Current Month Bills ({{ bill_month }})</h3>
+
+  <!-- Optional legend -->
+  <p class="muted" style="margin-bottom:8px;">
+    Due status:
+    <span class="due-status due-green" title="> 7 days"></span> green,
+    <span class="due-status due-amber" title="≤ 7 days"></span> amber,
+    <span class="due-status due-red" title="past due"></span> red.
+  </p>
+
+  <div class="table-scroll">
+    <table id="billsTable" data-month="{{ bill_month }}">
+      <thead>
+        <tr>
+          <th>Due</th>
+          <th>CardName</th>
+          <th>DueDay</th>
+          <th>Amount</th>
+          <th>Paid</th>
+          <th>PaidAt</th>
+          <th>Note</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in bills %}
+        <tr data-paid="{{ '1' if b.Paid else '0' }}">
+          <td><span class="due-status"></span></td>
+          <td>{{ b.CardName }}</td>
+          <td>{{ b.DueDay }}</td>
+          <td>{{ (b.Amount or 0)|currency }}</td>
+          <td>{{ 'Yes' if b.Paid else 'No' }}</td>
+          <td>{{ b.PaidAt or '' }}</td>
+          <td>{{ b.Note or '' }}</td>
+          <td>
+            {% if not b.Paid %}
+            <form method="post" action="{{ url_for('bills_mark_paid') }}" class="inline">
+              <input type="hidden" name="row_id" value="{{ b.RowId }}">
+              <input type="hidden" name="bill_month" value="{{ bill_month }}">
+              <button type="submit">Mark Paid</button>
+            </form>
+            {% else %}
+            <span class="badge">Completed</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not bills %}
+        <tr><td colspan="8" class="muted">No bills saved for {{ bill_month }} yet.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <div class="grid-2">
   <!-- Summary -->
   <div class="card">
@@ -69,6 +126,7 @@
         <button type="submit">Add Card</button>
       </div>
     </form>
+
     {% if cards|length > 0 %}
       <p class="muted" style="margin-top:8px;">Existing cards:</p>
       <div class="kpi">
@@ -111,66 +169,20 @@
   </form>
   <p class="muted" style="margin-top:8px;">Due Day is taken from the card’s default (set above) when creating a month entry.</p>
 </div>
-
-<!-- Current month bills -->
-<div class="card">
-  <h3>Current Month Bills ({{ bill_month }})</h3>
-  <div class="table-scroll">
-    <table id="billsTable" data-month="{{ bill_month }}">
-      <thead>
-        <tr>
-          <th>CardName</th>
-          <th>DueDay</th>
-          <th>Amount</th>
-          <th>Paid</th>
-          <th>PaidAt</th>
-          <th>Note</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for b in bills %}
-        <tr data-paid="{{ '1' if b.Paid else '0' }}">
-          <td>{{ b.CardName }}</td>
-          <td>{{ b.DueDay }}</td>
-          <td>{{ (b.Amount or 0)|currency }}</td>
-          <td>{{ 'Yes' if b.Paid else 'No' }}</td>
-          <td>{{ b.PaidAt or '' }}</td>
-          <td>{{ b.Note or '' }}</td>
-          <td>
-            {% if not b.Paid %}
-            <form method="post" action="{{ url_for('bills_mark_paid') }}" class="inline">
-              <input type="hidden" name="row_id" value="{{ b.RowId }}">
-              <input type="hidden" name="bill_month" value="{{ bill_month }}">
-              <button type="submit">Mark Paid</button>
-            </form>
-            {% else %}
-            <span class="badge">Completed</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-        {% if not bills %}
-        <tr><td colspan="7" class="muted">No bills saved for {{ bill_month }} yet.</td></tr>
-        {% endif %}
-      </tbody>
-    </table>
-  </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-  // Due soon highlight for unpaid rows within next 7 days of the real current date (only if viewing the current month)
+  // Status bar per row: green (>7 days or already paid), amber (≤ 7 days), red (past due).
+  // Only computes relative to the real current date if viewing current month.
   (function() {
     const tbl = document.getElementById('billsTable');
     if (!tbl) return;
+
     const ym = tbl.dataset.month || '';
     const today = new Date();
     const nowKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2,'0')}`;
     const sameMonth = (ym === nowKey);
-
-    if (!sameMonth) return;
 
     const daysInMonth = (y, m) => new Date(y, m, 0).getDate();
     const [y, m] = ym.split('-').map(Number);
@@ -178,15 +190,34 @@
 
     [...tbl.tBodies[0].rows].forEach(row => {
       const paid = row.dataset.paid === '1';
-      if (paid) return;
-      const dueDayCell = row.cells[1];
+      const statusEl = row.querySelector('.due-status');
+      if (!statusEl) return;
+
+      // Column indices: 0 Due bar, 1 CardName, 2 DueDay
+      const dueDayCell = row.cells[2];
       if (!dueDayCell) return;
+
       const dueDay = Number(dueDayCell.textContent.trim());
       if (!dueDay || dueDay < 1 || dueDay > dim) return;
+
+      if (!sameMonth) {
+        // If not viewing the real current month, default to green for clarity
+        statusEl.classList.add('due-green');
+        return;
+      }
+
       const dueDate = new Date(y, m - 1, dueDay);
       const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
-      if (diffDays >= 0 && diffDays <= 7) {
-        row.style.background = 'rgba(255, 200, 0, 0.15)';  // subtle highlight
+
+      if (paid) {
+        statusEl.classList.add('due-green');
+      } else if (diffDays < 0) {
+        statusEl.classList.add('due-red');
+      } else if (diffDays <= 7) {
+        statusEl.classList.add('due-amber');
+        row.style.background = 'rgba(255, 200, 0, 0.15)'; // subtle highlight
+      } else {
+        statusEl.classList.add('due-green');
       }
     });
   })();
