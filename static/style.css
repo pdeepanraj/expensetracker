@@ -314,5 +314,18 @@ html[data-theme="dark"] .review-note {
 html[data-theme="dark"] 
 .selectable.selected { background: #1a2130; }
 
+/* Due status bars */
+.due-status {
+  display: inline-block;
+  height: 10px;
+  border-radius: 999px;
+  width: 80px;
+  border: 1px solid var(--border);
+}
+.due-green  { background: #1e8e3e; }    /* green */
+.due-amber  { background: #b07d00; }    /* amber */
+.due-red    { background: #b00020; }    /* red */
+html[data-theme="dark"] .due-status { border-color: rgba(255,255,255,0.14); }
+
 
 
