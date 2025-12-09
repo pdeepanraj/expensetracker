@@ -1,3 +1,4 @@
+
 # app.py
 import io
 import os
@@ -273,35 +274,31 @@ def write_categories(cfg: List[Dict[str, Any]]):
         json.dump(cfg, f, indent=2, ensure_ascii=False)
 
 def add_category(cfg: List[Dict[str, Any]], main: str, category: str, keywords: List[str]) -> List[Dict[str, Any]]:
-    # find main block
     for block in cfg:
         if block.get("main") == main:
             block.setdefault("categories", [])
-            # if already present, merge keywords (dedup, case-insensitive)
             for entry in block["categories"]:
                 if entry.get("category") == category:
-                    existing = set(k.strip().lower() for k in entry.get("keywords", []))
+                    existing = {k.strip().lower() for k in entry.get("keywords", []) if k.strip()}
                     for k in keywords:
                         ek = k.strip().lower()
-                        if ek and ek not in existing:
+                        if ek:
                             existing.add(ek)
                     entry["keywords"] = sorted(existing)
                     return cfg
-            # new entry
-            block["categories"].append({"category": category, "keywords": keywords})
+            block["categories"].append({"category": category, "keywords": [k.strip().lower() for k in keywords if k.strip()]})
             return cfg
-    # if main not found, create it
     cfg.append({
         "main": main,
         "categories": [
-            {"category": category, "keywords": keywords}
+            {"category": category, "keywords": [k.strip().lower() for k in keywords if k.strip()]}
         ]
     })
     return cfg
 
 # build regex index exactly like your build_regex_index_grouped, but callable here
 def build_regex_index_for_runtime(cfg: List[Dict[str, Any]], use_word_boundaries: bool = True) -> List[Tuple[re.Pattern, str, str]]:
-    idx = []
+    idx: List[Tuple[re.Pattern, str, str]] = []
     for block in cfg:
         main = block.get("main")
         for entry in block.get("categories", []):
@@ -309,11 +306,12 @@ def build_regex_index_for_runtime(cfg: List[Dict[str, Any]], use_word_boundaries
             for kw in entry.get("keywords", []):
                 base = kw
                 if use_word_boundaries:
-                    pattern = re.compile(rf"\b{re.escape(base)}\b", re.IGNORECASE)
+                    pat = re.compile(rf"\b{re.escape(base)}\b", re.IGNORECASE)
                 else:
-                    pattern = re.compile(re.escape(base), re.IGNORECASE)
-                idx.append((pattern, cat, main))
+                    pat = re.compile(re.escape(base), re.IGNORECASE)
+                idx.append((pat, cat, main))
     return idx
+
 
 def classify_with_index(text: str, regex_index: List[Tuple[re.Pattern, str, str]]) -> Tuple[str, str]:
     t = (text or "").strip()
@@ -321,7 +319,6 @@ def classify_with_index(text: str, regex_index: List[Tuple[re.Pattern, str, str]
         if pattern.search(t):
             return cat, main
     return "Other", "Other"
-
 
 # ---------------- Routes: index/list/process ----------------
 @app.get("/")
@@ -927,141 +924,6 @@ def bills_mark_paid():
 @app.get("/categories")
 def categories_get():
     desc = request.args.get("desc", "").strip()
-    cfg = read_categories()
-    regex_index = build_regex_index_for_runtime(cfg)
-    cat, main = classify_with_index(desc, regex_index) if desc else ("", "")
-    # provide main options for select
-    mains = [block.get("main") for block in cfg]
-    return render_template(
-        "categories.html",
-        description=desc,
-        result_cat=cat,
-        result_main=main,
-        mains=mains
-    )
-
-@app.post("/categories/add")
-def categories_add_post():
-    # form fields
-    desc = request.form.get("desc", "").strip()
-    main = request.form.get("main", "").strip() or "Misc"
-    category = request.form.get("category", "").strip()
-    keywords_raw = request.form.get("keywords", "").strip()
-    # basic validation
-    if not category or not keywords_raw:
-        return redirect(url_for("categories_get", desc=desc, msg="Category and keywords are required", msg_type="error"))
-    # parse keywords: comma separated
-    keywords = [k.strip().lower() for k in keywords_raw.split(",") if k.strip()]
-    # write JSON
-    cfg = read_categories()
-    cfg = add_category(cfg, main, category, keywords)
-    write_categories(cfg)
-
-    # rebuild index
-    regex_index = build_regex_index_for_runtime(cfg)
-
-    # BigQuery: update existing "Other" rows that match these new keywords
-    # NOTE: keep consistent with your dataset/table names and columns
-    bq_project = BQ_PROJECT
-    bq_dataset = BQ_DATASET
-    target_table = TARGET_TABLE  # same table you use in /review routes
-
-    # Build OR expression for keywords. Use word boundaries similar to classifier.
-    # For BigQuery REGEXP_CONTAINS with \b, use r"\\b" escaping in Python.
-    ors = []
-    for kw in keywords:
-        # word boundary match, case-insensitive: use (?i)
-        ors.append(f"REGEXP_CONTAINS(LOWER(Description), r'\\b{re.escape(kw)}\\b')")
-    where_kw = " OR ".join(ors)
-
-    # Update rows where currently 'Other' and keywords match
-    upd_sql = f"""
-    UPDATE `{bq_project}.{bq_dataset}.{target_table}`
-    SET Category = @category, MainCategory = @main
-    WHERE LOWER(IFNULL(Category, 'other')) = 'other'
-      AND ({where_kw})
-    """
-
-    client = bq_client()
-    job = client.query(
-        upd_sql,
-        job_config=bigquery.QueryJobConfig(
-            query_parameters=[
-                bigquery.ScalarQueryParameter("category", "STRING", category),
-                bigquery.ScalarQueryParameter("main", "STRING", main),
-            ]
-        )
-    )
-    job.result()
-
-    return redirect(url_for("categories_get", desc=desc, msg=f"Added '{category}' to '{main}' and updated matching rows.", msg_type="ok"))
-
-
-# ---- Categories tester and updater ----
-from pathlib import Path
-import json
-import re
-from typing import List, Dict, Any, Tuple
-from flask import request, render_template, redirect, url_for
-
-CATEGORIES_JSON_PATH = Path("categories_grouped.json")
-
-def read_categories() -> List[Dict[str, Any]]:
-    with CATEGORIES_JSON_PATH.open("r", encoding="utf-8") as f:
-        return json.load(f)
-
-def write_categories(cfg: List[Dict[str, Any]]):
-    with CATEGORIES_JSON_PATH.open("w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=2, ensure_ascii=False)
-
-def add_category(cfg: List[Dict[str, Any]], main: str, category: str, keywords: List[str]) -> List[Dict[str, Any]]:
-    for block in cfg:
-        if block.get("main") == main:
-            block.setdefault("categories", [])
-            for entry in block["categories"]:
-                if entry.get("category") == category:
-                    existing = {k.strip().lower() for k in entry.get("keywords", []) if k.strip()}
-                    for k in keywords:
-                        ek = k.strip().lower()
-                        if ek:
-                            existing.add(ek)
-                    entry["keywords"] = sorted(existing)
-                    return cfg
-            block["categories"].append({"category": category, "keywords": [k.strip().lower() for k in keywords if k.strip()]})
-            return cfg
-    cfg.append({
-        "main": main,
-        "categories": [
-            {"category": category, "keywords": [k.strip().lower() for k in keywords if k.strip()]}
-        ]
-    })
-    return cfg
-
-def build_regex_index_for_runtime(cfg: List[Dict[str, Any]], use_word_boundaries: bool = True) -> List[Tuple[re.Pattern, str, str]]:
-    idx: List[Tuple[re.Pattern, str, str]] = []
-    for block in cfg:
-        main = block.get("main")
-        for entry in block.get("categories", []):
-            cat = entry.get("category")
-            for kw in entry.get("keywords", []):
-                base = kw
-                if use_word_boundaries:
-                    pat = re.compile(rf"\b{re.escape(base)}\b", re.IGNORECASE)
-                else:
-                    pat = re.compile(re.escape(base), re.IGNORECASE)
-                idx.append((pat, cat, main))
-    return idx
-
-def classify_with_index(text: str, regex_index: List[Tuple[re.Pattern, str, str]]) -> Tuple[str, str]:
-    t = (text or "").strip()
-    for pattern, cat, main in regex_index:
-        if pattern.search(t):
-            return cat, main
-    return "Other", "Other"
-
-@app.get("/categories")
-def categories_get():
-    desc = request.args.get("desc", "").strip()
     msg = request.args.get("msg", "").strip()
     msg_type = request.args.get("msg_type", "").strip()
     cfg = read_categories()
@@ -1077,6 +939,7 @@ def categories_get():
         message=msg,
         message_type=msg_type
     )
+
 
 @app.post("/categories/add")
 def categories_add_post():
@@ -1123,7 +986,6 @@ def categories_add_post():
     job.result()
 
     return redirect(url_for("categories_get", desc=desc, msg=f"Added '{category}' under '{main}' and updated matching rows.", msg_type="ok"))
-
 
 
 # ---------------- Entrypoint ----------------
