@@ -1,21 +1,51 @@
 {% extends "base.html" %}
 {% block title %}Credit Card Bills{% endblock %}
 
+{% block head %}
+<style>
+  .page-intro { padding: 12px 0; }
+  .kpi { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .pill { display:inline-block; padding: 6px 10px; border-radius: 999px; border:1px solid var(--border); background:#fff; }
+  .pill.ok { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
+  .pill.warn { background:#fff7ed; border-color:#fed7aa; color:#9a3412; }
+
+  .actions a, .actions button { margin-right:8px; }
+
+  .table-scroll { max-height: 60vh; overflow:auto; border:1px solid var(--border); border-radius:10px; }
+  table { width:100%; border-collapse:collapse; }
+  thead th { position:sticky; top:0; background:#f3f4f6; border-bottom:1px solid var(--border); padding:10px; text-align:left; z-index:1; }
+  tbody td { padding:10px; border-bottom:1px solid var(--border); }
+  tbody tr:hover { background:#fafafa; }
+
+  .due-status { display:inline-block; height:10px; width:80px; border-radius:999px; border:1px solid var(--border); }
+  .due-green { background:#18e3be; }
+  .due-amber { background:#ffd07a; }
+  .due-red { background:#ff8e8e; }
+
+  .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  @media (max-width: 980px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .inline { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+  .inline label { font-size: 13px; color: var(--muted); }
+  .badge { display:inline-block; padding:4px 8px; background:#eef2ff; color:#3730a3; border-radius:999px; border:1px solid #e0e7ff; }
+</style>
+{% endblock %}
+
 {% block header_meta %}
 {{ project }}.{{ dataset }}.credit_card_bills
 {% endblock %}
 
 {% block content %}
-<div class="card" style="padding:16px; border:none; box-shadow:none; background:transparent; margin-bottom:8px;">
+<div class="card page-intro" style="border:none; background:transparent; box-shadow:none; margin-bottom:0;">
   <h3 style="margin:0 0 6px;">Credit Card Bills</h3>
   <p class="muted">Track due dates, monthly amounts, and payments. Viewing: {{ bill_month }}</p>
 </div>
 
-<!-- Month picker + Unpaid filter -->
+<!-- Filters -->
 <div class="card">
-  <form method="get" action="{{ url_for('bills') }}" class="inline" style="flex-wrap:wrap; gap:12px; align-items:end;">
+  <form method="get" action="{{ url_for('bills') }}" class="inline">
     <div>
-      <label for="m">Month</label>
+      <label for="m">Month</label><br>
       <input type="month" id="m" name="m" value="{{ bill_month }}">
     </div>
     <label class="inline" style="gap:6px;">
@@ -23,26 +53,24 @@
       Unpaid only
     </label>
     <div class="actions">
-      <button type="submit">Go</button>
+      <button class="btn secondary" type="submit">Go</button>
       {% if prev_month %}
-      <a class="btn secondary" href="{{ url_for('bills') }}?m={{ prev_month }}{% if unpaid_only %}&unpaid=1{% endif %}">« {{ prev_month }}</a>
+        <a class="btn" href="{{ url_for('bills') }}?m={{ prev_month }}{% if unpaid_only %}&unpaid=1{% endif %}">« {{ prev_month }}</a>
       {% endif %}
       {% if next_month %}
-      <a class="btn secondary" href="{{ url_for('bills') }}?m={{ next_month }}{% if unpaid_only %}&unpaid=1{% endif %}">{{ next_month }} »</a>
+        <a class="btn" href="{{ url_for('bills') }}?m={{ next_month }}{% if unpaid_only %}&unpaid=1{% endif %}">{{ next_month }} »</a>
       {% endif %}
     </div>
   </form>
 </div>
 
-<!-- Current Month Bills: moved up to be right after month picker -->
+<!-- Current Month Bills -->
 <div class="card">
   <h3>Current Month Bills ({{ bill_month }})</h3>
-
-  <!-- Optional legend -->
   <p class="muted" style="margin-bottom:8px;">
     Due status:
     <span class="due-status due-green" title="> 14 days"></span> green,
-    <span class="due-status due-amber" title="7-14 days"></span> amber,
+    <span class="due-status due-amber" title="7–14 days"></span> amber,
     <span class="due-status due-red" title="< 7 days"></span> red.
   </p>
 
@@ -50,14 +78,14 @@
     <table id="billsTable" data-month="{{ bill_month }}">
       <thead>
         <tr>
-          <th>Due</th>
-          <th>CardName</th>
-          <th>DueDay</th>
-          <th>Amount</th>
-          <th>Paid</th>
-          <th>PaidAt</th>
+          <th style="width:100px;">Due</th>
+          <th style="width:180px;">Card</th>
+          <th style="width:100px;">DueDay</th>
+          <th style="width:140px;">Amount</th>
+          <th style="width:100px;">Paid</th>
+          <th style="width:180px;">PaidAt</th>
           <th>Note</th>
-          <th>Action</th>
+          <th style="width:160px;">Action</th>
         </tr>
       </thead>
       <tbody>
@@ -75,7 +103,7 @@
             <form method="post" action="{{ url_for('bills_mark_paid') }}" class="inline">
               <input type="hidden" name="row_id" value="{{ b.RowId }}">
               <input type="hidden" name="bill_month" value="{{ bill_month }}">
-              <button type="submit">Mark Paid</button>
+              <button class="btn" type="submit">Mark Paid</button>
             </form>
             {% else %}
             <span class="badge">Completed</span>
@@ -97,33 +125,33 @@
     <h3>Summary ({{ bill_month }})</h3>
     <div class="kpi">
       <div class="pill"><strong>Total:</strong> {{ (summary.TotalAmount or 0)|currency }}</div>
-      <div class="pill"><strong>Paid:</strong> {{ summary.PaidCount|intgroup }}</div>
-      <div class="pill"><strong>Unpaid:</strong> {{ summary.UnpaidCount|intgroup }}</div>
+      <div class="pill ok"><strong>Paid:</strong> {{ summary.PaidCount|intgroup }}</div>
+      <div class="pill warn"><strong>Unpaid:</strong> {{ summary.UnpaidCount|intgroup }}</div>
     </div>
     {% if cards|length == 0 %}
       <p class="muted" style="margin-top:8px;">No cards found yet. Add your first card and due date below.</p>
     {% endif %}
   </div>
 
-  <!-- Add New Card (master record with default Due Day) -->
+  <!-- Add New Card -->
   <div class="card">
     <h3>Add New Card</h3>
-    <form method="post" action="{{ url_for('bills_add_card') }}" class="inline" style="flex-wrap:wrap; gap:12px;">
+    <form method="post" action="{{ url_for('bills_add_card') }}" class="inline">
       <input type="hidden" name="view_month" value="{{ bill_month }}">
-      <div style="min-width:200px; flex:1;">
-        <label>Card Name</label>
+      <div style="min-width:220px; flex:1;">
+        <label>Card Name</label><br>
         <input type="text" name="card" placeholder="e.g., AMEX Gold" required>
       </div>
-      <div style="min-width:120px;">
-        <label>Default Due Day</label>
+      <div style="min-width:140px;">
+        <label>Default Due Day</label><br>
         <input type="number" name="due_day" min="1" max="31" required>
       </div>
-      <div style="min-width:220px; flex:1;">
-        <label>Note</label>
+      <div style="min-width:240px; flex:1;">
+        <label>Note</label><br>
         <input type="text" name="note" placeholder="Optional note...">
       </div>
       <div class="actions">
-        <button type="submit">Add Card</button>
+        <button class="btn secondary" type="submit">Add Card</button>
       </div>
     </form>
 
@@ -138,17 +166,17 @@
   </div>
 </div>
 
-<!-- Add/Update monthly bill (reuses card’s master Due Day) -->
+<!-- Add/Update monthly bill -->
 <div class="card">
   <h3>Add or Update Bill ({{ bill_month }})</h3>
-  <form method="post" action="{{ url_for('bills_add') }}" class="inline" style="flex-wrap:wrap; gap:12px;">
+  <form method="post" action="{{ url_for('bills_add') }}" class="inline">
     <input type="hidden" name="bill_month" value="{{ bill_month }}">
-    <div style="min-width:200px; flex:1;">
-      <label>Card</label>
+    <div style="min-width:220px; flex:1;">
+      <label>Card</label><br>
       <select name="card" required>
         <option value="">-- Select --</option>
         {% for c in cards %}
-        <option value="{{ c.CardName }}">{{ c.CardName }}</option>
+          <option value="{{ c.CardName }}">{{ c.CardName }}</option>
         {% endfor %}
       </select>
       {% if cards|length == 0 %}
@@ -156,15 +184,15 @@
       {% endif %}
     </div>
     <div style="min-width:160px;">
-      <label>Amount</label>
+      <label>Amount</label><br>
       <input type="number" name="amount" step="0.01" min="0" placeholder="e.g., 350.00" required>
     </div>
-    <div style="min-width:220px; flex:1;">
-      <label>Note</label>
+    <div style="min-width:240px; flex:1;">
+      <label>Note</label><br>
       <input type="text" name="note" placeholder="Optional note...">
     </div>
     <div class="actions">
-      <button type="submit" {% if cards|length == 0 %}disabled{% endif %}>Save</button>
+      <button class="btn secondary" type="submit" {% if cards|length == 0 %}disabled{% endif %}>Save</button>
     </div>
   </form>
   <p class="muted" style="margin-top:8px;">Due Day is taken from the card’s default (set above) when creating a month entry.</p>
@@ -173,8 +201,7 @@
 
 {% block scripts %}
 <script>
-  // Status bar per row: green (>7 days or already paid), amber (≤ 7 days), red (past due).
-  // Only computes relative to the real current date if viewing current month.
+  // Compute due-status colors per row relative to current date (only for current month view)
   (function() {
     const tbl = document.getElementById('billsTable');
     if (!tbl) return;
@@ -185,25 +212,23 @@
     const sameMonth = (ym === nowKey);
 
     const daysInMonth = (y, m) => new Date(y, m, 0).getDate();
-    const [y, m] = ym.split('-').map(Number);
+    const parts = ym.split('-');
+    if (parts.length !== 2) return;
+    const y = Number(parts[0]), m = Number(parts[1]);
     const dim = daysInMonth(y, m);
 
-    [...tbl.tBodies[0].rows].forEach(row => {
+    for (const row of tbl.tBodies[0].rows) {
       const paid = row.dataset.paid === '1';
       const statusEl = row.querySelector('.due-status');
-      if (!statusEl) return;
-
-      // Column indices: 0 Due bar, 1 CardName, 2 DueDay
       const dueDayCell = row.cells[2];
-      if (!dueDayCell) return;
+      if (!statusEl || !dueDayCell) continue;
 
       const dueDay = Number(dueDayCell.textContent.trim());
-      if (!dueDay || dueDay < 1 || dueDay > dim) return;
+      if (!dueDay || dueDay < 1 || dueDay > dim) continue;
 
       if (!sameMonth) {
-        // If not viewing the real current month, default to green for clarity
-        statusEl.classList.add('due-green');
-        return;
+        statusEl.classList.add('due-green'); // default when viewing a past/future month
+        continue;
       }
 
       const dueDate = new Date(y, m - 1, dueDay);
@@ -215,11 +240,11 @@
         statusEl.classList.add('due-red');
       } else if (diffDays <= 7) {
         statusEl.classList.add('due-amber');
-        row.style.background = 'rgba(255, 200, 0, 0.15)'; // subtle highlight
+        row.style.background = 'rgba(255, 200, 0, 0.12)'; // subtle highlight
       } else {
         statusEl.classList.add('due-green');
       }
-    });
+    }
   })();
 </script>
 {% endblock %}
