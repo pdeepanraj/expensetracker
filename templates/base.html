@@ -1,70 +1,183 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>{% block title %}Expense Tracker{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  <style>
+    :root{
+      --header-h: 56px;
+      --sidebar-w: 240px;
+      --bg: #f6f7fb;
+      --panel: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --accent: #0b5cff;
+      --accent-contrast: #ffffff;
+    }
+    html, body { height: 100%; margin: 0; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; color: var(--text); background: var(--bg); }
+
+    /* Header (fixed) */
+    .app-header {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: #0f172a; color: #fff;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; z-index: 1000; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    .app-brand { display:flex; align-items:center; gap:10px; font-weight:600; }
+    .app-brand .logo {
+      width: 28px; height: 28px; border-radius: 6px;
+      background: linear-gradient(135deg, #22d3ee, #6366f1);
+      display:inline-block;
+    }
+    .app-actions { display:flex; align-items:center; gap:8px; }
+    .btn { border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+    .btn.secondary { background: #0b5cff; color: var(--accent-contrast); border-color: #0b5cff; }
+    .btn:disabled { opacity:.6; cursor:not-allowed; }
+
+    /* Sidebar (fixed) */
+    .app-sidebar {
+      position: fixed; top: var(--header-h); left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: #111827; color: #cbd5e1;
+      border-right: 1px solid #0b1220; z-index: 900;
+      display: flex; flex-direction: column; padding: 12px 8px;
+    }
+    .nav-group { margin-top: 8px; }
+    .nav-title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #64748b; padding: 10px 12px; }
+    .nav a {
+      display: flex; align-items: center; gap: 10px;
+      color: #cbd5e1; text-decoration: none;
+      padding: 10px 12px; border-radius: 8px; margin: 2px 4px;
+    }
+    .nav a:hover { background: #0b1220; }
+    .nav a.active { background: #0b5cff; color: #fff; }
+
+    /* Content area (scrolls) */
+    .app-content {
+      position: absolute;
+      top: var(--header-h);
+      left: var(--sidebar-w);
+      right: 0;
+      bottom: 0;
+      overflow: auto;
+      padding: 16px 20px;
+    }
+
+    /* Cards and common elements */
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.03);
+    }
+    .muted { color: var(--muted); }
+    .inline { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    input[type="text"], input[type="number"], input[type="month"], select, textarea {
+      border: 1px solid var(--border); background: #fff; color: var(--text);
+      border-radius: 8px; padding: 8px 10px; min-width: 200px;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      position: sticky; top: 0; background: #f3f4f6; color: #111827;
+      font-weight: 600; text-align: left; border-bottom: 1px solid var(--border);
+      padding: 10px;
+    }
+    tbody td { padding: 10px; border-bottom: 1px solid var(--border); }
+    .table-scroll { max-height: 60vh; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+
+    /* Responsive */
+    @media (max-width: 960px) {
+      :root { --sidebar-w: 200px; }
+    }
+    @media (max-width: 720px) {
+      .app-sidebar { position: fixed; transform: translateX(-100%); transition: transform .2s ease; }
+      .app-sidebar.open { transform: translateX(0); }
+      .app-content { left: 0; }
+      .sidebar-toggle { display: inline-flex; }
+    }
+    .sidebar-toggle { display:none; }
+  </style>
+
   {% block head %}{% endblock %}
 </head>
 <body>
-  <header class="header">
-    <h1>Expense Tracker</h1>
-    <div class="meta">{% block header_meta %}{% endblock %}</div>
-    <div>
-      <button id="themeToggle" class="btn secondary" type="button" title="Toggle theme">Theme</button>
+
+  <!-- Fixed Header -->
+  <header class="app-header">
+    <div class="app-brand">
+      <span class="logo" aria-hidden="true"></span>
+      <span>Expense Tracker</span>
+    </div>
+    <div class="app-actions">
+      <button class="btn sidebar-toggle" type="button" aria-label="Toggle sidebar" onclick="toggleSidebar()">Menu</button>
+      <button id="themeToggle" class="btn" type="button" title="Toggle theme">Theme</button>
     </div>
   </header>
 
-  <nav class="nav">
-    <a href="/">Home</a>
-    <a href="/dashboard">Dashboard</a>
-    <a href="/review">Review</a>
-    <a href="/bills">Bills</a>
-    <a href="/status">Status</a>
-    <a href="/categories">Categories</a>
-  </nav>
+  <!-- Fixed Sidebar -->
+  <aside id="appSidebar" class="app-sidebar">
+    <div class="nav">
+      <div class="nav-group">
+        <div class="nav-title">Main</div>
+        <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint=='index' else '' }}">Home</a>
+        <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint=='dashboard' else '' }}">Dashboard</a>
+        <a href="{{ url_for('aggregate') }}" class="{{ 'active' if request.endpoint=='aggregate' else '' }}">Aggregate</a>
+        <a href="{{ url_for('review_get') }}" class="{{ 'active' if request.endpoint=='review_get' else '' }}">Review</a>
+        <a href="{{ url_for('bills') }}" class="{{ 'active' if request.endpoint=='bills' else '' }}">Bills</a>
+        <a href="{{ url_for('categories_get') }}" class="{{ 'active' if request.endpoint=='categories_get' else '' }}">Categories</a>
+        <a href="{{ url_for('status') }}" class="{{ 'active' if request.endpoint=='status' else '' }}">Status</a>
+      </div>
+    </div>
+  </aside>
 
-  <main class="main">
+  <!-- Scrollable Content -->
+  <main class="app-content">
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="footer">
-    Built with Flask, BigQuery, and Chart.js
-  </footer>
-
-  {% block scripts %}{% endblock %}
-
   <script>
-    (function() {
+    // Sidebar toggle for small screens
+    function toggleSidebar(){
+      const el = document.getElementById('appSidebar');
+      el.classList.toggle('open');
+    }
+
+    // Light/Dark theme toggle (stores preference)
+    (function(){
       const html = document.documentElement;
       const key = 'app-theme';
-      const saved = localStorage.getItem(key);
-      if (saved === 'light' || saved === 'dark') {
-        html.setAttribute('data-theme', saved);
-      } else {
-        html.removeAttribute('data-theme'); // follow OS preference
-      }
       const btn = document.getElementById('themeToggle');
+      const saved = localStorage.getItem(key);
+      if (saved === 'dark' || saved === 'light') {
+        html.setAttribute('data-theme', saved);
+      }
+      function setTheme(next){
+        if (next) {
+          html.setAttribute('data-theme', next);
+          localStorage.setItem(key, next);
+        } else {
+          html.removeAttribute('data-theme');
+          localStorage.removeItem(key);
+        }
+        window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme: next }}));
+      }
       if (btn) {
         btn.addEventListener('click', () => {
-          const current = html.getAttribute('data-theme');
-          const next = current === 'dark' ? 'light'
-                     : current === 'light' ? ''
-                     : 'dark';
-          if (next) {
-            html.setAttribute('data-theme', next);
-            localStorage.setItem(key, next);
-          } else {
-            html.removeAttribute('data-theme');
-            localStorage.removeItem(key);
-          }
-          // Notify pages/charts that theme changed
-          const evt = new CustomEvent('theme-changed', { detail: { theme: next || 'auto' } });
-          window.dispatchEvent(evt);
+          const cur = html.getAttribute('data-theme');
+          const next = cur === 'dark' ? 'light' : 'dark';
+          setTheme(next);
         });
       }
     })();
   </script>
+
+  {% block scripts %}{% endblock %}
 </body>
 </html>
