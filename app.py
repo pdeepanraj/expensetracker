@@ -367,7 +367,25 @@ def fetch_categories_by_main() -> dict[str, list[str]]:
 # ---------------- Routes: index/list/process ----------------
 @app.get("/")
 def index():
-    return render_template("index.html")
+    # Provide minimal context so templates won’t break if they reference these.
+    project = BQ_PROJECT or ""
+    dataset = BQ_DATASET or ""
+    table = TARGET_TABLE or ""
+
+    # Try to fetch minimal table metadata; if dataset/table isn’t accessible, use safe defaults.
+    try:
+        meta = get_table_metadata(TARGET_TABLE)
+    except Exception:
+        meta = {"num_rows": 0, "created": None, "modified": None}
+
+    return render_template(
+        "index.html",
+        project=project,
+        dataset=dataset,
+        table=table,
+        meta=meta
+    )
+
 
 @app.get("/list")
 def list_csvs():
