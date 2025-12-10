@@ -1,145 +1,158 @@
 {% extends "base.html" %}
 {% block title %}Choose CSVs{% endblock %}
 
+{% block head %}
+<style>
+  /* Tab bar */
+  .tabs { display:flex; gap:8px; padding:8px; background:#0b5cff; border-radius:10px; color:#fff; align-items:center; }
+  .tab { display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; cursor:pointer; user-select:none; background:rgba(255,255,255,.08); }
+  .tab.active { background:#fff; color:#0b5cff; font-weight:600; }
+  .tabs-spacer { flex:1; }
+
+  /* Sections */
+  .section { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:12px; }
+  .section h3 { margin:0 0 8px 0; }
+  .muted { color:var(--muted); }
+
+  /* File list grid */
+  .file-toolbar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+  .search { padding:8px 10px; border:1px solid var(--border); border-radius:8px; min-width:260px; }
+  .file-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:8px; }
+  @media (max-width: 1080px){ .file-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 720px){ .file-grid { grid-template-columns: 1fr; } }
+
+  .file-item {
+    display:flex; align-items:center; gap:10px;
+    border:1px solid var(--border); border-radius:8px; padding:8px 10px; background:#fff;
+  }
+  .file-name { font-weight:600; color:#111827; }
+  .file-path { color:var(--muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  .actions { display:flex; gap:8px; flex-wrap:wrap; }
+</style>
+{% endblock %}
+
 {% block header_meta %}
 Repo: {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="card" style="padding: 16px; border: none; box-shadow: none; background: transparent; margin-bottom: 8px;">
+<div class="card" style="border:none; background:transparent; box-shadow:none; padding:0; margin-bottom:8px;">
   <h3 style="margin:0 0 6px;">CSV files{% if files and files|length > 0 %} ({{ files|length }}){% endif %}</h3>
-  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  {% if error %}<p class="muted" style="color:crimson;">{{ error }}</p>{% endif %}
 </div>
 
-<button id="filtersToggleBtn" class="btn secondary filters-toggle" type="button">Show filters</button>
+<!-- Tab bar -->
+<div class="tabs">
+  <div class="tab active" data-tab="select">Select CSVs</div>
+  <div class="tab" data-tab="advanced">Advanced</div>
+  <div class="tabs-spacer"></div>
+  <div class="muted">List</div>
+</div>
 
-<div class="layout">
-  <!-- Sidebar -->
-  <aside id="sidebar" class="sidebar collapsed">
-    <div class="card">
-      <h3>Actions</h3>
-      <div class="accordion">
-        <div class="accordion-item" aria-expanded="true">
-          <div class="accordion-header">
-            <span>Select</span>
-            <span class="chev">›</span>
-          </div>
-          <div class="accordion-panel">
-            <label><input type="checkbox" id="selectAll"> Select All</label>
-          </div>
-        </div>
-        <div class="accordion-item" aria-expanded="false">
-          <div class="accordion-header">
-            <span>Navigation</span>
-            <span class="chev">›</span>
-          </div>
-          <div class="accordion-panel">
-            <div class="inline" style="flex-direction: column; align-items: stretch;">
-              <a class="btn" href="/dashboard">Open Dashboard</a>
-              <a class="btn secondary" href="/status">View Status</a>
-            </div>
-          </div>
-        </div>
-      </div>
+<!-- Select CSVs -->
+<div class="section" id="tab-select">
+  {% if files and files|length > 0 %}
+  <form method="post" action="{{ url_for('process') }}">
+    <input type="hidden" name="owner" value="{{ owner }}">
+    <input type="hidden" name="repo" value="{{ repo }}">
+    <input type="hidden" name="branch" value="{{ branch }}">
+    <input type="hidden" name="path" value="{{ path }}">
+
+    <div class="file-toolbar">
+      <input id="search" class="search" type="text" placeholder="Filter files by name or path...">
+      <label style="display:flex; align-items:center; gap:6px;">
+        <input type="checkbox" id="selectAll"> Select all
+      </label>
+      <div class="muted">Showing {{ files|length }} item(s)</div>
     </div>
-  </aside>
 
-  <!-- Content -->
-  <section class="content">
-    <div class="card">
-      {% if files and files|length > 0 %}
-      <form method="post" action="/process">
-        <input type="hidden" name="owner" value="{{ owner }}">
-        <input type="hidden" name="repo" value="{{ repo }}">
-        <input type="hidden" name="branch" value="{{ branch }}">
-        <input type="hidden" name="path" value="{{ path }}">
-
-        <div class="checkbox-list">
-          {% for f in files %}
-            <label class="checkbox-item">
-              <input type="checkbox" name="csv_paths" value="{{ f.path }}"> {{ f.name }}
-            </label>
-          {% endfor %}
+    <div id="fileGrid" class="file-grid">
+      {% for f in files %}
+      <label class="file-item">
+        <input type="checkbox" name="csv_paths" value="{{ f.path }}">
+        <div style="flex:1; min-width:0;">
+          <div class="file-name">{{ f.name }}</div>
+          <div class="file-path">{{ f.path }}</div>
         </div>
-
-        <label>categories_grouped.json path in repo (optional)</label>
-        <input type="text" name="json_path" placeholder="categories_grouped.json">
-
-        <div class="actions">
-          <button type="submit">Run Pipeline</button>
-        </div>
-      </form>
-      {% else %}
-        <p class="muted">No CSV files found in this folder.</p>
-      {% endif %}
+      </label>
+      {% endfor %}
     </div>
-  </section>
+
+    <div class="actions" style="margin-top:12px;">
+      <button class="btn secondary" type="submit">Run Pipeline</button>
+      <a class="btn" href="{{ url_for('dashboard') }}">View Dashboard</a>
+      <a class="btn" href="{{ url_for('status') }}">View Status</a>
+    </div>
+  </form>
+  {% else %}
+    <p class="muted">No CSV files found in this folder.</p>
+    <div class="actions" style="margin-top:8px;">
+      <a class="btn" href="{{ url_for('index') }}">Back</a>
+      <a class="btn secondary" href="{{ url_for('dashboard') }}">Dashboard</a>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Advanced -->
+<div class="section" id="tab-advanced" style="display:none;">
+  <h3>Optional: categories JSON path in repo</h3>
+  <p class="muted">Your app now reads categories from BigQuery; this setting is kept for compatibility.</p>
+  <form method="post" action="{{ url_for('process') }}" class="inline" style="align-items:flex-start;">
+    <input type="hidden" name="owner" value="{{ owner }}">
+    <input type="hidden" name="repo" value="{{ repo }}">
+    <input type="hidden" name="branch" value="{{ branch }}">
+    <input type="hidden" name="path" value="{{ path }}">
+    <div style="flex:1; min-width:360px;">
+      <label>categories_grouped.json path</label><br>
+      <input type="text" name="json_path" placeholder="categories_grouped.json">
+      <div class="muted" style="font-size:12px; margin-top:6px;">If provided, it’s fetched but classification uses BigQuery config.</div>
+    </div>
+    <div>
+      <button class="btn" type="submit">Run with JSON path</button>
+    </div>
+  </form>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+  // Tabs
+  (function(){
+    const tabs = document.querySelectorAll('.tab');
+    const panels = {
+      select: document.getElementById('tab-select'),
+      advanced: document.getElementById('tab-advanced')
+    };
+    function activate(name){
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+      Object.entries(panels).forEach(([k, el]) => el.style.display = (k === name ? '' : 'none'));
+    }
+    activate('select');
+    tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
+  })();
+
   // Select all helper
-  const selectAll = document.getElementById('selectAll');
-  if (selectAll) {
+  (function(){
+    const selectAll = document.getElementById('selectAll');
+    if (!selectAll) return;
     selectAll.addEventListener('change', () => {
       document.querySelectorAll('input[name="csv_paths"]').forEach(cb => cb.checked = selectAll.checked);
     });
-  }
+  })();
 
-  // Mobile sidebar toggle
-  const toggleBtn = document.getElementById('filtersToggleBtn');
-  const sidebar = document.getElementById('sidebar');
-  if (toggleBtn && sidebar) {
-    const syncLabel = () => {
-      const collapsed = sidebar.classList.contains('collapsed');
-      toggleBtn.textContent = collapsed ? 'Show filters' : 'Hide filters';
-    };
-    toggleBtn.addEventListener('click', () => {
-      sidebar.classList.toggle('collapsed');
-      syncLabel();
-    });
-    syncLabel();
-  }
-
-  // Accordions
-  document.querySelectorAll('.accordion-header').forEach(h => {
-    h.addEventListener('click', () => {
-      const item = h.parentElement;
-      const expanded = item.getAttribute('aria-expanded') === 'true';
-      item.setAttribute('aria-expanded', expanded ? 'false' : 'true');
-    });
-  });
-</script>
-<script>
-  (function() {
-    const fmtCurrency = v => {
-      const n = Number(v);
-      if (isNaN(n)) return v;
-      return '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
-    };
-
-    function formatTable(tableEl) {
-      if (!tableEl) return;
-      const headers = [...tableEl.tHead?.rows[0]?.cells || []].map(th => th.textContent.trim());
-      if (headers.length === 0) return;
-      const amountIdxs = headers
-        .map((h, i) => (/^amount$/i.test(h) ? i : -1))
-        .filter(i => i >= 0);
-
-      [...tableEl.tBodies].forEach(tb => {
-        [...tb.rows].forEach(row => {
-          amountIdxs.forEach(i => {
-            const td = row.cells[i];
-            if (td) td.textContent = fmtCurrency(td.textContent);
-          });
-        });
+  // Search filter
+  (function(){
+    const search = document.getElementById('search');
+    const grid = document.getElementById('fileGrid');
+    if (!search || !grid) return;
+    search.addEventListener('input', () => {
+      const q = search.value.toLowerCase();
+      grid.querySelectorAll('.file-item').forEach(item => {
+        const text = item.innerText.toLowerCase();
+        item.style.display = text.includes(q) ? '' : 'none';
       });
-    }
-
-    const listTable = document.querySelector('.content table');
-    formatTable(listTable);
+    });
   })();
 </script>
-
 {% endblock %}
