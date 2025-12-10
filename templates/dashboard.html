@@ -3,6 +3,25 @@
 
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  /* Tab bar */
+  .tabs { display:flex; gap:8px; padding:8px; background:#0b5cff; border-radius:10px; color:#fff; align-items:center; }
+  .tab { display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; cursor:pointer; user-select:none; background:rgba(255,255,255,.08); }
+  .tab.active { background:#fff; color:#0b5cff; font-weight:600; }
+  .tabs-spacer { flex:1; }
+  /* Sections */
+  .section { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:12px; }
+  .section h3 { margin:0 0 8px 0; }
+  .inline { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+  .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+  @media (max-width: 980px){ .grid-2 { grid-template-columns:1fr; } }
+  .table-scroll { max-height:60vh; overflow:auto; border:1px solid var(--border); border-radius:10px; }
+  table { width:100%; border-collapse:collapse; }
+  thead th { position:sticky; top:0; background:#f3f4f6; border-bottom:1px solid var(--border); padding:10px; text-align:left; z-index:1; }
+  tbody td { padding:10px; border-bottom:1px solid var(--border); }
+  .pill { display:inline-block; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:#fff; }
+  .muted { color:var(--muted); }
+</style>
 {% endblock %}
 
 {% block header_meta %}
@@ -10,426 +29,305 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
 {% endblock %}
 
 {% block content %}
-{% if loaded %}
-<div class="card">
-  <p><strong>Load result:</strong> {{ loaded }} new rows inserted.</p>
-</div>
-{% endif %}
 
 {% if loaded or table_modified %}
-<div class="card">
-  {% if loaded %}
-    <p><strong>Load result:</strong> {{ loaded }} new rows inserted.</p>
-  {% endif %}
-  {% if table_modified %}
-    <p class="muted">Table last modified: {{ table_modified }}</p>
-  {% endif %}
+<div class="card" style="border:none; background:transparent; box-shadow:none; padding:0; margin-bottom:8px;">
+  <h3 style="margin:0 0 6px;">Your Expenses</h3>
+  <p class="muted">Filter, group, and visualize your spend.</p>
+  {% if loaded %}<p class="pill" style="margin-top:8px;"><strong>Load:</strong> {{ loaded }} new rows inserted</p>{% endif %}
+  {% if table_modified %}<p class="muted" style="margin-top:6px;">Table last modified: {{ table_modified }}</p>{% endif %}
 </div>
 {% endif %}
 
-<div class="card" style="padding: 16px; border: none; box-shadow: none; background: transparent; margin-bottom: 8px;">
-  <h3 style="margin: 0 0 6px;">Your Expenses</h3>
-  <p class="muted">Filter, group, and visualize your spend.</p>
+<!-- Tab bar -->
+<div class="tabs">
+  <div class="tab active" data-tab="filters">Filters</div>
+  <div class="tab" data-tab="details">Details</div>
+  <div class="tab" data-tab="charts">Charts</div>
+  <div class="tab" data-tab="aggregate">Aggregate</div>
+  <div class="tabs-spacer"></div>
+  <div class="muted">Dashboard</div>
 </div>
 
-<button id="filtersToggleBtn" class="btn secondary filters-toggle" type="button">Show filters</button>
+<!-- Filters -->
+<div class="section" id="tab-filters">
+  <h3>Filters</h3>
+  <form method="get" action="{{ url_for('dashboard') }}" class="inline">
+    <div>
+      <label>Month</label><br>
+      <select name="month">
+        <option value="">All</option>
+        {% for m in months %}
+          <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>CardName</label><br>
+      <select name="card">
+        <option value="">All</option>
+        {% for c in cards %}
+          <option value="{{ c }}" {% if selected_card == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>MainCategory</label><br>
+      <select name="main">
+        <option value="">All</option>
+        {% for mc in mains %}
+          <option value="{{ mc }}" {% if selected_main == mc %}selected{% endif %}>{{ mc }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Category</label><br>
+      <select name="cat">
+        <option value="">All</option>
+        {% for ct in cats %}
+          <option value="{{ ct }}" {% if selected_cat == ct %}selected{% endif %}>{{ ct }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <button class="btn secondary" type="submit">Apply</button>
+      <a class="btn" href="{{ url_for('dashboard') }}">Reset</a>
+    </div>
+  </form>
 
-<div class="layout">
-  <!-- Sidebar -->
-  <aside id="sidebar" class="sidebar collapsed">
-    <div class="card">
-      <h3>Filters</h3>
-      <div class="accordion">
-        <div class="accordion-item" aria-expanded="true">
-          <div class="accordion-header">
-            <span>Time</span>
-            <span class="chev">›</span>
-          </div>
-          <div class="accordion-panel">
-            <form method="get" action="/dashboard">
-              <div class="grid-2">
-                <div>
-                  <label>Month</label>
-                  <select name="month">
-                    <option value="">All</option>
-                    {% for m in months %}
-                      <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-              </div>
-              <div class="actions">
-                <button type="submit">Apply</button>
-                <a class="btn secondary" href="/dashboard">Reset</a>
-              </div>
-            </form>
-          </div>
-        </div>
+  <hr style="margin:16px 0; border:none; border-top:1px solid var(--border);">
 
-        <div class="accordion-item" aria-expanded="true">
-          <div class="accordion-header">
-            <span>Payment</span>
-            <span class="chev">›</span>
-          </div>
-          <div class="accordion-panel">
-            <form method="get" action="/dashboard">
-              <div class="grid-2">
-                <div>
-                  <label>CardName</label>
-                  <select name="card">
-                    <option value="">All</option>
-                    {% for c in cards %}
-                      <option value="{{ c }}" {% if selected_card == c %}selected{% endif %}>{{ c }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-              </div>
-              <div class="actions">
-                <button type="submit">Apply</button>
-                <a class="btn secondary" href="/dashboard">Reset</a>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <div class="accordion-item" aria-expanded="true">
-          <div class="accordion-header">
-            <span>Categories</span>
-            <span class="chev">›</span>
-          </div>
-          <div class="accordion-panel">
-            <form method="get" action="/dashboard">
-              <div class="grid-2">
-                <div>
-                  <label>MainCategory</label>
-                  <select name="main">
-                    <option value="">All</option>
-                    {% for mc in mains %}
-                      <option value="{{ mc }}" {% if selected_main == mc %}selected{% endif %}>{{ mc }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div>
-                  <label>Category</label>
-                  <select name="cat">
-                    <option value="">All</option>
-                    {% for ct in cats %}
-                      <option value="{{ ct }}" {% if selected_cat == ct %}selected{% endif %}>{{ ct }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-              </div>
-              <div class="actions">
-                <button type="submit">Apply</button>
-                <a class="btn secondary" href="/dashboard">Reset</a>
-              </div>
-            </form>
-          </div>
-        </div>
+  <h3>Dynamic Grouping</h3>
+  <form method="get" action="{{ url_for('aggregate') }}" class="inline" style="align-items:flex-start;">
+    <div style="min-width:240px;">
+      <label>Group by (one or more)</label><br>
+      <div>
+        <label><input type="checkbox" name="group_by" value="Month" {% if aggregate_group_by and 'Month' in aggregate_group_by.split(',') %}checked{% endif %}> Month</label><br>
+        <label><input type="checkbox" name="group_by" value="CardName" {% if aggregate_group_by and 'CardName' in aggregate_group_by.split(',') %}checked{% endif %}> CardName</label><br>
+        <label><input type="checkbox" name="group_by" value="MainCategory" {% if aggregate_group_by and 'MainCategory' in aggregate_group_by.split(',') %}checked{% endif %}> MainCategory</label><br>
+        <label><input type="checkbox" name="group_by" value="Category" {% if (not aggregate_group_by) or 'Category' in aggregate_group_by.split(',') %}checked{% endif %}> Category</label>
       </div>
     </div>
-
-    <div class="card">
-      <h3>Dynamic Grouping</h3>
-      <div class="accordion">
-        <div class="accordion-item" aria-expanded="true">
-          <div class="accordion-header">
-            <span>Group by</span>
-            <span class="chev">›</span>
-          </div>
-          <div class="accordion-panel">
-            <form method="get" action="/aggregate">
-              <div class="grid-2">
-                <div>
-                  <div class="checkbox-group">
-                    <label>
-                      <input type="checkbox" name="group_by" value="Month"
-                             {% if aggregate_group_by and 'Month' in aggregate_group_by.split(',') %}checked{% endif %}>
-                      Month
-                    </label>
-                    <label>
-                      <input type="checkbox" name="group_by" value="CardName"
-                             {% if aggregate_group_by and 'CardName' in aggregate_group_by.split(',') %}checked{% endif %}>
-                      CardName
-                    </label>
-                    <label>
-                      <input type="checkbox" name="group_by" value="MainCategory"
-                             {% if aggregate_group_by and 'MainCategory' in aggregate_group_by.split(',') %}checked{% endif %}>
-                      MainCategory
-                    </label>
-                    <label>
-                      <input type="checkbox" name="group_by" value="Category"
-                             {% if (not aggregate_group_by) or 'Category' in aggregate_group_by.split(',') %}checked{% endif %}>
-                      Category
-                    </label>
-                  </div>
-                  <p class="muted">Select one or more grouping columns</p>
-                </div>
-                <div>
-                  <label>Use current filters</label>
-                  <div class="inline">
-                    <select name="month">
-                      <option value="">All</option>
-                      {% for m in months %}
-                        <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
-                      {% endfor %}
-                    </select>
-                    <select name="card">
-                      <option value="">All</option>
-                      {% for c in cards %}
-                        <option value="{{ c }}" {% if selected_card == c %}selected{% endif %}>{{ c }}</option>
-                      {% endfor %}
-                    </select>
-                    <select name="main">
-                      <option value="">All</option>
-                      {% for mc in mains %}
-                        <option value="{{ mc }}" {% if selected_main == mc %}selected{% endif %}>{{ mc }}</option>
-                      {% endfor %}
-                    </select>
-                    <select name="cat">
-                      <option value="">All</option>
-                      {% for ct in cats %}
-                        <option value="{{ ct }}" {% if selected_cat == ct %}selected{% endif %}>{{ ct }}</option>
-                      {% endfor %}
-                    </select>
-                  </div>
-                  <label for="min_amount">Minimum amount (optional)</label>
-                  <input id="min_amount" name="min_amount" type="text" placeholder="e.g., 10" value="{{ aggregate_min_amount or '' }}">
-                </div>
-              </div>
-              <div class="actions">
-                <button type="submit">Run</button>
-              </div>
-            </form>
-          </div>
-        </div>
+    <div>
+      <label>Use current filters</label><br>
+      <div class="inline">
+        <select name="month">
+          <option value="">All</option>
+          {% for m in months %}
+            <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+        <select name="card">
+          <option value="">All</option>
+          {% for c in cards %}
+            <option value="{{ c }}" {% if selected_card == c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+        <select name="main">
+          <option value="">All</option>
+          {% for mc in mains %}
+            <option value="{{ mc }}" {% if selected_main == mc %}selected{% endif %}>{{ mc }}</option>
+          {% endfor %}
+        </select>
+        <select name="cat">
+          <option value="">All</option>
+          {% for ct in cats %}
+            <option value="{{ ct }}" {% if selected_cat == ct %}selected{% endif %}>{{ ct }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="margin-top:8px;">
+        <label for="min_amount">Minimum amount (optional)</label><br>
+        <input id="min_amount" name="min_amount" type="text" placeholder="e.g., 10" value="{{ aggregate_min_amount or '' }}">
       </div>
     </div>
-  </aside>
+    <div>
+      <button class="btn" type="submit">Run</button>
+    </div>
+  </form>
+</div>
 
-  <!-- Content -->
-  <section class="content">
-    {% if aggregate_labels is defined and aggregate_labels %}
-      <!-- Aggregate: table first, chart second -->
-      <div class="card">
-        <h3>Aggregate Table{% if aggregate_group_by %} (Group by: {{ aggregate_group_by }}{% if aggregate_month %}, Month={{ aggregate_month }}{% endif %}){% endif %}</h3>
-        <div class="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                {% if aggregate_rows and aggregate_rows[0] %}
-                  {% for k in aggregate_rows[0].keys() %}
-                    <th>{{ k }}</th>
-                  {% endfor %}
-                {% else %}
-                  <th>Group</th><th>Amount</th>
-                {% endif %}
-              </tr>
-            </thead>
-            <tbody>
-  {% for r in aggregate_rows %}
-  <tr>
-    {% for k, v in r.items() %}
-      {% if k == 'Amount' %}
-        <td>{{ (v or 0)|currency }}</td>
-      {% else %}
-        <td>{{ v }}</td>
-      {% endif %}
-    {% endfor %}
-  </tr>
-  {% endfor %}
-</tbody>
-          </table>
-        </div>
-      </div>
+<!-- Details -->
+<div class="section" id="tab-details" style="display:none;">
+  <h3>Details{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
+  <input id="search" class="search" type="text" placeholder="Filter by text...">
+  <div class="table-scroll">
+    <table id="detailTable">
+      <thead>
+        <tr>
+          <th>CardName</th>
+          <th>MainCategory</th>
+          <th>Category</th>
+          <th>Description</th>
+          <th>Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in latest_details %}
+        <tr>
+          <td>{{ r.CardName }}</td>
+          <td>{{ r.MainCategory }}</td>
+          <td>{{ r.Category }}</td>
+          <td>{{ r.Description }}</td>
+          <td>{{ (r.Amount or 0)|currency }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 
-      <div class="card">
-        <h3>Aggregate Chart</h3>
-        <canvas id="aggChart" height="260"></canvas>
-      </div>
-    {% else %}
-      <!-- Default: table first, charts second -->
-      <div class="card">
-        <h3>Details{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
-        <input id="search" class="search" type="text" placeholder="Filter by text...">
-        <div class="table-scroll">
-          <table id="detailTable">
-            <thead>
-              <tr>
-                <th>CardName</th>
-                <th>MainCategory</th>
-                <th>Category</th>
-                <th>Description</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for r in latest_details %}
-              <tr>
-                <td>{{ r.CardName }}</td>
-                <td>{{ r.MainCategory }}</td>
-                <td>{{ r.Category }}</td>
-                <td>{{ r.Description }}</td>
-                <td>{{ (r.Amount or 0)|currency }}</td>
-              </tr>
+<!-- Charts -->
+<div class="section" id="tab-charts" style="display:none;">
+  <h3>Top Categories{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
+  <canvas id="catChart" height="260"></canvas>
+  <div style="height:12px;"></div>
+  <h3>Monthly Total Trend</h3>
+  <canvas id="trendChart" height="260"></canvas>
+</div>
+
+<!-- Aggregate -->
+<div class="section" id="tab-aggregate" style="display:none;">
+  {% if aggregate_labels is defined and aggregate_labels %}
+    <h3>Aggregate Table{% if aggregate_group_by %} (Group by: {{ aggregate_group_by }}{% if aggregate_month %}, Month={{ aggregate_month }}{% endif %}){% endif %}</h3>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            {% if aggregate_rows and aggregate_rows[0] %}
+              {% for k in aggregate_rows[0].keys() %}
+                <th>{{ k }}</th>
               {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Top Categories{% if month_for_view %} ({{ month_for_view }}){% endif %}</h3>
-        <canvas id="catChart" height="260"></canvas>
-      </div>
-
-      <div class="card">
-        <h3>Monthly Total Trend</h3>
-        <canvas id="trendChart" height="260"></canvas>
-      </div>
-    {% endif %}
-  </section>
+            {% else %}
+              <th>Group</th><th>Amount</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in aggregate_rows %}
+          <tr>
+            {% for k, v in r.items() %}
+              {% if k == 'Amount' %}
+                <td>{{ (v or 0)|currency }}</td>
+              {% else %}
+                <td>{{ v }}</td>
+              {% endif %}
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="height:12px;"></div>
+    <h3>Aggregate Chart</h3>
+    <canvas id="aggChart" height="260"></canvas>
+  {% else %}
+    <p class="muted">Run an aggregate from the Filters tab to see results here.</p>
+  {% endif %}
 </div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
-  // Utility to read CSS variables
-  function cssVar(name) {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  }
-  const fmt2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Tab switching to match Categories page behavior
+  (function(){
+    const tabs = document.querySelectorAll('.tab');
+    const panels = {
+      filters: document.getElementById('tab-filters'),
+      details: document.getElementById('tab-details'),
+      charts: document.getElementById('tab-charts'),
+      aggregate: document.getElementById('tab-aggregate')
+    };
+    function activate(name){
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+      Object.entries(panels).forEach(([k, el]) => el.style.display = (k === name ? '' : 'none'));
+    }
+    // Default to Charts if there’s no aggregate; otherwise show Aggregate
+    {% if aggregate_labels is defined and aggregate_labels %}
+      activate('aggregate');
+    {% elif latest_details and latest_details|length > 0 %}
+      activate('charts');
+    {% else %}
+      activate('filters');
+    {% endif %}
+    tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
+  })();
+</script>
 
-  // Build charts based on current theme (CSS vars)
+<script>
+  // Helpers
+  function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  const fmt2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   let charts = [];
-  function destroyCharts() { charts.forEach(c => c.destroy()); charts = []; }
+  function destroyCharts(){ charts.forEach(c => c.destroy()); charts = []; }
 
   {% if aggregate_labels is defined and aggregate_labels %}
-    function buildAgg() {
-      destroyCharts();
-      const aggLabels = {{ aggregate_labels|tojson }};
-      const aggValues = {{ aggregate_values|tojson }};
-      charts.push(new Chart(document.getElementById('aggChart'), {
-        type: 'bar',
-        data: {
-          labels: aggLabels,
-          datasets: [{ label: 'Amount', data: aggValues, backgroundColor: cssVar('--primary') || '#2d6cdf' }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              backgroundColor: cssVar('--chart-tooltip-bg') || '#1f2a44',
-              titleColor: cssVar('--chart-tooltip-text') || '#fff',
-              bodyColor: cssVar('--chart-tooltip-text') || '#fff',
-              borderColor: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)',
-              borderWidth: 1,
-              callbacks: {
-                label: ctx => ' $' + fmt2.format(Number((ctx.parsed?.y ?? ctx.raw ?? 0)))
-              }
-            }
-          },
-          scales: {
-            x: { grid: { color: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)', drawBorder: false } },
-            y: {
-              grid: { color: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)', drawBorder: false },
-              ticks: { callback: v => '$' + fmt2.format(Number(v)) }
-            }
-          }
-        }
-      }));
-    }
-    buildAgg();
-  {% else %}
-    function buildDefault() {
-      destroyCharts();
-      const topCategories = {{ top_categories|tojson }};
-      const monthlyTotals = {{ monthly_totals|tojson }};
-
-      // Top categories (horizontal)
-      const catLabels = topCategories.map(x => x.Category);
-      const catValues = topCategories.map(x => x.Amount);
-      charts.push(new Chart(document.getElementById('catChart'), {
-        type: 'bar',
-        data: {
-          labels: catLabels,
-          datasets: [{ label: 'Amount', data: catValues, backgroundColor: cssVar('--accent') || '#4e79a7' }]
-        },
-        options: {
-          indexAxis: 'y',
-          responsive: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              backgroundColor: cssVar('--chart-tooltip-bg') || '#1f2a44',
-              titleColor: cssVar('--chart-tooltip-text') || '#fff',
-              bodyColor: cssVar('--chart-tooltip-text') || '#fff',
-              borderColor: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)',
-              borderWidth: 1,
-              callbacks: {
-                label: ctx => ' $' + fmt2.format(Number((ctx.parsed?.x ?? ctx.raw ?? 0)))
-              }
-            }
-          },
-          scales: {
-            y: { grid: { color: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)', drawBorder: false } },
-            x: {
-              grid: { color: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)', drawBorder: false },
-              ticks: { callback: v => '$' + fmt2.format(Number(v)) }
-            }
-          }
-        }
-      }));
-
-      // Monthly totals line
-      const trendLabels = monthlyTotals.map(x => x.Month);
-      const trendValues = monthlyTotals.map(x => x.Amount);
-      charts.push(new Chart(document.getElementById('trendChart'), {
-        type: 'line',
-        data: {
-          labels: trendLabels,
-          datasets: [{ label: 'Total', data: trendValues, borderColor: cssVar('--primary') || '#2d6cdf', fill: false, tension: 0.2 }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              backgroundColor: cssVar('--chart-tooltip-bg') || '#1f2a44',
-              titleColor: cssVar('--chart-tooltip-text') || '#fff',
-              bodyColor: cssVar('--chart-tooltip-text') || '#fff',
-              borderColor: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)',
-              borderWidth: 1,
-              callbacks: {
-                label: ctx => ' $' + fmt2.format(Number((ctx.parsed?.y ?? ctx.raw ?? 0)))
-              }
-            }
-          },
-          scales: {
-            x: { grid: { color: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)', drawBorder: false } },
-            y: {
-              grid: { color: cssVar('--chart-grid') || 'rgba(0,0,0,0.10)', drawBorder: false },
-              ticks: { callback: v => '$' + fmt2.format(Number(v)) }
-            }
-          }
-        }
-      }));
-
-      // Table filter
-      const searchInput = document.getElementById('search');
-      const table = document.getElementById('detailTable');
-      if (searchInput && table) {
-        searchInput.addEventListener('input', () => {
-          const q = searchInput.value.toLowerCase();
-          [...table.tBodies[0].rows].forEach(row => {
-            const text = row.innerText.toLowerCase().replace(/\s+/g, ' ');
-            row.style.display = text.includes(q) ? '' : 'none';
-          });
-        });
+  function buildAgg(){
+    destroyCharts();
+    const aggLabels = {{ aggregate_labels|tojson }};
+    const aggValues = {{ aggregate_values|tojson }};
+    charts.push(new Chart(document.getElementById('aggChart'), {
+      type: 'bar',
+      data: { labels: aggLabels, datasets: [{ label: 'Amount', data: aggValues, backgroundColor: cssVar('--primary') || '#2d6cdf' }]},
+      options: {
+        responsive:true,
+        plugins:{ legend:{display:false}, tooltip:{ backgroundColor: cssVar('--chart-tooltip-bg')||'#1f2a44', titleColor:'#fff', bodyColor:'#fff', borderColor: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', borderWidth:1,
+          callbacks:{ label: ctx => ' $' + fmt2.format(Number((ctx.parsed?.y ?? ctx.raw ?? 0))) } } },
+        scales:{ x:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false } },
+                 y:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false }, ticks:{ callback:v=>'$'+fmt2.format(Number(v)) } } }
       }
+    }));
+  }
+  buildAgg();
+  {% else %}
+  function buildDefault(){
+    destroyCharts();
+    const topCategories = {{ top_categories|tojson }};
+    const monthlyTotals = {{ monthly_totals|tojson }};
+
+    const catLabels = topCategories.map(x => x.Category);
+    const catValues = topCategories.map(x => x.Amount);
+    charts.push(new Chart(document.getElementById('catChart'), {
+      type:'bar',
+      data:{ labels:catLabels, datasets:[{ label:'Amount', data:catValues, backgroundColor: cssVar('--accent')||'#4e79a7' }]},
+      options:{
+        indexAxis:'y', responsive:true,
+        plugins:{ legend:{display:false}, tooltip:{ backgroundColor: cssVar('--chart-tooltip-bg')||'#1f2a44', titleColor:'#fff', bodyColor:'#fff', borderColor: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', borderWidth:1,
+          callbacks:{ label: ctx => ' $' + fmt2.format(Number((ctx.parsed?.x ?? ctx.raw ?? 0))) } } },
+        scales:{ y:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false } },
+                 x:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false }, ticks:{ callback:v=>'$'+fmt2.format(Number(v)) } } }
+      }
+    }));
+
+    const trendLabels = monthlyTotals.map(x => x.Month);
+    const trendValues = monthlyTotals.map(x => x.Amount);
+    charts.push(new Chart(document.getElementById('trendChart'), {
+      type:'line',
+      data:{ labels:trendLabels, datasets:[{ label:'Total', data:trendValues, borderColor: cssVar('--primary')||'#2d6cdf', fill:false, tension:0.2 }]},
+      options:{
+        responsive:true,
+        plugins:{ legend:{display:false}, tooltip:{ backgroundColor: cssVar('--chart-tooltip-bg')||'#1f2a44', titleColor:'#fff', bodyColor:'#fff', borderColor: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', borderWidth:1,
+          callbacks:{ label: ctx => ' $' + fmt2.format(Number((ctx.parsed?.y ?? ctx.raw ?? 0))) } } },
+        scales:{ x:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false } },
+                 y:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false }, ticks:{ callback:v=>'$'+fmt2.format(Number(v)) } } }
+      }
+    }));
+
+    // Details table quick filter
+    const searchInput = document.getElementById('search');
+    const table = document.getElementById('detailTable');
+    if (searchInput && table) {
+      searchInput.addEventListener('input', () => {
+        const q = searchInput.value.toLowerCase();
+        [...table.tBodies[0].rows].forEach(row => {
+          const text = row.innerText.toLowerCase().replace(/\s+/g,' ');
+          row.style.display = text.includes(q) ? '' : 'none';
+        });
+      });
     }
-    buildDefault();
+  }
+  buildDefault();
   {% endif %}
 
   // Rebuild charts on theme change
@@ -441,78 +339,22 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
     {% endif %}
   });
 
-  // Mobile toggle for sidebar
-  const toggleBtn = document.getElementById('filtersToggleBtn');
-  const sidebar = document.getElementById('sidebar');
-  if (toggleBtn && sidebar) {
-    const syncLabel = () => {
-      const collapsed = sidebar.classList.contains('collapsed');
-      toggleBtn.textContent = collapsed ? 'Show filters' : 'Hide filters';
-    };
-    toggleBtn.addEventListener('click', () => {
-      sidebar.classList.toggle('collapsed');
-      syncLabel();
-    });
-    syncLabel();
-  }
-
-  // Accordions
-  document.querySelectorAll('.accordion-header').forEach(h => {
-    h.addEventListener('click', () => {
-      const item = h.parentElement;
-      const expanded = item.getAttribute('aria-expanded') === 'true';
-      item.setAttribute('aria-expanded', expanded ? 'false' : 'true');
-    });
-  });
-</script>
-<script>
-  // Thousand-separator table formatter
-  (function() {
+  // Format numbers in aggregate table if present
+  (function(){
     const fmtCurrency = v => {
-      const n = Number(v);
-      if (isNaN(n)) return v;
-      return '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+      const n = Number(v); if (isNaN(n)) return v;
+      return '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }).format(n);
     };
-    const fmtInteger = v => {
-      const n = Number(v);
-      if (isNaN(n)) return v;
-      return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n);
-    };
-
-    function formatTable(tableEl) {
+    function formatTable(tableEl){
       if (!tableEl) return;
       const headers = [...tableEl.tHead?.rows[0]?.cells || []].map(th => th.textContent.trim());
-      if (headers.length === 0) return;
-      const amountIdxs = headers
-        .map((h, i) => (/^amount$/i.test(h) ? i : -1))
-        .filter(i => i >= 0);
-      const countIdxs = headers
-        .map((h, i) => (/^rowcount$/i.test(h) ? i : -1))
-        .filter(i => i >= 0);
-
+      const amountIdxs = headers.map((h,i)=>/^amount$/i.test(h)?i:-1).filter(i=>i>=0);
       [...tableEl.tBodies].forEach(tb => {
-        [...tb.rows].forEach(row => {
-          amountIdxs.forEach(i => {
-            const td = row.cells[i];
-            if (td) td.textContent = fmtCurrency(td.textContent);
-          });
-          countIdxs.forEach(i => {
-            const td = row.cells[i];
-            if (td) td.textContent = fmtInteger(td.textContent);
-          });
-        });
+        [...tb.rows].forEach(row => amountIdxs.forEach(i => { const td=row.cells[i]; if (td) td.textContent = fmtCurrency(td.textContent); }));
       });
     }
-
-    // Format aggregate table (if present)
-    const aggTable = document.querySelector('.content table'); // first table in content
+    const aggTable = document.querySelector('#tab-aggregate table');
     formatTable(aggTable);
-
-    // Format details table
-    const detailTable = document.getElementById('detailTable');
-    formatTable(detailTable);
   })();
 </script>
-
-
 {% endblock %}
