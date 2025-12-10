@@ -1,14 +1,42 @@
 {% extends "base.html" %}
 {% block title %}Review & Adjust{% endblock %}
 
+{% block head %}
+<style>
+  /* Tab bar */
+  .tabs { display:flex; gap:8px; padding:8px; background:#0b5cff; border-radius:10px; color:#fff; align-items:center; }
+  .tab { display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; cursor:pointer; user-select:none; background:rgba(255,255,255,.08); }
+  .tab.active { background:#fff; color:#0b5cff; font-weight:600; }
+  .tabs-spacer { flex:1; }
+
+  /* Sections */
+  .section { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:12px; }
+  .section h3 { margin:0 0 8px 0; }
+  .inline { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width: 980px){ .grid-2 { grid-template-columns:1fr; } }
+
+  /* Table */
+  .table-scroll { max-height:60vh; overflow:auto; border:1px solid var(--border); border-radius:10px; }
+  table { width:100%; border-collapse:collapse; }
+  thead th { position:sticky; top:0; background:#f3f4f6; border-bottom:1px solid var(--border); padding:10px; text-align:left; z-index:1; }
+  tbody td { padding:10px; border-bottom:1px solid var(--border); }
+  .selectable { cursor:pointer; }
+  .selectable.selected { background:#fff3c4; }
+
+  .pill { display:inline-block; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:#fff; }
+  .muted { color:var(--muted); }
+</style>
+{% endblock %}
+
 {% block header_meta %}
 {{ project }}.{{ dataset }}.all_positive_monthly
 {% endblock %}
 
 {% block content %}
-<div class="card" style="padding:16px; border:none; box-shadow:none; background:transparent; margin-bottom:8px;">
+<div class="card" style="border:none; background:transparent; box-shadow:none; padding:0; margin-bottom:8px;">
   <h3 style="margin:0 0 6px;">Review & Adjust</h3>
-  <p class="muted">Select a record from the table. Edit your percentage and note in the review box, preview your share, then Apply to BigQuery.</p>
+  <p class="muted">Select a transaction, enter a percentage and optional note, preview your share, then apply the change to BigQuery.</p>
 </div>
 
 {% if message %}
@@ -17,171 +45,180 @@
 </div>
 {% endif %}
 
-<button id="filtersToggleBtn" class="btn secondary filters-toggle" type="button">Show filters</button>
+<!-- Tab bar -->
+<div class="tabs">
+  <div class="tab active" data-tab="filters">Filters</div>
+  <div class="tab" data-tab="transactions">Transactions</div>
+  <div class="tab" data-tab="review">Review Box</div>
+  <div class="tabs-spacer"></div>
+  <div class="muted">Review</div>
+</div>
 
-<div class="layout">
-  <!-- Sidebar: filters -->
-  <aside id="sidebar" class="sidebar collapsed">
-    <div class="card">
-      <h3>Filters</h3>
-      <form method="get" action="/review">
-        <div class="grid-2">
-          <div>
-            <label>Month</label>
-            <select name="month" required>
-              <option value="">-- Select --</option>
-              {% for m in months %}
-                <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label>CardName</label>
-            <select name="card">
-              <option value="">All</option>
-              {% for c in cards %}
-                <option value="{{ c }}" {% if selected_card == c %}selected{% endif %}>{{ c }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label>MainCategory</label>
-            <select name="main">
-              <option value="">All</option>
-              {% for mc in mains %}
-                <option value="{{ mc }}" {% if selected_main == mc %}selected{% endif %}>{{ mc }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label>Category</label>
-            <select name="cat">
-              <option value="">All</option>
-              {% for ct in cats %}
-                <option value="{{ ct }}" {% if selected_cat == ct %}selected{% endif %}>{{ ct }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-        <div class="actions">
-          <button type="submit">Load</button>
-          <a class="btn secondary" href="/review">Reset</a>
-        </div>
-      </form>
+<!-- Filters -->
+<div class="section" id="tab-filters">
+  <h3>Filters</h3>
+  <form method="get" action="{{ url_for('review_get') }}" class="inline">
+    <div>
+      <label>Month</label><br>
+      <select name="month" required>
+        <option value="">-- Select --</option>
+        {% for m in months %}
+          <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
     </div>
-  </aside>
+    <div>
+      <label>CardName</label><br>
+      <select name="card">
+        <option value="">All</option>
+        {% for c in cards %}
+          <option value="{{ c }}" {% if selected_card == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>MainCategory</label><br>
+      <select name="main">
+        <option value="">All</option>
+        {% for mc in mains %}
+          <option value="{{ mc }}" {% if selected_main == mc %}selected{% endif %}>{{ mc }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Category</label><br>
+      <select name="cat">
+        <option value="">All</option>
+        {% for ct in cats %}
+          <option value="{{ ct }}" {% if selected_cat == ct %}selected{% endif %}>{{ ct }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <button class="btn secondary" type="submit">Load</button>
+      <a class="btn" href="{{ url_for('review_get') }}">Reset</a>
+    </div>
+  </form>
+</div>
 
-  <!-- Content: table (left) + review panel (right) -->
-  <section class="content">
+<!-- Transactions table -->
+<div class="section" id="tab-transactions" style="display:none;">
+  <h3>Transactions{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
+  <div class="table-scroll">
+    <table id="reviewTable">
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th>CardName</th>
+          <th>MainCategory</th>
+          <th>Category</th>
+          <th>Description</th>
+          <th>Amount</th>
+          <th>Comment</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in review_rows %}
+        <tr class="selectable"
+            data-rowhash="{{ r.RowHash }}"
+            data-month="{{ r.Month }}"
+            data-card="{{ r.CardName }}"
+            data-main="{{ r.MainCategory }}"
+            data-cat="{{ r.Category }}"
+            data-desc="{{ r.Description }}"
+            data-amount="{{ r.Amount or 0 }}"
+            data-comment="{{ r.Comment or '' }}">
+          <td>{{ r.Month }}</td>
+          <td>{{ r.CardName }}</td>
+          <td>{{ r.MainCategory }}</td>
+          <td>{{ r.Category }}</td>
+          <td>{{ r.Description }}</td>
+          <td>{{ (r.Amount or 0)|currency }}</td>
+          <td>{{ r.Comment }}</td>
+        </tr>
+        {% endfor %}
+        {% if not review_rows %}
+        <tr><td colspan="7" class="muted">No rows loaded. Choose filters in the Filters tab and click Load.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted" style="margin-top:8px;">Tip: click a row to open it in the Review Box tab.</p>
+</div>
+
+<!-- Review Box -->
+<div class="section" id="tab-review" style="display:none;">
+  <h3>Review Box</h3>
+  <p class="muted" id="panelHint">Select a row from the Transactions tab.</p>
+
+  <div id="panelContent" style="display:none;">
     <div class="grid-2">
-      <!-- Table -->
-      <div class="card">
-        <h3>Transactions{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
-        <div class="table-scroll">
-          <table id="reviewTable">
-            <thead>
-              <tr>
-                <th>Month</th>
-                <th>CardName</th>
-                <th>MainCategory</th>
-                <th>Category</th>
-                <th>Description</th>
-                <th>Amount</th>
-                <th>Comment</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for r in review_rows %}
-              <tr class="selectable"
-                  data-rowhash="{{ r.RowHash }}"
-                  data-month="{{ r.Month }}"
-                  data-card="{{ r.CardName }}"
-                  data-main="{{ r.MainCategory }}"
-                  data-cat="{{ r.Category }}"
-                  data-desc="{{ r.Description }}"
-                  data-amount="{{ r.Amount or 0 }}"
-                  data-comment="{{ r.Comment or '' }}">
-                <td>{{ r.Month }}</td>
-                <td>{{ r.CardName }}</td>
-                <td>{{ r.MainCategory }}</td>
-                <td>{{ r.Category }}</td>
-                <td>{{ r.Description }}</td>
-                <td>{{ (r.Amount or 0)|currency }}</td>
-                <td>{{ r.Comment }}</td>
-              </tr>
-              {% endfor %}
-              {% if not review_rows %}
-              <tr><td colspan="7" class="muted">No rows loaded. Choose a month and click Load.</td></tr>
-              {% endif %}
-            </tbody>
-          </table>
-        </div>
+      <div>
+        <div class="pill" style="margin-bottom:6px;"><strong>Month:</strong> <span id="pMonth"></span></div><br>
+        <div class="pill" style="margin-bottom:6px;"><strong>Card:</strong> <span id="pCard"></span></div><br>
+        <div class="pill" style="margin-bottom:6px;"><strong>Main:</strong> <span id="pMain"></span></div><br>
+        <div class="pill"><strong>Category:</strong> <span id="pCat"></span></div>
       </div>
-
-      <!-- Review panel -->
-      <div class="card" id="reviewPanel">
-        <h3>Review Box</h3>
-        <p class="muted" id="panelHint">Select a row to review.</p>
-
-        <div id="panelContent" style="display:none;">
-          <div class="kpi">
-            <div class="pill"><strong>Month:</strong> <span id="pMonth"></span></div>
-            <div class="pill"><strong>Card:</strong> <span id="pCard"></span></div>
-            <div class="pill"><strong>Main:</strong> <span id="pMain"></span></div>
-            <div class="pill"><strong>Category:</strong> <span id="pCat"></span></div>
-          </div>
-          <p><strong>Description:</strong> <span id="pDesc"></span></p>
-          <p><strong>Original Amount:</strong> <span id="pAmount"></span></p>
-          <p><strong>Existing Comment:</strong> <span id="pComment"></span></p>
-          <hr class="hr">
-
-          <form method="post" action="/review" id="reviewForm">
-            <input type="hidden" name="rowhash" id="fRowhash">
-            <input type="hidden" name="month" id="fMonth" value="{{ selected_month or '' }}">
-
-            <label>Percentage (%)</label>
-            <input type="number" name="percentage" id="fPct" step="0.01" min="0" max="100" placeholder="e.g., 25">
-
-            <label>Note (optional)</label>
-            <input type="text" name="note" id="fNote" placeholder="Your note...">
-
-            <div class="kpi" style="margin-top: 12px;">
-              <div class="pill"><strong>Your share:</strong> <span id="pShare">$0.00</span></div>
-            </div>
-
-            <div class="actions" style="margin-top: 12px;">
-              <button type="submit">Apply to BigQuery</button>
-              <button type="button" class="btn secondary" id="clearPanel">Clear</button>
-            </div>
-          </form>
-        </div>
+      <div>
+        <p><strong>Description:</strong> <span id="pDesc"></span></p>
+        <p><strong>Original Amount:</strong> <span id="pAmount"></span></p>
+        <p><strong>Existing Comment:</strong> <span id="pComment"></span></p>
       </div>
     </div>
-  </section>
+
+    <hr style="margin:12px 0; border:none; border-top:1px solid var(--border);">
+
+    <form method="post" action="{{ url_for('review_post') }}" id="reviewForm" class="inline" style="align-items:flex-start;">
+      <input type="hidden" name="rowhash" id="fRowhash">
+      <input type="hidden" name="month" id="fMonth" value="{{ selected_month or '' }}">
+
+      <div>
+        <label>Percentage (%)</label><br>
+        <input type="number" name="percentage" id="fPct" step="0.01" min="0" max="100" placeholder="e.g., 25">
+      </div>
+      <div style="flex:1; min-width:260px;">
+        <label>Note (optional)</label><br>
+        <input type="text" name="note" id="fNote" placeholder="Your note...">
+      </div>
+      <div class="pill"><strong>Your share:</strong> <span id="pShare">$0.00</span></div>
+      <div>
+        <button class="btn secondary" type="submit">Apply to BigQuery</button>
+        <button type="button" class="btn" id="clearPanel">Clear</button>
+      </div>
+    </form>
+  </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-  // Mobile sidebar toggle
-  const toggleBtn = document.getElementById('filtersToggleBtn');
-  const sidebar = document.getElementById('sidebar');
-  if (toggleBtn && sidebar) {
-    const syncLabel = () => {
-      const collapsed = sidebar.classList.contains('collapsed');
-      toggleBtn.textContent = collapsed ? 'Show filters' : 'Hide filters';
+  // Tabs
+  (function(){
+    const tabs = document.querySelectorAll('.tab');
+    const panels = {
+      filters: document.getElementById('tab-filters'),
+      transactions: document.getElementById('tab-transactions'),
+      review: document.getElementById('tab-review')
     };
-    toggleBtn.addEventListener('click', () => {
-      sidebar.classList.toggle('collapsed');
-      syncLabel();
-    });
-    syncLabel();
-  }
+    function activate(name){
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+      Object.entries(panels).forEach(([k, el]) => el.style.display = (k === name ? '' : 'none'));
+    }
+    // Choose default tab: if rows exist, show Transactions, else Filters.
+    {% if review_rows and review_rows|length > 0 %}
+      activate('transactions');
+    {% else %}
+      activate('filters');
+    {% endif %}
+    tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
+  })();
+</script>
 
+<script>
   // Helper: format currency
   const fmt2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  // Table row selection populates panel
+  // Elements
   const table = document.getElementById('reviewTable');
   const panelHint = document.getElementById('panelHint');
   const panelContent = document.getElementById('panelContent');
@@ -220,6 +257,10 @@
 
     panelHint.style.display = 'none';
     panelContent.style.display = '';
+
+    // Switch to Review tab automatically on selection
+    const reviewTab = document.querySelector('.tab[data-tab="review"]');
+    reviewTab && reviewTab.click();
   }
 
   function computeShare() {
@@ -230,7 +271,6 @@
     pShare.textContent = '$' + fmt2.format(share);
   }
 
-  // Row click handling
   if (table) {
     table.addEventListener('click', (e) => {
       const tr = e.target.closest('tr.selectable');
@@ -244,7 +284,6 @@
 
   fPct && fPct.addEventListener('input', computeShare);
 
-  // Confirm before submit and prevent double submit
   reviewForm && reviewForm.addEventListener('submit', (e) => {
     const pct = Number(fPct.value || 0);
     const shareText = pShare.textContent || '$0.00';
@@ -254,11 +293,7 @@
       return;
     }
     const ok = confirm(`Apply this review?\n\nPercentage: ${pct.toFixed(2)}%\nYour share: ${shareText}\n\nThis will write to BigQuery.`);
-    if (!ok) {
-      e.preventDefault();
-      return;
-    }
-    // disable the button to avoid double-submit
+    if (!ok) { e.preventDefault(); return; }
     const btn = reviewForm.querySelector('button[type="submit"]');
     if (btn) { btn.disabled = true; btn.textContent = 'Applying...'; }
   });
@@ -267,6 +302,9 @@
     panelContent.style.display = 'none';
     panelHint.style.display = '';
     if (table) [...table.tBodies[0].rows].forEach(r => r.classList.remove('selected'));
+    // Switch back to Transactions tab
+    const txTab = document.querySelector('.tab[data-tab="transactions"]');
+    txTab && txTab.click();
   });
 </script>
 {% endblock %}

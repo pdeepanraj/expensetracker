@@ -1,91 +1,321 @@
 {% extends "base.html" %}
-{% block title %}Select GitHub Repo{% endblock %}
+{% block title %}Status{% endblock %}
+
+{% block head %}
+<style>
+  .tabs { display:flex; gap:8px; padding:8px; background:#0b5cff; border-radius:10px; color:#fff; align-items:center; }
+  .tab { display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; cursor:pointer; user-select:none; background:rgba(255,255,255,.08); }
+  .tab.active { background:#fff; color:#0b5cff; font-weight:600; }
+  .tabs-spacer { flex:1; }
+
+  .section { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:12px; }
+  .section h3 { margin:0 0 8px 0; }
+  .pill { display:inline-block; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:#fff; }
+  .muted { color:var(--muted); }
+
+  .table-scroll { max-height:60vh; overflow:auto; border:1px solid var(--border); border-radius:10px; }
+  table { width:100%; border-collapse:collapse; }
+  thead th { position:sticky; top:0; background:#f3f4f6; border-bottom:1px solid var(--border); padding:10px; text-align:left; z-index:1; cursor:pointer; }
+  tbody td { padding:10px; border-bottom:1px solid var(--border); }
+  .actions a, .actions button { margin-right:8px; }
+</style>
+{% endblock %}
+
+{% block header_meta %}
+{{ project }}.{{ dataset }}.{{ table }}
+{% endblock %}
 
 {% block content %}
-<div class="card" style="padding: 16px; border: none; box-shadow: none; background: transparent; margin-bottom: 8px;">
-  <h3 style="margin:0 0 6px;">Data Sources</h3>
-  <p class="muted">Choose from GitHub repository or upload local files.</p>
+<div class="card" style="border:none; background:transparent; box-shadow:none; padding:0; margin-bottom:8px;">
+  <h3 style="margin:0 0 6px;">Status</h3>
+  <p class="muted">Dataset and recent activity</p>
 </div>
 
-<div class="layout">
-  <!-- Sidebar: quick links -->
-  <aside class="sidebar">
-    <div class="card">
-      <h3>Quick Links</h3>
-      <div class="accordion">
-        <div class="accordion-item" aria-expanded="true">
-          <div class="accordion-header">
-            <span>Navigate</span>
-            <span class="chev">›</span>
-          </div>
-          <div class="accordion-panel">
-            <div class="inline" style="flex-direction: column; align-items: stretch;">
-              <a class="btn" href="/dashboard">Open Dashboard</a>
-              <a class="btn secondary" href="/status">View Status</a>
-              <a class="btn secondary" href="/review">Review & Adjust</a>
-              <a class="btn secondary" href="/bills">Bills</a>
-               <a class="btn secondary" href="/categories">Categories</a>
-            </div>
-          </div>
-        </div>
+<!-- Tab bar -->
+<div class="tabs">
+  <div class="tab active" data-tab="overview">Overview</div>
+  <div class="tab" data-tab="monthstats">Month Stats</div>
+  <div class="tab" data-tab="checks">Data Checks</div>
+  <div class="tab" data-tab="maintenance">Maintenance</div>
+  <div class="tabs-spacer"></div>
+  <div class="muted">Status</div>
+</div>
+
+<!-- Overview -->
+<div class="section" id="tab-overview">
+  <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+    <div class="card" style="margin:0;">
+      <h3>Table</h3>
+      <p><strong>ID:</strong> {{ project }}.{{ dataset }}.{{ table }}</p>
+      <p><strong>Total rows:</strong> {{ meta.num_rows }}</p>
+      <p><strong>Created:</strong> {{ meta.created }}</p>
+      <p><strong>Last modified:</strong> {{ meta.modified }}</p>
+      <div class="pill" style="margin-top:8px;">Env: {{ project }}</div>
+    </div>
+
+    <div class="card" style="margin:0;">
+      <h3>Last Insert Proxy</h3>
+      {% if last_insert %}
+        <p><strong>Latest Month:</strong> {{ last_insert.Month }}</p>
+        <p><strong>Max Amount (that month):</strong> {{ (last_insert.MaxAmount or 0)|currency }}</p>
+      {% else %}
+        <p class="muted">No data yet.</p>
+      {% endif %}
+      <div class="actions" style="margin-top:8px;">
+        <button class="btn" type="button" id="downloadOverview">Download overview (JSON)</button>
       </div>
     </div>
-  </aside>
+  </div>
+</div>
 
-  <section class="content">
-    <!-- GitHub repo listing -->
-    <div class="card">
-      <h2>Select GitHub Repository</h2>
-      <form method="get" action="/list">
-        <label>Owner (user or org)</label>
-        <input type="text" name="owner" required placeholder="octocat">
+<!-- Month Stats -->
+<div class="section" id="tab-monthstats" style="display:none;">
+  <h3>Rows by Month (top 12)</h3>
+  <div class="actions" style="margin-bottom:8px;">
+    <button class="btn" type="button" id="exportMonthCsv">Export CSV</button>
+  </div>
+  <div class="table-scroll">
+    <table id="monthTable">
+      <thead>
+        <tr>
+          <th data-key="Month">Month</th>
+          <th data-key="RowCount">RowCount</th>
+          <th data-key="Amount">Total Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in month_stats %}
+        <tr>
+          <td>{{ r.Month }}</td>
+          <td>{{ r.RowCount }}</td>
+          <td>{{ (r.Amount or 0)|currency }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted" style="margin-top:8px;">Tip: click a column header to sort.</p>
+</div>
 
-        <label>Repo</label>
-        <input type="text" name="repo" required placeholder="hello-world">
-
-        <label>Branch (default main)</label>
-        <input type="text" name="branch" placeholder="main">
-
-        <label>Path (folder within repo, default root)</label>
-        <input type="text" name="path" placeholder="">
-
-        <div class="actions">
-          <button type="submit">List CSV files</button>
-          <a class="btn secondary" href="/dashboard">View Dashboard</a>
-        </div>
-      </form>
+<!-- Data Checks -->
+<div class="section" id="tab-checks" style="display:none;">
+  <h3>Quality Checks</h3>
+  <p class="muted">These are client-side checks based on the recent stats. Server-side validations can be added later.</p>
+  <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+    <div class="card" style="margin:0;">
+      <h4 style="margin:0 0 6px;">Category completeness (last 12 months)</h4>
+      <ul id="checkCategory" class="muted" style="margin:6px 0 0;"></ul>
     </div>
-
-    <!-- Local upload (new) -->
-    <div class="card">
-      <h2>Upload Local Files</h2>
-      <p class="muted">Upload CSV or Excel files to process without GitHub.</p>
-      <form method="post" action="/upload" enctype="multipart/form-data">
-        <label>Files (CSV or Excel)</label>
-        <input type="file" name="files" multiple accept=".csv, .xls, .xlsx">
-
-        <label>categories_grouped.json (optional)</label>
-        <input type="file" name="json_cfg" accept=".json">
-
-        <div class="actions">
-          <button type="submit">Run Pipeline</button>
-        </div>
-      </form>
+    <div class="card" style="margin:0;">
+      <h4 style="margin:0 0 6px;">Duplicate RowHash (approx)</h4>
+      <p class="muted">If you expose a duplicate count from the backend, we can show it here. For now, this panel is a placeholder.</p>
     </div>
-  </section>
+  </div>
+</div>
+
+<!-- Maintenance -->
+<div class="section" id="tab-maintenance" style="display:none;">
+  <h3>Maintenance & Tools</h3>
+  <p class="muted">Non-destructive utilities. Dangerous operations (like truncate) are intentionally omitted.</p>
+  <div class="inline" style="align-items:flex-start;">
+    <div>
+      <button class="btn" type="button" id="downloadStatusJson">Download Month Stats (JSON)</button>
+    </div>
+    <div>
+      <button class="btn" type="button" id="copyTableId">Copy Table ID</button>
+    </div>
+    <div>
+      <button class="btn" type="button" id="showSchema">Show Schema (example)</button>
+    </div>
+  </div>
+  <div id="schemaBox" class="card" style="margin-top:10px; display:none;">
+    <h4 style="margin:0 0 6px;">Example schema</h4>
+    <pre id="schemaPre" style="white-space:pre-wrap; margin:0;"></pre>
+  </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-  // Mobile sidebar toggle (optional; add button if you like)
-  // Accordions
-  document.querySelectorAll('.accordion-header').forEach(h => {
-    h.addEventListener('click', () => {
-      const item = h.parentElement;
-      const expanded = item.getAttribute('aria-expanded') === 'true';
-      item.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+  // Tabs
+  (function(){
+    const tabs = document.querySelectorAll('.tab');
+    const panels = {
+      overview: document.getElementById('tab-overview'),
+      monthstats: document.getElementById('tab-monthstats'),
+      checks: document.getElementById('tab-checks'),
+      maintenance: document.getElementById('tab-maintenance')
+    };
+    function activate(name){
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+      Object.entries(panels).forEach(([k, el]) => el.style.display = (k === name ? '' : 'none'));
+    }
+    activate('overview');
+    tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
+  })();
+
+  // Sorting month table
+  (function(){
+    const tbl = document.getElementById('monthTable');
+    if (!tbl) return;
+    const getCellValue = (row, idx) => (row.cells[idx]?.textContent || '').trim();
+    const compare = (idx, asc) => (a, b) => {
+      const va = getCellValue(a, idx), vb = getCellValue(b, idx);
+      const na = Number(va.replace(/[^0-9.\-]/g,'')); const nb = Number(vb.replace(/[^0-9.\-]/g,''));
+      if (!isNaN(na) && !isNaN(nb)) return asc ? na - nb : nb - na;
+      return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+    };
+    tbl.tHead.addEventListener('click', (e) => {
+      const th = e.target.closest('th'); if (!th) return;
+      const idx = [...th.parentNode.children].indexOf(th);
+      const asc = !(th.dataset.sortAsc === 'true');
+      const rows = [...tbl.tBodies[0].rows];
+      rows.sort(compare(idx, asc));
+      tbl.tBodies[0].innerHTML = '';
+      rows.forEach(r => tbl.tBodies[0].appendChild(r));
+      [...tbl.tHead.rows[0].cells].forEach(c => { c.dataset.sortAsc = ''; });
+      th.dataset.sortAsc = asc ? 'true' : 'false';
     });
-  });
+  })();
+
+  // Export month stats to CSV
+  (function(){
+    const btn = document.getElementById('exportMonthCsv');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const tbl = document.getElementById('monthTable'); if (!tbl) return;
+      const rows = [];
+      const headers = [...tbl.tHead.rows[0].cells].map(th => th.textContent.trim());
+      rows.push(headers.join(','));
+      [...tbl.tBodies[0].rows].forEach(tr => {
+        const cols = [...tr.cells].map(td => {
+          const text = (td.textContent || '').replace(/,/g, '');
+          return `"${text}"`;
+        });
+        rows.push(cols.join(','));
+      });
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `month_stats_{{ table }}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+  })();
+
+  // Download overview JSON
+  (function(){
+    const btn = document.getElementById('downloadOverview');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const payload = {
+        table: "{{ project }}.{{ dataset }}.{{ table }}",
+        meta: {{ meta|tojson }},
+        last_insert: {{ last_insert|tojson }}
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `overview_{{ table }}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+  })();
+
+  // Data checks (client-side approximation)
+  (function(){
+    const list = document.getElementById('checkCategory');
+    if (!list) return;
+    // Approx metrics from month_stats table text (not perfect; server-side would be ideal)
+    const tbl = document.getElementById('monthTable'); if (!tbl) return;
+    const months = [...tbl.tBodies[0].rows].map(r => r.cells[0].textContent.trim());
+    const items = [
+      `Months loaded: ${months.length}`,
+      `Latest month: ${months[0] || 'n/a'}`,
+      `Earliest month: ${months[months.length-1] || 'n/a'}`,
+      `“Other” rate: run a server-side check to compute share of Category='Other'`
+    ];
+    items.forEach(t => {
+      const li = document.createElement('li'); li.textContent = t; list.appendChild(li);
+    });
+  })();
+
+  // Maintenance: download month stats JSON, copy table ID, show schema (example)
+  (function(){
+    const btnJson = document.getElementById('downloadStatusJson');
+    const btnCopy = document.getElementById('copyTableId');
+    const btnSchema = document.getElementById('showSchema');
+    const box = document.getElementById('schemaBox');
+    const pre = document.getElementById('schemaPre');
+
+    btnJson && btnJson.addEventListener('click', () => {
+      const payload = { table: "{{ project }}.{{ dataset }}.{{ table }}", month_stats: {{ month_stats|tojson }} };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `status_month_stats_{{ table }}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    btnCopy && btnCopy.addEventListener('click', async () => {
+      const id = "{{ project }}.{{ dataset }}.{{ table }}";
+      try { await navigator.clipboard.writeText(id); alert('Copied: ' + id); } catch(e){ alert('Copy failed: ' + id); }
+    });
+
+    btnSchema && btnSchema.addEventListener('click', () => {
+      const example = [
+        { name: "Month", type: "STRING" },
+        { name: "CardName", type: "STRING" },
+        { name: "MainCategory", type: "STRING" },
+        { name: "Category", type: "STRING" },
+        { name: "Description", type: "STRING" },
+        { name: "Amount", type: "FLOAT" },
+        { name: "Comment", type: "STRING" },
+        { name: "RowHash", type: "STRING" }
+      ];
+      pre.textContent = JSON.stringify(example, null, 2);
+      box.style.display = '';
+    });
+  })();
+</script>
+
+<script>
+  // Format numbers in tables
+  (function() {
+    const fmtCurrency = v => {
+      const n = Number(v);
+      if (isNaN(n)) return v;
+      return '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+    };
+    const fmtInteger = v => {
+      const n = Number(v);
+      if (isNaN(n)) return v;
+      return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n);
+    };
+
+    function formatTable(tableEl) {
+      if (!tableEl) return;
+      const headers = [...tableEl.tHead?.rows[0]?.cells || []].map(th => th.textContent.trim());
+      if (headers.length === 0) return;
+      const amountIdxs = headers.map((h, i) => (/^total amount$/i.test(h) || /^amount$/i.test(h) ? i : -1)).filter(i => i >= 0);
+      const countIdxs = headers.map((h, i) => (/^rowcount$/i.test(h) ? i : -1)).filter(i => i >= 0);
+
+      [...tableEl.tBodies].forEach(tb => {
+        [...tb.rows].forEach(row => {
+          amountIdxs.forEach(i => {
+            const td = row.cells[i];
+            if (td) td.textContent = fmtCurrency(td.textContent);
+          });
+          countIdxs.forEach(i => {
+            const td = row.cells[i];
+            if (td) td.textContent = fmtInteger(td.textContent);
+          });
+        });
+      });
+    }
+
+    formatTable(document.getElementById('monthTable'));
+  })();
 </script>
 {% endblock %}
