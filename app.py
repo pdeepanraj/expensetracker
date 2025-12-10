@@ -1096,6 +1096,35 @@ def categories_reclassify_monthly():
 
     return redirect(url_for("categories_get", msg="Row reclassified.", msg_type="ok"))
 
+@app.post("/upload")
+def upload():
+    # Basic handler for local CSV/XLS/XLSX upload
+    try:
+        files = request.files.getlist("files")
+        if not files:
+            return "No files uploaded.", 400
+
+        frames = []
+        for f in files:
+            b = f.read()
+            df = fetch_csv_to_df_bytes(b)  # you already have this helper
+            derived_card = derive_card_name_from_path(f.filename)
+            df_clean = clean_and_standardize(df, card_name=derived_card)
+            frames.append(df_clean)
+
+        # Build classifier (BigQuery-backed)
+        classifier = make_classifier_grouped("/dev/null")
+
+        result = run_pipeline(frames, classifier)
+        records = result["all_positive_monthly"]
+        new_rows = append_non_duplicates(records, TARGET_TABLE)
+
+        latest_month = str(result.get("latest_month"))
+        return redirect(url_for("dashboard", month=latest_month, loaded=new_rows), code=303)
+    except Exception as e:
+        return f"Upload error: {type(e).__name__}: {e}", 500
+
+
 # ---------------- Entrypoint ----------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
