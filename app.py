@@ -655,29 +655,20 @@ def status():
 # ---------------- Review routes ----------------
 @app.get("/review")
 def review_get():
-    # Read filters (empty string means "All"/no filter)
     month = request.args.get("month", "").strip()
     card  = request.args.get("card", "").strip() or None
     main  = request.args.get("main", "").strip() or None
     cat   = request.args.get("cat", "").strip() or None
+    tab   = request.args.get("tab", "").strip()
 
-    # Distinct filter values for dropdowns
     months, cards, mains, cats = get_distinct_filters()
-
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
 
-    # Build WHERE clause conditionally
-    where = []
-    qp = {}
-    if month:
-        where.append("Month = @month"); qp["month"] = month
-    if card:
-        where.append("CardName = @card"); qp["card"] = card
-    if main:
-        where.append("MainCategory = @main"); qp["main"] = main
-    if cat:
-        where.append("Category = @cat"); qp["cat"] = cat
-
+    where = []; qp = {}
+    if month: where.append("Month = @month"); qp["month"] = month
+    if card:  where.append("CardName = @card"); qp["card"] = card
+    if main:  where.append("MainCategory = @main"); qp["main"] = main
+    if cat:   where.append("Category = @cat"); qp["cat"] = cat
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
     sql = f"""
@@ -698,8 +689,10 @@ def review_get():
         months=months, cards=cards, mains=mains, cats=cats,
         selected_month=month or "", selected_card=card, selected_main=main, selected_cat=cat,
         review_rows=rows,
-        message=msg, message_type=msg_type
+        message=msg, message_type=msg_type,
+        tab=tab
     )
+
 
 
 @app.post("/review")
@@ -707,17 +700,29 @@ def review_post():
     rowhash    = request.form.get("rowhash", "").strip()
     percentage = request.form.get("percentage", "").strip()
     note       = request.form.get("note", "").strip()
-    month      = request.form.get("month", "").strip()
+
+    # Preserve current filters from the form
+    month = (request.form.get("month") or "").strip()
+    card  = (request.form.get("card") or "").strip()
+    main  = (request.form.get("main") or "").strip()
+    cat   = (request.form.get("cat") or "").strip()
+    tab   = (request.form.get("tab") or "").strip() or "review"
 
     if not rowhash or not percentage:
-        return redirect(url_for("review_get", month=month, msg="rowhash and percentage are required", msg_type="error"), code=303)
+        return redirect(url_for("review_get",
+                                month=month, card=card, main=main, cat=cat, tab=tab,
+                                msg="rowhash and percentage are required", msg_type="error"), code=303)
 
     try:
         pct = float(percentage)
         if pct < 0 or pct > 100:
-            return redirect(url_for("review_get", month=month, msg="percentage must be between 0 and 100", msg_type="error"), code=303)
+            return redirect(url_for("review_get",
+                                    month=month, card=card, main=main, cat=cat, tab=tab,
+                                    msg="percentage must be between 0 and 100", msg_type="error"), code=303)
     except ValueError:
-        return redirect(url_for("review_get", month=month, msg="percentage must be numeric", msg_type="error"), code=303)
+        return redirect(url_for("review_get",
+                                month=month, card=card, main=main, cat=cat, tab=tab,
+                                msg="percentage must be numeric", msg_type="error"), code=303)
 
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
     sel_sql = f"""
@@ -728,13 +733,17 @@ def review_post():
     """
     recs = bq_query(sel_sql, params={"rowhash": rowhash})
     if not recs:
-        return redirect(url_for("review_get", month=month, msg="Row not found", msg_type="error"), code=303)
+        return redirect(url_for("review_get",
+                                month=month, card=card, main=main, cat=cat, tab=tab,
+                                msg="Row not found", msg_type="error"), code=303)
 
     original_amount = float(recs[0].get("Amount") or 0.0)
     existing_comment = (recs[0].get("Comment") or "").strip()
 
     if "[REVIEW]" in existing_comment:
-        return redirect(url_for("review_get", month=month, msg="This row was already reviewed. No changes applied.", msg_type="error"), code=303)
+        return redirect(url_for("review_get",
+                                month=month, card=card, main=main, cat=cat, tab=tab,
+                                msg="This row was already reviewed. No changes applied.", msg_type="error"), code=303)
 
     share_amount = round(original_amount * (pct / 100.0), 2)
     fmt_orig = f"${original_amount:,.2f}"
@@ -763,7 +772,10 @@ def review_post():
     )
     job.result()
     msg = f"Adjusted to {fmt_share} ({pct:.2f}%). Review note saved."
-    return redirect(url_for("review_get", month=month, msg=msg, msg_type="ok"), code=303)
+    return redirect(url_for("review_get",
+                            month=month, card=card, main=main, cat=cat, tab=tab,
+                            msg=msg, msg_type="ok"), code=303)
+
 
 # ---------------- Bills helpers and routes ----------------
 BILLS_TABLE = "credit_card_bills"
