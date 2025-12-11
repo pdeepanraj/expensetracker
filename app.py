@@ -655,41 +655,52 @@ def status():
 # ---------------- Review routes ----------------
 @app.get("/review")
 def review_get():
+    # Read filters (empty string means "All"/no filter)
     month = request.args.get("month", "").strip()
-    card = request.args.get("card", "").strip() or None
-    main = request.args.get("main", "").strip() or None
-    cat  = request.args.get("cat", "").strip() or None
+    card  = request.args.get("card", "").strip() or None
+    main  = request.args.get("main", "").strip() or None
+    cat   = request.args.get("cat", "").strip() or None
 
+    # Distinct filter values for dropdowns
     months, cards, mains, cats = get_distinct_filters()
+
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
 
-    rows = []
+    # Build WHERE clause conditionally
+    where = []
+    qp = {}
     if month:
-        where = ["Month = @month"]
-        qp = {"month": month}
-        if card: where.append("CardName = @card"); qp["card"] = card
-        if main: where.append("MainCategory = @main"); qp["main"] = main
-        if cat:  where.append("Category = @cat"); qp["cat"] = cat
-        where_sql = "WHERE " + " AND ".join(where)
-        sql = f"""
-          SELECT Month, CardName, MainCategory, Category, Description, Amount, Comment, RowHash
-          FROM {table_id}
-          {where_sql}
-          ORDER BY Amount DESC
-          LIMIT 500
-        """
-        rows = bq_query(sql, params=qp)
+        where.append("Month = @month"); qp["month"] = month
+    if card:
+        where.append("CardName = @card"); qp["card"] = card
+    if main:
+        where.append("MainCategory = @main"); qp["main"] = main
+    if cat:
+        where.append("Category = @cat"); qp["cat"] = cat
+
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+
+    sql = f"""
+      SELECT Month, CardName, MainCategory, Category, Description, Amount, Comment, RowHash
+      FROM {table_id}
+      {where_sql}
+      ORDER BY Month DESC, Amount DESC
+      LIMIT 500
+    """
+    rows = bq_query(sql, params=qp)
 
     msg = request.args.get("msg", "").strip()
     msg_type = request.args.get("msg_type", "").strip()
+
     return render_template(
         "review.html",
         project=BQ_PROJECT, dataset=BQ_DATASET,
         months=months, cards=cards, mains=mains, cats=cats,
-        selected_month=month, selected_card=card, selected_main=main, selected_cat=cat,
+        selected_month=month or "", selected_card=card, selected_main=main, selected_cat=cat,
         review_rows=rows,
         message=msg, message_type=msg_type
     )
+
 
 @app.post("/review")
 def review_post():
