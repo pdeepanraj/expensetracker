@@ -26,6 +26,7 @@
 
   .pill { display:inline-block; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:#fff; }
   .muted { color:var(--muted); }
+  .error { color:crimson; }
 </style>
 {% endblock %}
 
@@ -62,7 +63,7 @@
       <label>Month</label><br>
       <select name="month">
         <option value="">All</option>
-        All {% for m in months %}
+        {% for m in months %}
           <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
         {% endfor %}
       </select>
@@ -170,7 +171,13 @@
 
     <form method="post" action="{{ url_for('review_post') }}" id="reviewForm" class="inline" style="align-items:flex-start;">
       <input type="hidden" name="rowhash" id="fRowhash">
+      <!-- Keep current filters sticky across submit -->
       <input type="hidden" name="month" id="fMonth" value="{{ selected_month or '' }}">
+      <input type="hidden" name="card" value="{{ selected_card or '' }}">
+      <input type="hidden" name="main" value="{{ selected_main or '' }}">
+      <input type="hidden" name="cat" value="{{ selected_cat or '' }}">
+      <!-- Keep active tab after redirect -->
+      <input type="hidden" name="tab" value="review">
 
       <div>
         <label>Percentage (%)</label><br>
@@ -204,12 +211,14 @@
       tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
       Object.entries(panels).forEach(([k, el]) => el.style.display = (k === name ? '' : 'none'));
     }
-    // Choose default tab: if rows exist, show Transactions, else Filters.
-    {% if review_rows and review_rows|length > 0 %}
+    const serverTab = "{{ tab or '' }}";
+    if (serverTab && panels[serverTab]) {
+      activate(serverTab);
+    } else if ({% if review_rows and review_rows|length > 0 %}true{% else %}false{% endif %}) {
       activate('transactions');
-    {% else %}
+    } else {
       activate('filters');
-    {% endif %}
+    }
     tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
   })();
 </script>
@@ -233,7 +242,6 @@
   const pShare = document.getElementById('pShare');
 
   const fRowhash = document.getElementById('fRowhash');
-  const fMonth   = document.getElementById('fMonth');
   const fPct     = document.getElementById('fPct');
   const fNote    = document.getElementById('fNote');
   const clearBtn = document.getElementById('clearPanel');
@@ -302,7 +310,6 @@
     panelContent.style.display = 'none';
     panelHint.style.display = '';
     if (table) [...table.tBodies[0].rows].forEach(r => r.classList.remove('selected'));
-    // Switch back to Transactions tab
     const txTab = document.querySelector('.tab[data-tab="transactions"]');
     txTab && txTab.click();
   });
