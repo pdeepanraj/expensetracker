@@ -60,7 +60,7 @@
   <form method="get" action="{{ url_for('review_get') }}" class="inline">
     <div>
       <label>Month</label><br>
-      <select name="month" required>
+      <select name="month">
         <option value="">All</option>
         All {% for m in months %}
           <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
