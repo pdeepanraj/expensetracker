@@ -61,7 +61,7 @@
     <div>
       <label>Month</label><br>
       <select name="month" required>
-        <option value="">-- Select --</option>
+        <option value="">All</option>
         All {% for m in months %}
           <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
         {% endfor %}
