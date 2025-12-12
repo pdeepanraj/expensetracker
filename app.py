@@ -647,28 +647,32 @@ def status():
     last_insert_rows = bq_query(last_insert_sql)
     last_insert = last_insert_rows[0] if last_insert_rows else {}
 
-    # Entire total across all data
+    # Entire total across all data (2-decimal)
     total_sql = f"""
-      SELECT COALESCE(SUM(Amount), 0) AS TotalAmount
+      SELECT ROUND(COALESCE(SUM(Amount), 0), 2) AS TotalAmount
       FROM {table_id}
     """
     total_rows = bq_query(total_sql)
     total_amount_all = float(total_rows[0]["TotalAmount"]) if total_rows else 0.0
 
-    # Year-wise totals across entire dataset
-    # Assumes you have a Date column; derive year from it.
+    # Year-wise totals across entire dataset (Month stored as 'YYYY-MM') (2-decimal)
     year_totals_sql = f"""
-        SELECT CAST(SUBSTR(Month, 1, 4) AS INT64) AS Year, COALESCE(SUM(Amount), 0) AS Amount
-        FROM {table_id}
-        WHERE Month IS NOT NULL
-        GROUP BY Year
-        ORDER BY Year DESC
+      SELECT CAST(SUBSTR(Month, 1, 4) AS INT64) AS Year,
+             ROUND(COALESCE(SUM(Amount), 0), 2) AS Amount
+      FROM {table_id}
+      WHERE Month IS NOT NULL
+      GROUP BY Year
+      ORDER BY Year DESC
     """
     year_totals = bq_query(year_totals_sql)
 
-    # MainCategory totals across entire dataset
+    # MainCategory totals across entire dataset (2-decimal), resilient to NULL/blank
     main_all_sql = f"""
-      SELECT MainCategory, COALESCE(SUM(Amount), 0) AS Amount
+      SELECT
+        CASE WHEN MainCategory IS NULL OR TRIM(MainCategory) = '' THEN 'Uncategorized'
+             ELSE MainCategory
+        END AS MainCategory,
+        ROUND(COALESCE(SUM(Amount), 0), 2) AS Amount
       FROM {table_id}
       GROUP BY MainCategory
       ORDER BY Amount DESC
@@ -687,6 +691,7 @@ def status():
         year_totals=year_totals,
         main_totals_all=main_totals_all
     )
+
 
 
 
