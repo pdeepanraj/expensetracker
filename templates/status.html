@@ -10,7 +10,7 @@
   .kpi { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
   .pill { display:inline-block; padding:8px 12px; border-radius:999px; border:1px solid var(--border); background:#fff; }
   .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
-  @media (max-width: 980px){ .grid-2 { grid-template-columns: 1fr; } }
+  @media (max.width: 980px){ .grid-2 { grid-template-columns: 1fr; } }
   .table-scroll { max-height: 60vh; overflow:auto; border:1px solid var(--border); border-radius:10px; }
   table { width:100%; border-collapse:collapse; }
   thead th { position:sticky; top:0; background:#f3f4f6; border-bottom:1px solid var(--border); padding:10px; text-align:left; z-index:1; }
@@ -28,32 +28,31 @@
 <section class="content">
   <div class="grid-2">
     <!-- Entire total box -->
-   <div class="card">
-  <h3>Entire Total</h3>
-  <div class="kpi">
-    <div class="pill"><strong>Total Amount:</strong> {{ (total_amount_all or 0)|currency }}</div>
-  </div>
-  <p class="muted" style="margin-top:8px;">Aggregated across all months, cards, and categories.</p>
-  <div class="table-scroll" style="margin-top:10px; max-height: 220px;">
-    <table>
-      <thead><tr><th>Year</th><th>Total Amount</th></tr></thead>
-      <tbody>
-        {% for y in year_totals %}
-        <tr><td>{{ y.Year }}</td><td>{{ (y.Amount or 0)|currency }}</td></tr>
-        {% endfor %}
-        {% if year_totals|length == 0 %}
-        <tr><td colspan="2" class="muted">No data.</td></tr>
-        {% endif %}
-      </tbody>
-    </table>
-  </div>
-</div>
+    <div class="card">
+      <h3>Entire Total</h3>
+      <div class="kpi">
+        <div class="pill"><strong>Total Amount:</strong> {{ (total_amount_all or 0)|currency }}</div>
+      </div>
+      <p class="muted" style="margin-top:8px;">Aggregated across all months, cards, and categories.</p>
+      <div class="table-scroll" style="margin-top:10px; max-height: 220px;">
+        <table>
+          <thead><tr><th>Year</th><th>Total Amount</th></tr></thead>
+          <tbody>
+            {% for y in year_totals %}
+            <tr><td>{{ y.Year }}</td><td>{{ (y.Amount or 0)|currency }}</td></tr>
+            {% endfor %}
+            {% if year_totals|length == 0 %}
+            <tr><td colspan="2" class="muted">No data.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <!-- Last 10 months by MainCategory -->
+    <!-- Totals by MainCategory (entire dataset) -->
     <div class="card">
       <h3>Totals by MainCategory</h3>
-      <p class="muted" style="margin-bottom:8px;">Summed over the Entire Spending.</p>
+      <p class="muted" style="margin-bottom:8px;">Summed over the entire dataset.</p>
       <div class="table-scroll">
         <table>
           <thead>
@@ -63,13 +62,13 @@
             </tr>
           </thead>
           <tbody>
-            {% for r in main_totals_10m %}
+            {% for r in main_totals_all %}
             <tr>
               <td>{{ r.MainCategory }}</td>
               <td>{{ (r.Amount or 0)|currency }}</td>
             </tr>
             {% endfor %}
-            {% if main_totals_10m|length == 0 %}
+            {% if main_totals_all|length == 0 %}
             <tr><td colspan="2" class="muted">No data.</td></tr>
             {% endif %}
           </tbody>
