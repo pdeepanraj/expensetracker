@@ -617,16 +617,19 @@ def aggregate():
         table_modified=get_table_metadata(TARGET_TABLE).get("modified"),
     )
 
+
 @app.get("/status")
 def status():
     if not validate_dataset(BQ_PROJECT, BQ_DATASET):
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
 
     target = TARGET_TABLE
-    meta = get_table_metadata(target)
-    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{target}`"
+    table_id_unquoted = f"{BQ_PROJECT}.{BQ_DATASET}.{target}"
+    table_id = f"`{table_id_unquoted}`"
+    print("[STATUS] table_id:", table_id_unquoted)
 
-    # Rows by month (top 12)
+    meta = get_table_metadata(target)
+
     by_month_sql = f"""
       SELECT Month, COUNT(*) AS RowCount, SUM(Amount) AS Amount
       FROM {table_id}
@@ -635,8 +638,8 @@ def status():
       LIMIT 12
     """
     month_stats = bq_query(by_month_sql)
+    print("[STATUS] month_stats sample:", month_stats[:3])
 
-    # Optional last insert proxy (kept for compatibility)
     last_insert_sql = f"""
       SELECT Month, MAX(Amount) AS MaxAmount
       FROM {table_id}
@@ -646,16 +649,27 @@ def status():
     """
     last_insert_rows = bq_query(last_insert_sql)
     last_insert = last_insert_rows[0] if last_insert_rows else {}
+    print("[STATUS] last_insert:", last_insert)
 
-    # Entire total across all data (2-decimal)
     total_sql = f"""
       SELECT ROUND(COALESCE(SUM(Amount), 0), 2) AS TotalAmount
       FROM {table_id}
     """
     total_rows = bq_query(total_sql)
     total_amount_all = float(total_rows[0]["TotalAmount"]) if total_rows else 0.0
+    print("[STATUS] total_amount_all:", total_amount_all)
 
-    # Year-wise totals across entire dataset (Month stored as 'YYYY-MM') (2-decimal)
+    # Simplest working MainCategory totals
+    main_all_sql = f"""
+      SELECT MainCategory, ROUND(COALESCE(SUM(Amount), 0), 2) AS Amount
+      FROM {table_id}
+      GROUP BY MainCategory
+      ORDER BY Amount DESC
+    """
+    main_totals_all = bq_query(main_all_sql)
+    print("[STATUS] main_totals_all sample:", main_totals_all[:5])
+
+    # Year totals using Month (YYYY-MM)
     year_totals_sql = f"""
       SELECT CAST(SUBSTR(Month, 1, 4) AS INT64) AS Year,
              ROUND(COALESCE(SUM(Amount), 0), 2) AS Amount
@@ -665,19 +679,7 @@ def status():
       ORDER BY Year DESC
     """
     year_totals = bq_query(year_totals_sql)
-
-    # MainCategory totals across entire dataset (2-decimal), resilient to NULL/blank
-    main_all_sql = f"""
-      SELECT
-        CASE WHEN MainCategory IS NULL OR TRIM(MainCategory) = '' THEN 'Uncategorized'
-             ELSE MainCategory
-        END AS MainCategory,
-        ROUND(COALESCE(SUM(Amount), 0), 2) AS Amount
-      FROM {table_id}
-      GROUP BY MainCategory
-      ORDER BY Amount DESC
-    """
-    main_totals_all = bq_query(main_all_sql)
+    print("[STATUS] year_totals sample:", year_totals[:5])
 
     return render_template(
         "status.html",
@@ -686,10 +688,10 @@ def status():
         table=target,
         meta=meta,
         month_stats=month_stats,
-        last_insert=last_insert,  # optional for template
+        last_insert=last_insert,
         total_amount_all=total_amount_all,
-        year_totals=year_totals,
-        main_totals_all=main_totals_all
+        main_totals_all=main_totals_all,
+        year_totals=year_totals
     )
 
 
