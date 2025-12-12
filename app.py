@@ -658,11 +658,11 @@ def status():
     # Year-wise totals across entire dataset
     # Assumes you have a Date column; derive year from it.
     year_totals_sql = f"""
-      SELECT EXTRACT(YEAR FROM DATE) AS Year, COALESCE(SUM(Amount), 0) AS Amount
-      FROM {table_id}
-      WHERE DATE IS NOT NULL
-      GROUP BY Year
-      ORDER BY Year DESC
+        SELECT CAST(SUBSTR(Month, 1, 4) AS INT64) AS Year, COALESCE(SUM(Amount), 0) AS Amount
+        FROM {table_id}
+        WHERE Month IS NOT NULL
+        GROUP BY Year
+        ORDER BY Year DESC
     """
     year_totals = bq_query(year_totals_sql)
 
