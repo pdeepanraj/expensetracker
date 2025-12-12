@@ -28,12 +28,26 @@
 <section class="content">
   <div class="grid-2">
     <!-- Entire total box -->
-    <div class="card">
-      <h3>Entire Total</h3>
-      <div class="kpi">
-        <div class="pill"><strong>Total Amount:</strong> {{ (total_amount_all or 0)|currency }}</div>
-      </div>
-      <p class="muted" style="margin-top:8px;">Aggregated across all months, cards, and categories.</p>
+   <div class="card">
+  <h3>Entire Total</h3>
+  <div class="kpi">
+    <div class="pill"><strong>Total Amount:</strong> {{ (total_amount_all or 0)|currency }}</div>
+  </div>
+  <p class="muted" style="margin-top:8px;">Aggregated across all months, cards, and categories.</p>
+  <div class="table-scroll" style="margin-top:10px; max-height: 220px;">
+    <table>
+      <thead><tr><th>Year</th><th>Total Amount</th></tr></thead>
+      <tbody>
+        {% for y in year_totals %}
+        <tr><td>{{ y.Year }}</td><td>{{ (y.Amount or 0)|currency }}</td></tr>
+        {% endfor %}
+        {% if year_totals|length == 0 %}
+        <tr><td colspan="2" class="muted">No data.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
     </div>
 
     <!-- Last 10 months by MainCategory -->
