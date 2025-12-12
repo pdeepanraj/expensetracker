@@ -626,7 +626,7 @@ def status():
     meta = get_table_metadata(target)
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{target}`"
 
-    # Rows by month (top 12) - keep existing behavior
+    # Rows by month (top 12)
     by_month_sql = f"""
       SELECT Month, COUNT(*) AS RowCount, SUM(Amount) AS Amount
       FROM {table_id}
@@ -636,7 +636,7 @@ def status():
     """
     month_stats = bq_query(by_month_sql)
 
-    # Optional "last insert proxy" (kept for compatibility, not required by the new UI)
+    # Optional last insert proxy (kept for compatibility)
     last_insert_sql = f"""
       SELECT Month, MAX(Amount) AS MaxAmount
       FROM {table_id}
@@ -655,7 +655,18 @@ def status():
     total_rows = bq_query(total_sql)
     total_amount_all = float(total_rows[0]["TotalAmount"]) if total_rows else 0.0
 
-    # MainCategory totals across entire dataset (not time-limited)
+    # Year-wise totals across entire dataset
+    # Assumes you have a Date column; derive year from it.
+    year_totals_sql = f"""
+      SELECT EXTRACT(YEAR FROM DATE) AS Year, COALESCE(SUM(Amount), 0) AS Amount
+      FROM {table_id}
+      WHERE DATE IS NOT NULL
+      GROUP BY Year
+      ORDER BY Year DESC
+    """
+    year_totals = bq_query(year_totals_sql)
+
+    # MainCategory totals across entire dataset
     main_all_sql = f"""
       SELECT MainCategory, COALESCE(SUM(Amount), 0) AS Amount
       FROM {table_id}
@@ -671,10 +682,12 @@ def status():
         table=target,
         meta=meta,
         month_stats=month_stats,
-        last_insert=last_insert,  # still passed; template may ignore
+        last_insert=last_insert,  # optional for template
         total_amount_all=total_amount_all,
+        year_totals=year_totals,
         main_totals_all=main_totals_all
     )
+
 
 
 # ---------------- Review routes ----------------
