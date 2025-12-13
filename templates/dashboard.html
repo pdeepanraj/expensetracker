@@ -21,6 +21,7 @@
   tbody td { padding:10px; border-bottom:1px solid var(--border); }
   .pill { display:inline-block; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:#fff; }
   .muted { color:var(--muted); }
+  .actions { display:flex; gap:8px; align-items:center; }
 </style>
 {% endblock %}
 
@@ -29,7 +30,6 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
 {% endblock %}
 
 {% block content %}
-
 {% if loaded or table_modified %}
 <div class="card" style="border:none; background:transparent; box-shadow:none; padding:0; margin-bottom:8px;">
   <h3 style="margin:0 0 6px;">Your Expenses</h3>
@@ -89,9 +89,12 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
         {% endfor %}
       </select>
     </div>
-    <div>
+    <div class="actions">
       <button class="btn secondary" type="submit">Apply</button>
       <a class="btn" href="{{ url_for('dashboard') }}">Reset</a>
+      {% if loaded %}
+        <span class="pill">New rows: {{ loaded }}</span>
+      {% endif %}
     </div>
   </form>
 
@@ -141,8 +144,8 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
         <input id="min_amount" name="min_amount" type="text" placeholder="e.g., 10" value="{{ aggregate_min_amount or '' }}">
       </div>
     </div>
-    <div>
-      <button class="btn" type="submit">Run</button>
+    <div class="actions">
+      <button class="btn secondary" type="submit">Run</button>
     </div>
   </form>
 </div>
@@ -225,12 +228,11 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
     <p class="muted">Run an aggregate from the Filters tab to see results here.</p>
   {% endif %}
 </div>
-
 {% endblock %}
 
 {% block scripts %}
 <script>
-  // Tab switching to match Categories page behavior
+  // Tabs
   (function(){
     const tabs = document.querySelectorAll('.tab');
     const panels = {
@@ -243,7 +245,6 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
       tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
       Object.entries(panels).forEach(([k, el]) => el.style.display = (k === name ? '' : 'none'));
     }
-    // Default to Charts if there’s no aggregate; otherwise show Aggregate
     {% if aggregate_labels is defined and aggregate_labels %}
       activate('aggregate');
     {% elif latest_details and latest_details|length > 0 %}
