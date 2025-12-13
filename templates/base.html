@@ -26,7 +26,7 @@
       height: var(--header-h);
       background: #0f172a; color: #fff;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 16px; z-index: 1000; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+      padding: 0 12px; z-index: 1100; box-shadow: 0 1px 4px rgba(0,0,0,.08);
     }
     .app-brand { display:flex; align-items:center; gap:10px; font-weight:600; }
     .app-brand .logo {
@@ -35,19 +35,20 @@
       display:inline-block;
     }
     .app-actions { display:flex; align-items:center; gap:8px; }
+
     .btn { border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
-    .btn.secondary { background: #0b5cff; color: var(--accent-contrast); border-color: #0b5cff; }
+    .btn.secondary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
     .btn:disabled { opacity:.6; cursor:not-allowed; }
+    .sidebar-toggle { display:none; }
 
     /* Sidebar (fixed) */
     .app-sidebar {
       position: fixed; top: var(--header-h); left: 0; bottom: 0;
       width: var(--sidebar-w);
       background: #111827; color: #cbd5e1;
-      border-right: 1px solid #0b1220; z-index: 900;
+      border-right: 1px solid #0b1220; z-index: 1001;
       display: flex; flex-direction: column; padding: 12px 8px;
     }
-    .nav-group { margin-top: 8px; }
     .nav-title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #64748b; padding: 10px 12px; }
     .nav a {
       display: flex; align-items: center; gap: 10px;
@@ -68,7 +69,7 @@
       padding: 16px 20px;
     }
 
-    /* Cards and common elements */
+    /* Cards/tables/common */
     .card {
       background: var(--panel);
       border: 1px solid var(--border);
@@ -79,7 +80,7 @@
     }
     .muted { color: var(--muted); }
     .inline { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-    input[type="text"], input[type="number"], input[type="month"], select, textarea {
+    input[type="text"], input[type="number"], input[type="month"], input[type="file"], select, textarea {
       border: 1px solid var(--border); background: #fff; color: var(--text);
       border-radius: 8px; padding: 8px 10px; min-width: 200px;
     }
@@ -87,22 +88,22 @@
     thead th {
       position: sticky; top: 0; background: #f3f4f6; color: #111827;
       font-weight: 600; text-align: left; border-bottom: 1px solid var(--border);
-      padding: 10px;
+      padding: 10px; z-index: 1;
     }
     tbody td { padding: 10px; border-bottom: 1px solid var(--border); }
     .table-scroll { max-height: 60vh; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
 
-    /* Responsive */
-    @media (max-width: 960px) {
-      :root { --sidebar-w: 200px; }
-    }
+    /* Mobile responsiveness */
     @media (max-width: 720px) {
-      .app-sidebar { position: fixed; transform: translateX(-100%); transition: transform .2s ease; }
+      :root { --sidebar-w: 240px; }
+      .app-sidebar {
+        transform: translateX(-100%);
+        transition: transform .2s ease;
+      }
       .app-sidebar.open { transform: translateX(0); }
-      .app-content { left: 0; }
+      .app-content { left: 0; padding: 12px 14px; }
       .sidebar-toggle { display: inline-flex; }
     }
-    .sidebar-toggle { display:none; }
   </style>
 
   {% block head %}{% endblock %}
@@ -112,11 +113,11 @@
   <!-- Fixed Header -->
   <header class="app-header">
     <div class="app-brand">
+      <button class="btn sidebar-toggle" type="button" aria-label="Toggle sidebar" onclick="toggleSidebar()">Menu</button>
       <span class="logo" aria-hidden="true"></span>
       <span>Expense Tracker</span>
     </div>
     <div class="app-actions">
-      <button class="btn sidebar-toggle" type="button" aria-label="Toggle sidebar" onclick="toggleSidebar()">Menu</button>
       <button id="themeToggle" class="btn" type="button" title="Toggle theme">Theme</button>
     </div>
   </header>
@@ -124,18 +125,19 @@
   <!-- Fixed Sidebar -->
   <aside id="appSidebar" class="app-sidebar">
     <div class="nav">
-      <div class="nav-group">
-        <div class="nav-title">Main</div>
-        <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint=='index' else '' }}">Home</a>
-        <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint=='dashboard' else '' }}">Dashboard</a>
-        <a href="{{ url_for('aggregate') }}" class="{{ 'active' if request.endpoint=='aggregate' else '' }}">Aggregate</a>
-        <a href="{{ url_for('review_get') }}" class="{{ 'active' if request.endpoint=='review_get' else '' }}">Review</a>
-        <a href="{{ url_for('bills') }}" class="{{ 'active' if request.endpoint=='bills' else '' }}">Bills</a>
-        <a href="{{ url_for('categories_get') }}" class="{{ 'active' if request.endpoint=='categories_get' else '' }}">Categories</a>
-        <a href="{{ url_for('status') }}" class="{{ 'active' if request.endpoint=='status' else '' }}">Status</a>
-      </div>
+      <div class="nav-title">Main</div>
+      <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint=='index' else '' }}">Home</a>
+      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint=='dashboard' else '' }}">Dashboard</a>
+      <a href="{{ url_for('aggregate') }}" class="{{ 'active' if request.endpoint=='aggregate' else '' }}">Aggregate</a>
+      <a href="{{ url_for('review_get') }}" class="{{ 'active' if request.endpoint=='review_get' else '' }}">Review</a>
+      <a href="{{ url_for('bills') }}" class="{{ 'active' if request.endpoint=='bills' else '' }}">Bills</a>
+      <a href="{{ url_for('categories_get') }}" class="{{ 'active' if request.endpoint=='categories_get' else '' }}">Categories</a>
+      <a href="{{ url_for('status') }}" class="{{ 'active' if request.endpoint=='status' else '' }}">Status</a>
     </div>
   </aside>
+
+  <!-- Overlay for mobile sidebar -->
+  <div id="appOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.25); z-index:1000;" onclick="toggleSidebar()"></div>
 
   <!-- Scrollable Content -->
   <main class="app-content">
@@ -143,13 +145,16 @@
   </main>
 
   <script>
-    // Sidebar toggle for small screens
+    // Sidebar toggle (mobile)
     function toggleSidebar(){
       const el = document.getElementById('appSidebar');
-      el.classList.toggle('open');
+      const ov = document.getElementById('appOverlay');
+      const open = el.classList.toggle('open');
+      document.body.style.overflow = open ? 'hidden' : '';
+      if (ov) ov.style.display = open ? '' : 'none';
     }
 
-    // Light/Dark theme toggle (stores preference)
+    // Light/Dark theme toggle with persistence
     (function(){
       const html = document.documentElement;
       const key = 'app-theme';
