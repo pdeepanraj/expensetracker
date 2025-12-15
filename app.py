@@ -1334,11 +1334,11 @@ def budget_get():
 @app.post("/budget/spend/add")
 def budget_spend_add():
     month = request.form.get("month", "").strip()
-    category = request.form.get("category", "").strip() or "Manual"
+    category = (request.form.get("category_new") or request.form.get("category") or "").strip()
     desc = request.form.get("description", "").strip()
     amount = float(request.form.get("amount", "0") or 0)
     note = request.form.get("note", "").strip()
-    if not month or amount <= 0 or not desc:
+    if not month or amount <= 0 or not desc or not category:
         return redirect(url_for("budget_get", month=month))
     upsert_simple(MANUAL_SPEND_TABLE, MANUAL_SPEND_SCHEMA, [{
         "Month": month, "Category": category, "Description": desc, "Amount": amount, "Note": note
@@ -1348,15 +1348,16 @@ def budget_spend_add():
 @app.post("/budget/income/add")
 def budget_income_add():
     month = request.form.get("month", "").strip()
-    source = request.form.get("source", "").strip() or "Salary"
+    source = (request.form.get("source_new") or request.form.get("source") or "").strip()
     amount = float(request.form.get("amount", "0") or 0)
     note = request.form.get("note", "").strip()
-    if not month or amount <= 0:
+    if not month or amount <= 0 or not source:
         return redirect(url_for("budget_get", month=month))
     upsert_simple(MONTHLY_INCOME_TABLE, MONTHLY_INCOME_SCHEMA, [{
         "Month": month, "Source": source, "Amount": amount, "Note": note
     }])
     return redirect(url_for("budget_get", month=month))
+
 
 
 
