@@ -570,8 +570,8 @@ def get_main_totals_all_with_manual():
     rows = bq_query(cards_sql)
     manual_sql = f"SELECT COALESCE(SUM(Amount),0) AS Amount FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`"
     manual_total = float(bq_query(manual_sql)[0]["Amount"] or 0)
-    if manual_total > 0:
-        rows.append({"MainCategory": "Manual", "Amount": manual_total})
+    # Represent manual spends as a separate MainCategory
+    rows.append({"MainCategory": "Manual", "Amount": manual_total})
     return rows
 
 def get_month_stats_combined(limit: int = 12):
@@ -593,6 +593,7 @@ def get_month_stats_combined(limit: int = 12):
     items = [{"Month": m, "RowCount": v[0], "Amount": v[1]} for m, v in combined.items()]
     items.sort(key=lambda x: x["Month"], reverse=True)
     return items[:limit]
+
 
 # ---------------- Dashboard ----------------
 @app.get("/dashboard")
@@ -747,7 +748,7 @@ def status():
     table_id = f"`{table_id_unquoted}`"
     meta = get_table_metadata(target)
     # Combined month stats
-    month_stats = get_month_stats_combined(limit=12)
+    month_stats = get_month_stats_combined(12)
     # Total amount across all months (combined via year totals sum)
     year_totals = get_year_totals_combined()
     total_amount_all = sum(float(r["Amount"] or 0) for r in year_totals)
