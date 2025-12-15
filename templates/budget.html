@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Budget & Income{% endblock %}
+{% block head %}
+<style>
+.section { background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:12px; }
+.inline { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media (max-width:980px){ .grid-2 { grid-template-columns:1fr; } }
+.table-scroll { max-height:50vh; overflow:auto; border:1px solid var(--border); border-radius:10px; }
+.pill { display:inline-block; padding:8px 12px; border-radius:999px; border:1px solid var(--border); background:#fff; }
+.status-ok { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
+.status-bad { background:#fee2e2; border-color:#fecaca; color:#991b1b; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="section">
+  <h3>Select Month</h3>
+  <form method="get" action="{{ url_for('budget_get') }}" class="inline">
+    <div>
+      <label>Month</label><br>
+      <select name="month">
+        <option value="">All</option>
+        {% for m in months %}
+          <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div><button class="btn secondary" type="submit">View</button></div>
+  </form>
+</div>
+
+<div class="grid-2">
+  <div class="section">
+    <h3>Add Manual Spend</h3>
+    <form method="post" action="{{ url_for('budget_spend_add') }}" class="inline">
+      <input type="hidden" name="month" value="{{ selected_month }}">
+      <div style="min-width:160px;">
+        <label>Category</label><br>
+        <input type="text" name="category" placeholder="Kids Class, Loan, Cash..." required>
+      </div>
+      <div style="flex:1; min-width:240px;">
+        <label>Description</label><br>
+        <input type="text" name="description" placeholder="Detail..." required>
+      </div>
+      <div style="min-width:140px;">
+        <label>Amount</label><br>
+        <input type="number" step="0.01" name="amount" required>
+      </div>
+      <div style="flex:1; min-width:240px;">
+        <label>Note</label><br>
+        <input type="text" name="note" placeholder="Optional">
+      </div>
+      <button class="btn secondary" type="submit">Add Spend</button>
+    </form>
+    <div class="table-scroll" style="margin-top:12px;">
+      <table>
+        <thead><tr><th>Month</th><th>Category</th><th>Description</th><th>Amount</th><th>Note</th></tr></thead>
+        <tbody>
+          {% for r in manual_rows %}
+          <tr>
+            <td>{{ r.Month }}</td>
+            <td>{{ r.Category }}</td>
+            <td>{{ r.Description }}</td>
+            <td>{{ (r.Amount or 0)|currency }}</td>
+            <td>{{ r.Note or '' }}</td>
+          </tr>
+          {% endfor %}
+          {% if manual_rows|length == 0 %}
+          <tr><td colspan="5" class="muted">No manual spends yet for this view.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Add Income</h3>
+    <form method="post" action="{{ url_for('budget_income_add') }}" class="inline">
+      <input type="hidden" name="month" value="{{ selected_month }}">
+      <div style="min-width:160px;">
+        <label>Source</label><br>
+        <input type="text" name="source" placeholder="Salary, Bonus, Other..." required>
+      </div>
+      <div style="min-width:140px;">
+        <label>Amount</label><br>
+        <input type="number" step="0.01" name="amount" required>
+      </div>
+      <div style="flex:1; min-width:240px;">
+        <label>Note</label><br>
+        <input type="text" name="note" placeholder="Optional">
+      </div>
+      <button class="btn secondary" type="submit">Add Income</button>
+    </form>
+    <div class="table-scroll" style="margin-top:12px;">
+      <table>
+        <thead><tr><th>Month</th><th>Source</th><th>Amount</th><th>Note</th></tr></thead>
+        <tbody>
+          {% for r in income_rows %}
+          <tr>
+            <td>{{ r.Month }}</td>
+            <td>{{ r.Source }}</td>
+            <td>{{ (r.Amount or 0)|currency }}</td>
+            <td>{{ r.Note or '' }}</td>
+          </tr>
+          {% endfor %}
+          {% if income_rows|length == 0 %}
+          <tr><td colspan="4" class="muted">No income rows yet for this view.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Monthly Comparison</h3>
+  <div class="pill {% if status == 'Within limit' %}status-ok{% else %}status-bad{% endif %}">
+    <strong>Status:</strong> {{ status }}
+  </div>
+  <div class="pill" style="margin-left:8px;"><strong>Cards Spend:</strong> {{ (cards_total or 0)|currency }}</div>
+  <div class="pill" style="margin-left:8px;"><strong>Manual Spend:</strong> {{ (manual_total or 0)|currency }}</div>
+  <div class="pill" style="margin-left:8px;"><strong>Total Income:</strong> {{ (income_total or 0)|currency }}</div>
+</div>
+{% endblock %}
