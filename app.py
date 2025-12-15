@@ -1192,6 +1192,136 @@ def upload():
     except Exception as e:
         return f"Upload error: {type(e).__name__}: {e}", 500
 
+# --- New schemas ---
+MANUAL_SPEND_TABLE = "manual_spend"
+MANUAL_SPEND_SCHEMA = [
+    bigquery.SchemaField("Month", "STRING"),
+    bigquery.SchemaField("Category", "STRING"),
+    bigquery.SchemaField("Description", "STRING"),
+    bigquery.SchemaField("Amount", "FLOAT"),
+    bigquery.SchemaField("Note", "STRING"),
+    bigquery.SchemaField("RowId", "STRING"),
+]
+
+MONTHLY_INCOME_TABLE = "monthly_income"
+MONTHLY_INCOME_SCHEMA = [
+    bigquery.SchemaField("Month", "STRING"),
+    bigquery.SchemaField("Source", "STRING"),
+    bigquery.SchemaField("Amount", "FLOAT"),
+    bigquery.SchemaField("Note", "STRING"),
+    bigquery.SchemaField("RowId", "STRING"),
+]
+
+def ensure_table_with_schema(table_name: str, schema: list[bigquery.SchemaField]):
+    ensure_table(table_name, schema)  # reuse your helper
+
+def upsert_simple(table_name: str, schema: list[bigquery.SchemaField], rows: list[dict]):
+    # generate stable RowId for idempotency
+    for r in rows:
+        payload = "|".join(str(r.get(k, "")).strip() for k in sorted(r.keys()))
+        r["RowId"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    client = bq_client()
+    dataset = f"{BQ_PROJECT}.{BQ_DATASET}"
+    target_id = f"{dataset}.{table_name}"
+    ensure_table_with_schema(table_name, schema)
+    staging_id = f"{dataset}.{table_name}_staging"
+    client.delete_table(staging_id, not_found_ok=True)
+    client.create_table(bigquery.Table(staging_id, schema=schema))
+    job = client.load_table_from_json(rows, staging_id,
+        job_config=bigquery.LoadJobConfig(schema=schema, write_disposition="WRITE_TRUNCATE"))
+    job.result()
+    merge_sql = f"""
+    MERGE `{target_id}` T
+    USING `{staging_id}` S
+    ON T.RowId = S.RowId
+    WHEN NOT MATCHED THEN
+      INSERT ROW
+    """
+    client.query(merge_sql).result()
+    client.delete_table(staging_id, not_found_ok=True)
+
+def get_months_from_positive():
+    sql = f"SELECT DISTINCT Month FROM `{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}` ORDER BY Month DESC"
+    return [r["Month"] for r in bq_query(sql)]
+
+def get_month_totals(month: str | None):
+    base = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
+    where, qp = apply_filters_where({"month": month} if month else {})
+    # cards spend
+    cards_sql = f"SELECT COALESCE(SUM(Amount),0) AS amt FROM {base} {where}"
+    cards_total = bq_query(cards_sql, qp)[0]["amt"]
+    # manual spend
+    ms_base = f"`{BQ_PROJECT}.{BQ_DATASET}.{MANUAL_SPEND_TABLE}`"
+    ms_sql = f"SELECT COALESCE(SUM(Amount),0) AS amt FROM {ms_base} WHERE Month=@month" if month else \
+             f"SELECT COALESCE(SUM(Amount),0) AS amt FROM {ms_base}"
+    manual_total = bq_query(ms_sql, {"month": month})[0]["amt"] if month else bq_query(ms_sql)[0]["amt"]
+    # income
+    inc_base = f"`{BQ_PROJECT}.{BQ_DATASET}.{MONTHLY_INCOME_TABLE}`"
+    inc_sql = f"SELECT COALESCE(SUM(Amount),0) AS amt FROM {inc_base} WHERE Month=@month" if month else \
+              f"SELECT COALESCE(SUM(Amount),0) AS amt FROM {inc_base}"
+    income_total = bq_query(inc_sql, {"month": month})[0]["amt"] if month else bq_query(inc_sql)[0]["amt"]
+    return cards_total, manual_total, income_total
+
+@app.get("/budget")
+def budget_get():
+    month = request.args.get("month", "").strip() or None
+    months = get_months_from_positive()
+    # fetch manual spends for month
+    ms_sql = f"""
+      SELECT Month, Category, Description, Amount, Note FROM `{BQ_PROJECT}.{BQ_DATASET}.{MANUAL_SPEND_TABLE}`
+      { 'WHERE Month=@month' if month else '' }
+      ORDER BY Amount DESC
+    """
+    manual_rows = bq_query(ms_sql, {"month": month} if month else None)
+    # fetch income for month
+    inc_sql = f"""
+      SELECT Month, Source, Amount, Note FROM `{BQ_PROJECT}.{BQ_DATASET}.{MONTHLY_INCOME_TABLE}`
+      { 'WHERE Month=@month' if month else '' }
+      ORDER BY Amount DESC
+    """
+    income_rows = bq_query(inc_sql, {"month": month} if month else None)
+    cards_total, manual_total, income_total = get_month_totals(month)
+    status = "Within limit" if (cards_total + manual_total) <= income_total else "Exceeded"
+    return render_template(
+        "budget.html",
+        months=months,
+        selected_month=month or "",
+        manual_rows=manual_rows,
+        income_rows=income_rows,
+        cards_total=cards_total,
+        manual_total=manual_total,
+        income_total=income_total,
+        status=status
+    )
+
+@app.post("/budget/spend/add")
+def budget_spend_add():
+    month = request.form.get("month", "").strip()
+    category = request.form.get("category", "").strip() or "Manual"
+    desc = request.form.get("description", "").strip()
+    amount = float(request.form.get("amount", "0") or 0)
+    note = request.form.get("note", "").strip()
+    if not month or amount <= 0 or not desc:
+        return redirect(url_for("budget_get", month=month))
+    upsert_simple(MANUAL_SPEND_TABLE, MANUAL_SPEND_SCHEMA, [{
+        "Month": month, "Category": category, "Description": desc, "Amount": amount, "Note": note
+    }])
+    return redirect(url_for("budget_get", month=month))
+
+@app.post("/budget/income/add")
+def budget_income_add():
+    month = request.form.get("month", "").strip()
+    source = request.form.get("source", "").strip() or "Salary"
+    amount = float(request.form.get("amount", "0") or 0)
+    note = request.form.get("note", "").strip()
+    if not month or amount <= 0:
+        return redirect(url_for("budget_get", month=month))
+    upsert_simple(MONTHLY_INCOME_TABLE, MONTHLY_INCOME_SCHEMA, [{
+        "Month": month, "Source": source, "Amount": amount, "Note": note
+    }])
+    return redirect(url_for("budget_get", month=month))
+
+
 
 # ---------------- Entrypoint ----------------
 if __name__ == "__main__":
