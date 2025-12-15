@@ -570,7 +570,6 @@ def get_main_totals_all_with_manual():
     rows = bq_query(cards_sql)
     manual_sql = f"SELECT COALESCE(SUM(Amount),0) AS Amount FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`"
     manual_total = float(bq_query(manual_sql)[0]["Amount"] or 0)
-    # Represent manual spends as a separate MainCategory
     rows.append({"MainCategory": "Manual", "Amount": manual_total})
     return rows
 
@@ -595,21 +594,29 @@ def get_month_stats_combined(limit: int = 12):
     return items[:limit]
 
 
+
 # ---------------- Dashboard ----------------
 @app.get("/dashboard")
 def dashboard():
     if not validate_dataset(BQ_PROJECT, BQ_DATASET):
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
+
     loaded = request.args.get("loaded", "")
+    include_manual = (request.args.get("include_manual", "1").strip() == "1")  # default ON
+
     months, cards, mains, cats = get_distinct_filters()
+
     selected_month = request.args.get("month", "").strip() or None
     selected_card = request.args.get("card", "").strip() or None
     selected_main = request.args.get("main", "").strip() or None
     selected_cat = request.args.get("cat", "").strip() or None
+
     filter_params = {"month": selected_month, "card": selected_card, "main": selected_main, "cat": selected_cat}
     where_sql, qp = apply_filters_where(filter_params)
+
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
     meta = get_table_metadata(TARGET_TABLE)
+
     latest_month_sql = f"SELECT Month FROM {table_id} WHERE Month IS NOT NULL ORDER BY Month DESC LIMIT 1"
     latest_month_rows = bq_query(latest_month_sql)
     if not latest_month_rows:
@@ -631,26 +638,25 @@ def dashboard():
             months=months, cards=cards, mains=mains, cats=cats,
             selected_month=selected_month, selected_card=selected_card,
             selected_main=selected_main, selected_cat=selected_cat,
+            include_manual=include_manual,
             loaded=loaded,
             table_modified=meta.get("modified"),
         )
+
     latest_month = latest_month_rows[0]["Month"]
     month_for_view = selected_month or latest_month
-    # Top categories + Manual
+
+    # Top categories with Manual category appended when a month is selected
     top_categories = get_top_categories_with_manual(selected_month, where_sql, qp)
-    # Monthly totals (combined)
+
+    # Monthly totals (cards + manual)
     trend_where_params = {k: v for k, v in filter_params.items() if k != "month"}
     trend_where_sql, trend_qp = apply_filters_where(trend_where_params)
     monthly_totals = get_combined_monthly_totals(selected_month, trend_where_sql, trend_qp)
-    # Latest details (cards table only; manual is separate UI)
-    latest_detail_sql = f"""
-      SELECT CardName, MainCategory, Category, Description, Amount
-      FROM {table_id}
-      {where_sql}
-      ORDER BY Month DESC, Amount DESC
-      LIMIT 1000
-    """
-    latest_details = bq_query(latest_detail_sql, params=qp)
+
+    # Unified Details (cards + manual normalized)
+    latest_details = get_dashboard_details_with_manual(selected_month, where_sql, qp, include_manual)
+
     return render_template(
         "dashboard.html",
         latest_month=latest_month,
@@ -669,9 +675,11 @@ def dashboard():
         months=months, cards=cards, mains=mains, cats=cats,
         selected_month=selected_month, selected_card=selected_card,
         selected_main=selected_main, selected_cat=selected_cat,
+        include_manual=include_manual,
         loaded=loaded,
         table_modified=meta.get("modified"),
     )
+
 
 def normalize_group_by_param(vals: list[str]) -> list[str]:
     allowed = {"Month", "CardName", "MainCategory", "Category"}
@@ -744,15 +752,10 @@ def status():
     if not validate_dataset(BQ_PROJECT, BQ_DATASET):
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
     target = TARGET_TABLE
-    table_id_unquoted = f"{BQ_PROJECT}.{BQ_DATASET}.{target}"
-    table_id = f"`{table_id_unquoted}`"
     meta = get_table_metadata(target)
-    # Combined month stats
-    month_stats = get_month_stats_combined(12)
-    # Total amount across all months (combined via year totals sum)
+    month_stats = get_month_stats_combined(limit=12)
     year_totals = get_year_totals_combined()
     total_amount_all = sum(float(r["Amount"] or 0) for r in year_totals)
-    # Main totals (cards by MainCategory + "Manual")
     main_totals_all = get_main_totals_all_with_manual()
     return render_template(
         "status.html",
@@ -761,11 +764,12 @@ def status():
         table=target,
         meta=meta,
         month_stats=month_stats,
-        last_insert={},  # optional/unused; you can remove from template if desired
+        last_insert={},  # unused
         total_amount_all=total_amount_all,
         main_totals_all=main_totals_all,
         year_totals=year_totals
     )
+
 
 # ---------------- Review routes ----------------
 @app.get("/review")
@@ -874,6 +878,59 @@ def review_post():
     return redirect(url_for("review_get",
                             month=month, card=card, main=main, cat=cat, tab=tab,
                             msg=msg, msg_type="ok"), code=303)
+
+
+# ---- Include manual spend in Dashboard details ----
+def get_dashboard_details_with_manual(selected_month: str | None, where_sql: str, qp: dict, include_manual: bool):
+    """
+    Returns a unified list of detail rows. Card rows honor all filters. Manual rows honor Month only
+    and are normalized to the card schema with CardName='Manual', MainCategory='Manual'.
+    """
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
+
+    # Card rows
+    cards_sql = f"""
+      SELECT CardName, MainCategory, Category, Description, Amount, Month
+      FROM {table_id}
+      {where_sql}
+      ORDER BY Month DESC, Amount DESC
+      LIMIT 1000
+    """
+    cards_rows = bq_query(cards_sql, qp)
+
+    # Manual rows (Month scope)
+    manual_rows = []
+    if include_manual:
+        manual_base = f"`{BQ_PROJECT}.{BQ_DATASET}.manual_spend`"
+        if selected_month:
+            manual_sql = f"""
+              SELECT Month, Category AS MainCategory, Category, Description, Amount
+              FROM {manual_base}
+              WHERE Month=@month
+              ORDER BY Amount DESC
+              LIMIT 1000
+            """
+            mrows = bq_query(manual_sql, {"month": selected_month})
+        else:
+            manual_sql = f"""
+              SELECT Month, Category AS MainCategory, Category, Description, Amount
+              FROM {manual_base}
+              ORDER BY Month DESC, Amount DESC
+              LIMIT 1000
+            """
+            mrows = bq_query(manual_sql)
+
+        manual_rows = [{
+            "CardName": "Manual",
+            "MainCategory": "Manual",
+            "Category": r.get("Category"),
+            "Description": r.get("Description"),
+            "Amount": r.get("Amount"),
+            "Month": r.get("Month"),
+        } for r in mrows]
+
+    return cards_rows + manual_rows
+
 
 # ---------------- Bills helpers and routes ----------------
 BILLS_TABLE = "credit_card_bills"
