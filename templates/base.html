@@ -9,6 +9,8 @@
     :root{
       --header-h: 56px;
       --sidebar-w: 240px;
+
+      /* Global palette */
       --bg: #f6f7fb;
       --panel: #ffffff;
       --text: #1f2937;
@@ -16,9 +18,22 @@
       --border: #e5e7eb;
       --accent: #0b5cff;
       --accent-contrast: #ffffff;
+
+      /* Sidebar theming variables (customize these) */
+      --sidebar-bg: #0b1a2f;
+      --sidebar-border: #0e264f;
+      --sidebar-text: #cfe3ff;
+      --sidebar-hover: #0f2d5c;
+      --sidebar-active-bg: #2d6cdf;
+      --sidebar-active-text: #ffffff;
     }
+
     html, body { height: 100%; margin: 0; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; color: var(--text); background: var(--bg); }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      color: var(--text);
+      background: var(--bg);
+    }
 
     /* Header (fixed) */
     .app-header {
@@ -35,7 +50,6 @@
       display:inline-block;
     }
     .app-actions { display:flex; align-items:center; gap:8px; }
-
     .btn { border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
     .btn.secondary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
     .btn:disabled { opacity:.6; cursor:not-allowed; }
@@ -45,18 +59,20 @@
     .app-sidebar {
       position: fixed; top: var(--header-h); left: 0; bottom: 0;
       width: var(--sidebar-w);
-      background: #111827; color: #cbd5e1;
-      border-right: 1px solid #0b1220; z-index: 1001;
+      background: var(--sidebar-bg);
+      color: var(--sidebar-text);
+      border-right: 1px solid var(--sidebar-border);
+      z-index: 1001;
       display: flex; flex-direction: column; padding: 12px 8px;
     }
-    .nav-title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #64748b; padding: 10px 12px; }
+    .nav-title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: rgba(255,255,255,0.7); padding: 10px 12px; }
     .nav a {
       display: flex; align-items: center; gap: 10px;
-      color: #cbd5e1; text-decoration: none;
+      color: var(--sidebar-text); text-decoration: none;
       padding: 10px 12px; border-radius: 8px; margin: 2px 4px;
     }
-    .nav a:hover { background: #0b1220; }
-    .nav a.active { background: #0b5cff; color: #fff; }
+    .nav a:hover { background: var(--sidebar-hover); }
+    .nav a.active { background: var(--sidebar-active-bg); color: var(--sidebar-active-text); }
 
     /* Content area (scrolls) */
     .app-content {
@@ -104,12 +120,21 @@
       .app-content { left: 0; padding: 12px 14px; }
       .sidebar-toggle { display: inline-flex; }
     }
+
+    /* Optional dark theme sidebar palette */
+    html[data-theme="dark"]{
+      --sidebar-bg: #0a0f1a;
+      --sidebar-border: #0f1a2a;
+      --sidebar-text: #bcd0ff;
+      --sidebar-hover: #11213a;
+      --sidebar-active-bg: #38a1ff;
+      --sidebar-active-text: #0b1016;
+    }
   </style>
 
   {% block head %}{% endblock %}
 </head>
 <body>
-
   <!-- Fixed Header -->
   <header class="app-header">
     <div class="app-brand">
@@ -177,7 +202,7 @@
       if (btn) {
         btn.addEventListener('click', () => {
           const cur = html.getAttribute('data-theme');
-          const next = cur === 'dark' ? 'light' : 'dark';
+          const next = (cur === 'dark') ? 'light' : 'dark';
           setTheme(next);
         });
       }

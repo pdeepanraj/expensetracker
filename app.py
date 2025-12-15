@@ -1262,26 +1262,59 @@ def get_month_totals(month: str | None):
     income_total = bq_query(inc_sql, {"month": month})[0]["amt"] if month else bq_query(inc_sql)[0]["amt"]
     return cards_total, manual_total, income_total
 
+# Helpers: fetch distinct existing values for dropdowns
+def get_existing_manual_categories():
+    sql = f"SELECT DISTINCT Category FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend` ORDER BY Category"
+    return [r["Category"] for r in bq_query(sql)]
+
+def get_existing_income_sources():
+    sql = f"SELECT DISTINCT Source FROM `{BQ_PROJECT}.{BQ_DATASET}.monthly_income` ORDER BY Source"
+    return [r["Source"] for r in bq_query(sql)]
+
+def get_main_totals_for_month(month: str | None):
+    base = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
+    where, qp = apply_filters_where({"month": month} if month else {})
+    sql = f"""
+    SELECT MainCategory, SUM(Amount) AS Amount
+    FROM {base}
+    {where}
+    GROUP BY MainCategory
+    ORDER BY Amount DESC
+    """
+    return bq_query(sql, qp)
+
 @app.get("/budget")
 def budget_get():
     month = request.args.get("month", "").strip() or None
     months = get_months_from_positive()
-    # fetch manual spends for month
+
+    # existing values for dropdowns
+    manual_categories = get_existing_manual_categories()
+    income_sources = get_existing_income_sources()
+
+    # rows for selected view
     ms_sql = f"""
-      SELECT Month, Category, Description, Amount, Note FROM `{BQ_PROJECT}.{BQ_DATASET}.{MANUAL_SPEND_TABLE}`
+      SELECT Month, Category, Description, Amount, Note
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`
       { 'WHERE Month=@month' if month else '' }
       ORDER BY Amount DESC
     """
     manual_rows = bq_query(ms_sql, {"month": month} if month else None)
-    # fetch income for month
+
     inc_sql = f"""
-      SELECT Month, Source, Amount, Note FROM `{BQ_PROJECT}.{BQ_DATASET}.{MONTHLY_INCOME_TABLE}`
+      SELECT Month, Source, Amount, Note
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.monthly_income`
       { 'WHERE Month=@month' if month else '' }
       ORDER BY Amount DESC
     """
     income_rows = bq_query(inc_sql, {"month": month} if month else None)
+
     cards_total, manual_total, income_total = get_month_totals(month)
     status = "Within limit" if (cards_total + manual_total) <= income_total else "Exceeded"
+
+    # main category totals for the selected month
+    main_totals = get_main_totals_for_month(month)
+
     return render_template(
         "budget.html",
         months=months,
@@ -1291,17 +1324,21 @@ def budget_get():
         cards_total=cards_total,
         manual_total=manual_total,
         income_total=income_total,
-        status=status
+        status=status,
+        main_totals=main_totals,
+        manual_categories=manual_categories,
+        income_sources=income_sources
     )
+
 
 @app.post("/budget/spend/add")
 def budget_spend_add():
     month = request.form.get("month", "").strip()
-    category = request.form.get("category", "").strip() or "Manual"
+    category = (request.form.get("category_new") or request.form.get("category") or "").strip()
     desc = request.form.get("description", "").strip()
     amount = float(request.form.get("amount", "0") or 0)
     note = request.form.get("note", "").strip()
-    if not month or amount <= 0 or not desc:
+    if not month or amount <= 0 or not desc or not category:
         return redirect(url_for("budget_get", month=month))
     upsert_simple(MANUAL_SPEND_TABLE, MANUAL_SPEND_SCHEMA, [{
         "Month": month, "Category": category, "Description": desc, "Amount": amount, "Note": note
@@ -1311,15 +1348,16 @@ def budget_spend_add():
 @app.post("/budget/income/add")
 def budget_income_add():
     month = request.form.get("month", "").strip()
-    source = request.form.get("source", "").strip() or "Salary"
+    source = (request.form.get("source_new") or request.form.get("source") or "").strip()
     amount = float(request.form.get("amount", "0") or 0)
     note = request.form.get("note", "").strip()
-    if not month or amount <= 0:
+    if not month or amount <= 0 or not source:
         return redirect(url_for("budget_get", month=month))
     upsert_simple(MONTHLY_INCOME_TABLE, MONTHLY_INCOME_SCHEMA, [{
         "Month": month, "Source": source, "Amount": amount, "Note": note
     }])
     return redirect(url_for("budget_get", month=month))
+
 
 
 
