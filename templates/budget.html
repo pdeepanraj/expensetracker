@@ -13,6 +13,8 @@
 </style>
 {% endblock %}
 {% block content %}
+
+<!-- Month filter -->
 <div class="section">
   <h3>Select Month</h3>
   <form method="get" action="{{ url_for('budget_get') }}" class="inline">
@@ -29,14 +31,42 @@
   </form>
 </div>
 
+<!-- MainCategory totals for selected month -->
+<div class="section">
+  <h3>MainCategory totals{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>MainCategory</th><th>Total Amount</th></tr></thead>
+      <tbody>
+        {% for r in main_totals %}
+          <tr><td>{{ r.MainCategory }}</td><td>{{ (r.Amount or 0)|currency }}</td></tr>
+        {% endfor %}
+        {% if main_totals|length == 0 %}
+          <tr><td colspan="2" class="muted">No data for this view.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <div class="grid-2">
+  <!-- Manual spend -->
   <div class="section">
     <h3>Add Manual Spend</h3>
     <form method="post" action="{{ url_for('budget_spend_add') }}" class="inline">
       <input type="hidden" name="month" value="{{ selected_month }}">
-      <div style="min-width:160px;">
-        <label>Category</label><br>
-        <input type="text" name="category" placeholder="Kids Class, Loan, Cash..." required>
+      <div style="min-width:200px;">
+        <label>Category (existing)</label><br>
+        <select name="category">
+          <option value="">-- Select --</option>
+          {% for c in manual_categories %}
+            <option value="{{ c }}">{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="min-width:200px;">
+        <label>Or new category</label><br>
+        <input type="text" name="category_new" placeholder="Kids Class, Loan, Cash...">
       </div>
       <div style="flex:1; min-width:240px;">
         <label>Description</label><br>
@@ -52,6 +82,7 @@
       </div>
       <button class="btn secondary" type="submit">Add Spend</button>
     </form>
+
     <div class="table-scroll" style="margin-top:12px;">
       <table>
         <thead><tr><th>Month</th><th>Category</th><th>Description</th><th>Amount</th><th>Note</th></tr></thead>
@@ -73,13 +104,23 @@
     </div>
   </div>
 
+  <!-- Income -->
   <div class="section">
     <h3>Add Income</h3>
     <form method="post" action="{{ url_for('budget_income_add') }}" class="inline">
       <input type="hidden" name="month" value="{{ selected_month }}">
-      <div style="min-width:160px;">
-        <label>Source</label><br>
-        <input type="text" name="source" placeholder="Salary, Bonus, Other..." required>
+      <div style="min-width:200px;">
+        <label>Source (existing)</label><br>
+        <select name="source">
+          <option value="">-- Select --</option>
+          {% for s in income_sources %}
+            <option value="{{ s }}">{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="min-width:200px;">
+        <label>Or new source</label><br>
+        <input type="text" name="source_new" placeholder="Salary, Bonus, Other...">
       </div>
       <div style="min-width:140px;">
         <label>Amount</label><br>
@@ -91,6 +132,7 @@
       </div>
       <button class="btn secondary" type="submit">Add Income</button>
     </form>
+
     <div class="table-scroll" style="margin-top:12px;">
       <table>
         <thead><tr><th>Month</th><th>Source</th><th>Amount</th><th>Note</th></tr></thead>
@@ -112,6 +154,7 @@
   </div>
 </div>
 
+<!-- Summary -->
 <div class="section">
   <h3>Monthly Comparison</h3>
   <div class="pill {% if status == 'Within limit' %}status-ok{% else %}status-bad{% endif %}">
@@ -121,4 +164,5 @@
   <div class="pill" style="margin-left:8px;"><strong>Manual Spend:</strong> {{ (manual_total or 0)|currency }}</div>
   <div class="pill" style="margin-left:8px;"><strong>Total Income:</strong> {{ (income_total or 0)|currency }}</div>
 </div>
+
 {% endblock %}
