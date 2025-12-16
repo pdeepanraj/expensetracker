@@ -11,59 +11,12 @@
 .status-ok { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
 .status-bad { background:#fee2e2; border-color:#fecaca; color:#991b1b; }
 .muted { color: var(--muted); }
-.small-table { border:1px solid var(--border); border-radius:10px; overflow:auto; }
-.small-table table { width:100%; border-collapse:collapse; }
-.small-table th, .small-table td { padding:8px 10px; border-bottom:1px solid var(--border); text-align:left; }
-.small-table thead th { background:#f3f4f6; position:sticky; top:0; z-index:1; }
-.summary-grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:12px; }
-@media (max-width:980px){ .summary-grid { grid-template-columns:1fr; } }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- Monthly Comparison first -->
-<div class="section">
-  <h3>Monthly Comparison{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
-  <div class="pill {% if status == 'Within limit' %}status-ok{% else %}status-bad{% endif %}">
-    <strong>Status:</strong> {{ status }}
-  </div>
-  <div class="pill" style="margin-left:8px;"><strong>Cards Spend:</strong> {{ (cards_total or 0)|currency }}</div>
-  <div class="pill" style="margin-left:8px;"><strong>Manual Spend:</strong> {{ (manual_total or 0)|currency }}</div>
-  <div class="pill" style="margin-left:8px;"><strong>Total Income:</strong> {{ (income_total or 0)|currency }}</div>
-
-  <!-- Compact grouped year summaries -->
-  <div class="summary-grid">
-    <div class="small-table">
-      <table>
-        <thead><tr><th>Manual Spend (Year)</th><th>Total</th></tr></thead>
-        <tbody>
-          {% for r in manual_year_summary %}
-            <tr><td>{{ r.Year }}</td><td>{{ (r.Amount or 0)|currency }}</td></tr>
-          {% endfor %}
-          {% if manual_year_summary|length == 0 %}
-            <tr><td colspan="2" class="muted">No manual spend summary.</td></tr>
-          {% endif %}
-        </tbody>
-      </table>
-    </div>
-    <div class="small-table">
-      <table>
-        <thead><tr><th>Income (Year)</th><th>Total</th></tr></thead>
-        <tbody>
-          {% for r in income_year_summary %}
-            <tr><td>{{ r.Year }}</td><td>{{ (r.Amount or 0)|currency }}</td></tr>
-          {% endfor %}
-          {% if income_year_summary|length == 0 %}
-            <tr><td colspan="2" class="muted">No income summary.</td></tr>
-          {% endif %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- Month filter -->
+<!-- 1) Select Month -->
 <div class="section">
   <h3>Select Month</h3>
   <form method="get" action="{{ url_for('budget_get') }}" class="inline">
@@ -80,26 +33,20 @@
   </form>
 </div>
 
-<!-- Card MainCategory totals (selected month) -->
+<!-- 2) Monthly Comparison -->
 <div class="section">
-  <h3>MainCategory totals{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
-  <div class="table-scroll">
-    <table>
-      <thead><tr><th>MainCategory</th><th>Total Amount</th></tr></thead>
-      <tbody>
-        {% for r in main_totals %}
-          <tr><td>{{ r.MainCategory }}</td><td>{{ (r.Amount or 0)|currency }}</td></tr>
-        {% endfor %}
-        {% if main_totals|length == 0 %}
-          <tr><td colspan="2" class="muted">No card data for this view.</td></tr>
-        {% endif %}
-      </tbody>
-    </table>
+  <h3>Monthly Comparison{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
+  <div class="pill {% if status == 'Within limit' %}status-ok{% else %}status-bad{% endif %}">
+    <strong>Status:</strong> {{ status }}
   </div>
+  <div class="pill" style="margin-left:8px;"><strong>Cards Spend:</strong> {{ (cards_total or 0)|currency }}</div>
+  <div class="pill" style="margin-left:8px;"><strong>Manual Spend:</strong> {{ (manual_total or 0)|currency }}</div>
+  <div class="pill" style="margin-left:8px;"><strong>Total Income:</strong> {{ (income_total or 0)|currency }}</div>
 </div>
 
+<!-- 3) Add Manual Spend & Add Income (side-by-side) -->
 <div class="grid-2">
-  <!-- Manual spend: add form + grouped tables -->
+  <!-- Add Manual Spend + grouped by Category -->
   <div class="section">
     <h3>Add Manual Spend</h3>
     <form method="post" action="{{ url_for('budget_spend_add') }}" class="inline">
@@ -150,28 +97,9 @@
         </tbody>
       </table>
     </div>
-
-    <!-- Grouped by Year -->
-    <h3 style="margin-top:14px;">Manual Spend by Year{% if selected_month %} (filtered){% endif %}</h3>
-    <div class="table-scroll" style="margin-top:8px;">
-      <table>
-        <thead><tr><th>Year</th><th>Total Amount</th></tr></thead>
-        <tbody>
-          {% for r in manual_by_year %}
-            <tr>
-              <td>{{ r.Year }}</td>
-              <td>{{ (r.Amount or 0)|currency }}</td>
-            </tr>
-          {% endfor %}
-          {% if manual_by_year|length == 0 %}
-            <tr><td colspan="2" class="muted">No manual spend for this view.</td></tr>
-          {% endif %}
-        </tbody>
-      </table>
-    </div>
   </div>
 
-  <!-- Income: add form + grouped tables -->
+  <!-- Add Income + grouped by Source -->
   <div class="section">
     <h3>Add Income</h3>
     <form method="post" action="{{ url_for('budget_income_add') }}" class="inline">
@@ -218,25 +146,24 @@
         </tbody>
       </table>
     </div>
+  </div>
+</div>
 
-    <!-- Grouped by Year -->
-    <h3 style="margin-top:14px;">Income by Year{% if selected_month %} (filtered){% endif %}</h3>
-    <div class="table-scroll" style="margin-top:8px;">
-      <table>
-        <thead><tr><th>Year</th><th>Total Amount</th></tr></thead>
-        <tbody>
-          {% for r in income_by_year %}
-            <tr>
-              <td>{{ r.Year }}</td>
-              <td>{{ (r.Amount or 0)|currency }}</td>
-            </tr>
-          {% endfor %}
-          {% if income_by_year|length == 0 %}
-            <tr><td colspan="2" class="muted">No income for this view.</td></tr>
-          {% endif %}
-        </tbody>
-      </table>
-    </div>
+<!-- 4) MainCategory totals (card data for selected month) -->
+<div class="section">
+  <h3>MainCategory totals{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>MainCategory</th><th>Total Amount</th></tr></thead>
+      <tbody>
+        {% for r in main_totals %}
+          <tr><td>{{ r.MainCategory }}</td><td>{{ (r.Amount or 0)|currency }}</td></tr>
+        {% endfor %}
+        {% if main_totals|length == 0 %}
+          <tr><td colspan="2" class="muted">No card data for this view.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
   </div>
 </div>
 
