@@ -1629,12 +1629,43 @@ def budget_income_add():
     source = (request.form.get("source_new") or request.form.get("source") or "").strip()
     amount = float(request.form.get("amount", "0") or 0)
     note = request.form.get("note", "").strip()
+
     if not month or amount <= 0 or not source:
         return redirect(url_for("budget_get", month=month))
-    upsert_simple(MONTHLY_INCOME_TABLE, MONTHLY_INCOME_SCHEMA, [{
-        "Month": month, "Source": source, "Amount": amount, "Note": note
-    }])
+
+    # Accumulate amounts for the same (Month, Source)
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.monthly_income`"
+    merge_sql = f"""
+      MERGE {table_id} T
+      USING (SELECT @Month AS Month, @Source AS Source, @Amount AS Amount, @Note AS Note) S
+      ON T.Month = S.Month AND T.Source = S.Source
+      WHEN MATCHED THEN
+        UPDATE SET Amount = COALESCE(T.Amount, 0) + COALESCE(S.Amount, 0),
+                   Note   = CASE
+                              WHEN T.Note IS NULL OR TRIM(T.Note) = '' THEN S.Note
+                              WHEN S.Note IS NULL OR TRIM(S.Note) = '' THEN T.Note
+                              ELSE CONCAT(T.Note, ' | ', S.Note)
+                            END
+      WHEN NOT MATCHED THEN
+        INSERT (Month, Source, Amount, Note)
+        VALUES (S.Month, S.Source, S.Amount, S.Note)
+    """
+
+    client = bq_client()
+    job = client.query(
+        merge_sql,
+        job_config=bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("Month", "STRING", month),
+                bigquery.ScalarQueryParameter("Source", "STRING", source),
+                bigquery.ScalarQueryParameter("Amount", "FLOAT", amount),
+                bigquery.ScalarQueryParameter("Note", "STRING", note),
+            ]
+        )
+    )
+    job.result()
     return redirect(url_for("budget_get", month=month))
+
 
 # ---------------- Entrypoint ----------------
 if __name__ == "__main__":
