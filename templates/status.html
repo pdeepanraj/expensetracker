@@ -77,6 +77,36 @@
     </div>
   </div>
 
+<!-- Sources coverage (cards + manual) -->
+<div class="card" style="margin-top:16px;">
+  <h3>Sources Coverage</h3>
+  <p class="muted" style="margin-bottom:8px;">Shows each credit card and Manual spend with the first and last months observed.</p>
+  <div class="table-scroll" style="max-height: 260px;">
+    <table>
+      <thead>
+        <tr>
+          <th>Source</th>
+          <th>First Month</th>
+          <th>Last Month</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sources_span %}
+          <tr>
+            <td>{{ s.Source }}</td>
+            <td>{{ s.FirstMonth or '-' }}</td>
+            <td>{{ s.LastMonth or '-' }}</td>
+          </tr>
+        {% endfor %}
+        {% if sources_span|length == 0 %}
+          <tr><td colspan="3" class="muted">No sources yet.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+  
   <!-- Optional: keep this if you still want to show rows by month; remove if not needed -->
   <div class="card" style="margin-top:16px;">
     <h3>Rows by Month (top 12)</h3>
