@@ -340,6 +340,43 @@ def fetch_categories_by_main() -> dict[str, list[str]]:
             by_main.setdefault(m, set()).add(c)
     return {m: sorted(list(cats)) for m, cats in by_main.items()}
 
+def get_sources_first_last_months():
+    """
+    Returns a list of {Source, FirstMonth, LastMonth} covering:
+    - Distinct CardName from all_positive_monthly, with MIN(Month) and MAX(Month)
+    - A single 'Manual' source from manual_spend, with MIN(Month) and MAX(Month)
+    """
+    # Cards (all_positive_monthly)
+    cards_sql = f"""
+      SELECT CardName AS Source,
+             MIN(Month) AS FirstMonth,
+             MAX(Month) AS LastMonth
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`
+      WHERE CardName IS NOT NULL
+      GROUP BY CardName
+      ORDER BY CardName
+    """
+    card_rows = bq_query(cards_sql)
+
+    # Manual (manual_spend)
+    manual_sql = f"""
+      SELECT 'Manual' AS Source,
+             MIN(Month) AS FirstMonth,
+             MAX(Month) AS LastMonth
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`
+    """
+    manual_row = bq_query(manual_sql)
+    if manual_row:
+        card_rows.append(manual_row[0])
+    else:
+        # Still show Manual even if table is empty
+        card_rows.append({"Source": "Manual", "FirstMonth": None, "LastMonth": None})
+
+    # Sort by Source name
+    card_rows.sort(key=lambda r: (r.get("Source") or ""))
+    return card_rows
+
+
 # ---------------- Routes: index/list/process ----------------
 @app.get("/")
 def index():
@@ -803,12 +840,18 @@ def aggregate():
 def status():
     if not validate_dataset(BQ_PROJECT, BQ_DATASET):
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
+
     target = TARGET_TABLE
     meta = get_table_metadata(target)
+
     month_stats = get_month_stats_combined(limit=12)
     year_totals = get_year_totals_combined()
     total_amount_all = sum(float(r["Amount"] or 0) for r in year_totals)
     main_totals_all = get_main_totals_all_with_manual()
+
+    # New: sources first/last months
+    sources_span = get_sources_first_last_months()
+
     return render_template(
         "status.html",
         project=BQ_PROJECT,
@@ -816,11 +859,13 @@ def status():
         table=target,
         meta=meta,
         month_stats=month_stats,
-        last_insert={},  # unused
+        last_insert={},  # not used
         total_amount_all=total_amount_all,
         main_totals_all=main_totals_all,
-        year_totals=year_totals
+        year_totals=year_totals,
+        sources_span=sources_span  # <<< new
     )
+
 
 
 # ---------------- Review routes ----------------
