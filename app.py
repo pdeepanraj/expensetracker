@@ -340,6 +340,43 @@ def fetch_categories_by_main() -> dict[str, list[str]]:
             by_main.setdefault(m, set()).add(c)
     return {m: sorted(list(cats)) for m, cats in by_main.items()}
 
+def get_sources_first_last_months():
+    """
+    Returns a list of {Source, FirstMonth, LastMonth} covering:
+    - Distinct CardName from all_positive_monthly, with MIN(Month) and MAX(Month)
+    - A single 'Manual' source from manual_spend, with MIN(Month) and MAX(Month)
+    """
+    # Cards (all_positive_monthly)
+    cards_sql = f"""
+      SELECT CardName AS Source,
+             MIN(Month) AS FirstMonth,
+             MAX(Month) AS LastMonth
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`
+      WHERE CardName IS NOT NULL
+      GROUP BY CardName
+      ORDER BY CardName
+    """
+    card_rows = bq_query(cards_sql)
+
+    # Manual (manual_spend)
+    manual_sql = f"""
+      SELECT 'Manual' AS Source,
+             MIN(Month) AS FirstMonth,
+             MAX(Month) AS LastMonth
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`
+    """
+    manual_row = bq_query(manual_sql)
+    if manual_row:
+        card_rows.append(manual_row[0])
+    else:
+        # Still show Manual even if table is empty
+        card_rows.append({"Source": "Manual", "FirstMonth": None, "LastMonth": None})
+
+    # Sort by Source name
+    card_rows.sort(key=lambda r: (r.get("Source") or ""))
+    return card_rows
+
+
 # ---------------- Routes: index/list/process ----------------
 @app.get("/")
 def index():
@@ -691,9 +728,11 @@ def normalize_group_by_param(vals: list[str]) -> list[str]:
 def aggregate():
     if not validate_dataset(BQ_PROJECT, BQ_DATASET):
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
+
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
     group_by_list = request.args.getlist("group_by")
     group_cols = normalize_group_by_param(group_by_list) or ["Category"]
+
     selected_month = request.args.get("month", "").strip() or None
     selected_card = request.args.get("card", "").strip() or None
     selected_main = request.args.get("main", "").strip() or None
@@ -703,27 +742,76 @@ def aggregate():
         min_amount_val = float(min_amount) if min_amount else None
     except Exception:
         min_amount_val = None
+
     months, cards, mains, cats = get_distinct_filters()
+
+    # Build WHERE for card table (all filters)
     filter_params = {"month": selected_month, "card": selected_card, "main": selected_main, "cat": selected_cat}
     where_sql, qp = apply_filters_where(filter_params)
+
     select_cols = ", ".join(group_cols)
     group_cols_sql = ", ".join(group_cols)
     order_clause = "ORDER BY Month ASC, Amount DESC" if "Month" in group_cols else "ORDER BY Amount DESC"
-    sql = f"""
-      SELECT {select_cols}, SUM(Amount) AS Amount
+
+    # Card source (respects all filters)
+    cards_select = f"""
+      SELECT Month, CardName, MainCategory, Category, Amount
       FROM {table_id}
       {where_sql}
+    """
+
+    # Manual source (respects Month filter only; normalized fields for grouping)
+    manual_base = f"`{BQ_PROJECT}.{BQ_DATASET}.manual_spend`"
+    if selected_month:
+        manual_select = f"""
+          SELECT Month,
+                 'Manual' AS CardName,
+                 'Manual' AS MainCategory,
+                 Category,
+                 Amount
+          FROM {manual_base}
+          WHERE Month=@month
+        """
+    else:
+        manual_select = f"""
+          SELECT Month,
+                 'Manual' AS CardName,
+                 'Manual' AS MainCategory,
+                 Category,
+                 Amount
+          FROM {manual_base}
+        """
+
+    union_source = f"""
+      ({cards_select})
+      UNION ALL
+      ({manual_select})
+    """
+
+    sql = f"""
+      SELECT {select_cols}, SUM(Amount) AS Amount
+      FROM ({union_source})
       GROUP BY {group_cols_sql}
       {order_clause}
       LIMIT 1000
     """
-    rows = bq_query(sql, params=qp)
+
+    # Parameters: pass card filters; ensure @month for manual if used
+    agg_params = dict(qp)
+    if selected_month:
+        agg_params["month"] = selected_month
+
+    rows = bq_query(sql, params=agg_params)
+
     if min_amount_val is not None:
-        rows = [r for r in rows if (r.get("Amount") or 0) >= min_amount_val]
+        rows = [r for r in rows if float(r.get("Amount") or 0) >= min_amount_val]
+
     def label_for_row(r):
         return " / ".join(str(r.get(c, "")) for c in group_cols)
+
     labels = [label_for_row(r) for r in rows]
     values = [float(r.get("Amount") or 0) for r in rows]
+
     return render_template(
         "dashboard.html",
         latest_month="",
@@ -746,17 +834,24 @@ def aggregate():
         table_modified=get_table_metadata(TARGET_TABLE).get("modified"),
     )
 
+
 # ---------------- Status (combined) ----------------
 @app.get("/status")
 def status():
     if not validate_dataset(BQ_PROJECT, BQ_DATASET):
         return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
+
     target = TARGET_TABLE
     meta = get_table_metadata(target)
+
     month_stats = get_month_stats_combined(limit=12)
     year_totals = get_year_totals_combined()
     total_amount_all = sum(float(r["Amount"] or 0) for r in year_totals)
     main_totals_all = get_main_totals_all_with_manual()
+
+    # New: sources first/last months
+    sources_span = get_sources_first_last_months()
+
     return render_template(
         "status.html",
         project=BQ_PROJECT,
@@ -764,11 +859,13 @@ def status():
         table=target,
         meta=meta,
         month_stats=month_stats,
-        last_insert={},  # unused
+        last_insert={},  # not used
         total_amount_all=total_amount_all,
         main_totals_all=main_totals_all,
-        year_totals=year_totals
+        year_totals=year_totals,
+        sources_span=sources_span  # <<< new
     )
+
 
 
 # ---------------- Review routes ----------------

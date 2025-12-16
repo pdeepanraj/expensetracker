@@ -1,27 +1,29 @@
 {% extends "base.html" %}
 {% block title %}Expense Dashboard{% endblock %}
-
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-  /* Tab bar */
-  .tabs { display:flex; gap:8px; padding:8px; background:#0b5cff; border-radius:10px; color:#fff; align-items:center; }
-  .tab { display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; cursor:pointer; user-select:none; background:rgba(255,255,255,.08); }
-  .tab.active { background:#fff; color:#0b5cff; font-weight:600; }
-  .tabs-spacer { flex:1; }
-  /* Sections */
-  .section { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:12px; }
-  .section h3 { margin:0 0 8px 0; }
-  .inline { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
-  .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-  @media (max-width: 980px){ .grid-2 { grid-template-columns:1fr; } }
-  .table-scroll { max-height:60vh; overflow:auto; border:1px solid var(--border); border-radius:10px; }
-  table { width:100%; border-collapse:collapse; }
-  thead th { position:sticky; top:0; background:#f3f4f6; border-bottom:1px solid var(--border); padding:10px; text-align:left; z-index:1; }
-  tbody td { padding:10px; border-bottom:1px solid var(--border); }
-  .pill { display:inline-block; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:#fff; }
-  .muted { color:var(--muted); }
-  .actions { display:flex; gap:8px; align-items:center; }
+/* Tab bar */
+.tabs { display:flex; gap:8px; padding:8px; background:#0b5cff; border-radius:10px; color:#fff; align-items:center; }
+.tab { display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; cursor:pointer; user-select:none; background:rgba(255,255,255,.08); }
+.tab.active { background:#fff; color:#0b5cff; font-weight:600; }
+.tabs-spacer { flex:1; }
+
+/* Sections */
+.section { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:12px; }
+.section h3 { margin:0 0 8px 0; }
+.inline { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+.grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+@media (max-width: 980px){ .grid-2 { grid-template-columns:1fr; } }
+
+.table-scroll { max-height:60vh; overflow:auto; border:1px solid var(--border); border-radius:10px; }
+table { width:100%; border-collapse:collapse; }
+thead th { position:sticky; top:0; background:#f3f4f6; border-bottom:1px solid var(--border); padding:10px; text-align:left; z-index:1; }
+tbody td { padding:10px; border-bottom:1px solid var(--border); }
+
+.pill { display:inline-block; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:#fff; }
+.muted { color:var(--muted); }
+.actions { display:flex; gap:8px; align-items:center; }
 </style>
 {% endblock %}
 
@@ -80,7 +82,6 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
         {% endfor %}
       </select>
     </div>
-    
     <div>
       <label>Category</label><br>
       <select name="cat">
@@ -90,10 +91,13 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
         {% endfor %}
       </select>
     </div>
+
+    <!-- Include manual spends toggle -->
     <label class="inline" style="gap:6px;">
-  <input type="checkbox" name="include_manual" value="1" {% if include_manual %}checked{% endif %}>
-  Include manual spends
-</label>
+      <input type="checkbox" name="include_manual" value="1" {% if include_manual %}checked{% endif %}>
+      Include manual spends
+    </label>
+
     <div class="actions">
       <button class="btn secondary" type="submit">Apply</button>
       <a class="btn" href="{{ url_for('dashboard') }}">Reset</a>
@@ -105,6 +109,7 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
 
   <hr style="margin:16px 0; border:none; border-top:1px solid var(--border);">
 
+  <!-- Dynamic Grouping -->
   <h3>Dynamic Grouping</h3>
   <form method="get" action="{{ url_for('aggregate') }}" class="inline" style="align-items:flex-start;">
     <div style="min-width:240px;">
@@ -213,15 +218,15 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
         </thead>
         <tbody>
           {% for r in aggregate_rows %}
-          <tr>
-            {% for k, v in r.items() %}
-              {% if k == 'Amount' %}
-                <td>{{ (v or 0)|currency }}</td>
-              {% else %}
-                <td>{{ v }}</td>
-              {% endif %}
-            {% endfor %}
-          </tr>
+            <tr>
+              {% for k, v in r.items() %}
+                {% if k == 'Amount' %}
+                  <td>{{ (v or 0)|currency }}</td>
+                {% else %}
+                  <td>{{ v }}</td>
+                {% endif %}
+              {% endfor %}
+            </tr>
           {% endfor %}
         </tbody>
       </table>
@@ -237,130 +242,112 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
 
 {% block scripts %}
 <script>
-  // Tabs
-  (function(){
-    const tabs = document.querySelectorAll('.tab');
-    const panels = {
-      filters: document.getElementById('tab-filters'),
-      details: document.getElementById('tab-details'),
-      charts: document.getElementById('tab-charts'),
-      aggregate: document.getElementById('tab-aggregate')
-    };
-    function activate(name){
-      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-      Object.entries(panels).forEach(([k, el]) => el.style.display = (k === name ? '' : 'none'));
-    }
-    {% if aggregate_labels is defined and aggregate_labels %}
-      activate('aggregate');
-    {% elif latest_details and latest_details|length > 0 %}
-      activate('charts');
-    {% else %}
-      activate('filters');
-    {% endif %}
-    tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
-  })();
+// Tabs
+(function(){
+  const tabs = document.querySelectorAll('.tab');
+  const panels = {
+    filters: document.getElementById('tab-filters'),
+    details: document.getElementById('tab-details'),
+    charts: document.getElementById('tab-charts'),
+    aggregate: document.getElementById('tab-aggregate')
+  };
+  function activate(name){
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    Object.entries(panels).forEach(([k, el]) => el.style.display = (k === name ? '' : 'none'));
+  }
+  {% if aggregate_labels is defined and aggregate_labels %}
+    activate('aggregate');
+  {% elif latest_details and latest_details|length > 0 %}
+    activate('charts');
+  {% else %}
+    activate('filters');
+  {% endif %}
+  tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
+})();
 </script>
 
 <script>
-  // Helpers
-  function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
-  const fmt2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  let charts = [];
-  function destroyCharts(){ charts.forEach(c => c.destroy()); charts = []; }
+// Helpers
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+const fmt2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+let charts = [];
+function destroyCharts(){ charts.forEach(c => c.destroy()); charts = []; }
 
+{% if aggregate_labels is defined and aggregate_labels %}
+function buildAgg(){
+  destroyCharts();
+  const aggLabels = {{ aggregate_labels|tojson }};
+  const aggValues = {{ aggregate_values|tojson }};
+  charts.push(new Chart(document.getElementById('aggChart'), {
+    type: 'bar',
+    data: { labels: aggLabels, datasets: [{ label: 'Amount', data: aggValues, backgroundColor: cssVar('--primary') || '#2d6cdf' }]},
+    options: {
+      responsive:true,
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor: cssVar('--chart-tooltip-bg')||'#1f2a44', titleColor:'#fff', bodyColor:'#fff', borderColor: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', borderWidth:1,
+        callbacks:{ label: ctx => ' $' + fmt2.format(Number(ctx.parsed.y)) } } },
+      scales:{ x:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false } },
+              y:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false }, ticks:{ callback:v=>'$'+fmt2.format(Number(v)) } } }
+    }
+  }));
+}
+buildAgg();
+{% else %}
+function buildDefault(){
+  destroyCharts();
+  const topCategories = {{ top_categories|tojson }};
+  const monthlyTotals = {{ monthly_totals|tojson }};
+
+  const catLabels = topCategories.map(x => x.Category);
+  const catValues = topCategories.map(x => x.Amount);
+  charts.push(new Chart(document.getElementById('catChart'), {
+    type:'bar',
+    data:{ labels:catLabels, datasets:[{ label:'Amount', data:catValues, backgroundColor: cssVar('--accent')||'#4e79a7' }]},
+    options:{
+      indexAxis:'y', responsive:true,
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor: cssVar('--chart-tooltip-bg')||'#1f2a44', titleColor:'#fff', bodyColor:'#fff', borderColor: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', borderWidth:1,
+        callbacks:{ label: ctx => ' $' + fmt2.format(Number(ctx.parsed.x)) } } },
+      scales:{ y:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false } },
+              x:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false }, ticks:{ callback:v=>'$'+fmt2.format(Number(v)) } } }
+    }
+  }));
+
+  const trendLabels = monthlyTotals.map(x => x.Month);
+  const trendValues = monthlyTotals.map(x => x.Amount);
+  charts.push(new Chart(document.getElementById('trendChart'), {
+    type:'line',
+    data:{ labels:trendLabels, datasets:[{ label:'Total', data:trendValues, borderColor: cssVar('--primary')||'#2d6cdf', fill:false, tension:0.2 }]},
+    options:{
+      responsive:true,
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor: cssVar('--chart-tooltip-bg')||'#1f2a44', titleColor:'#fff', bodyColor:'#fff', borderColor: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', borderWidth:1,
+        callbacks:{ label: ctx => ' $' + fmt2.format(Number(ctx.parsed.y)) } } },
+      scales:{ x:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false } },
+              y:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false }, ticks:{ callback:v=>'$'+fmt2.format(Number(v)) } } }
+    }
+  }));
+
+  // Details table quick filter
+  const searchInput = document.getElementById('search');
+  const table = document.getElementById('detailTable');
+  if (searchInput && table) {
+    searchInput.addEventListener('input', () => {
+      const q = searchInput.value.toLowerCase();
+      [...table.tBodies[0].rows].forEach(row => {
+        const text = row.innerText.toLowerCase().replace(/\s+/g,' ');
+        row.style.display = text.includes(q) ? '' : 'none';
+      });
+    });
+  }
+}
+buildDefault();
+{% endif %}
+
+// Rebuild charts on theme change
+window.addEventListener('theme-changed', () => {
   {% if aggregate_labels is defined and aggregate_labels %}
-  function buildAgg(){
-    destroyCharts();
-    const aggLabels = {{ aggregate_labels|tojson }};
-    const aggValues = {{ aggregate_values|tojson }};
-    charts.push(new Chart(document.getElementById('aggChart'), {
-      type: 'bar',
-      data: { labels: aggLabels, datasets: [{ label: 'Amount', data: aggValues, backgroundColor: cssVar('--primary') || '#2d6cdf' }]},
-      options: {
-        responsive:true,
-        plugins:{ legend:{display:false}, tooltip:{ backgroundColor: cssVar('--chart-tooltip-bg')||'#1f2a44', titleColor:'#fff', bodyColor:'#fff', borderColor: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', borderWidth:1,
-          callbacks:{ label: ctx => ' $' + fmt2.format(Number((ctx.parsed?.y ?? ctx.raw ?? 0))) } } },
-        scales:{ x:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false } },
-                 y:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false }, ticks:{ callback:v=>'$'+fmt2.format(Number(v)) } } }
-      }
-    }));
-  }
-  buildAgg();
+    buildAgg();
   {% else %}
-  function buildDefault(){
-    destroyCharts();
-    const topCategories = {{ top_categories|tojson }};
-    const monthlyTotals = {{ monthly_totals|tojson }};
-
-    const catLabels = topCategories.map(x => x.Category);
-    const catValues = topCategories.map(x => x.Amount);
-    charts.push(new Chart(document.getElementById('catChart'), {
-      type:'bar',
-      data:{ labels:catLabels, datasets:[{ label:'Amount', data:catValues, backgroundColor: cssVar('--accent')||'#4e79a7' }]},
-      options:{
-        indexAxis:'y', responsive:true,
-        plugins:{ legend:{display:false}, tooltip:{ backgroundColor: cssVar('--chart-tooltip-bg')||'#1f2a44', titleColor:'#fff', bodyColor:'#fff', borderColor: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', borderWidth:1,
-          callbacks:{ label: ctx => ' $' + fmt2.format(Number((ctx.parsed?.x ?? ctx.raw ?? 0))) } } },
-        scales:{ y:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false } },
-                 x:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false }, ticks:{ callback:v=>'$'+fmt2.format(Number(v)) } } }
-      }
-    }));
-
-    const trendLabels = monthlyTotals.map(x => x.Month);
-    const trendValues = monthlyTotals.map(x => x.Amount);
-    charts.push(new Chart(document.getElementById('trendChart'), {
-      type:'line',
-      data:{ labels:trendLabels, datasets:[{ label:'Total', data:trendValues, borderColor: cssVar('--primary')||'#2d6cdf', fill:false, tension:0.2 }]},
-      options:{
-        responsive:true,
-        plugins:{ legend:{display:false}, tooltip:{ backgroundColor: cssVar('--chart-tooltip-bg')||'#1f2a44', titleColor:'#fff', bodyColor:'#fff', borderColor: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', borderWidth:1,
-          callbacks:{ label: ctx => ' $' + fmt2.format(Number((ctx.parsed?.y ?? ctx.raw ?? 0))) } } },
-        scales:{ x:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false } },
-                 y:{ grid:{ color: cssVar('--chart-grid')||'rgba(0,0,0,0.10)', drawBorder:false }, ticks:{ callback:v=>'$'+fmt2.format(Number(v)) } } }
-      }
-    }));
-
-    // Details table quick filter
-    const searchInput = document.getElementById('search');
-    const table = document.getElementById('detailTable');
-    if (searchInput && table) {
-      searchInput.addEventListener('input', () => {
-        const q = searchInput.value.toLowerCase();
-        [...table.tBodies[0].rows].forEach(row => {
-          const text = row.innerText.toLowerCase().replace(/\s+/g,' ');
-          row.style.display = text.includes(q) ? '' : 'none';
-        });
-      });
-    }
-  }
-  buildDefault();
+    buildDefault();
   {% endif %}
-
-  // Rebuild charts on theme change
-  window.addEventListener('theme-changed', () => {
-    {% if aggregate_labels is defined and aggregate_labels %}
-      buildAgg();
-    {% else %}
-      buildDefault();
-    {% endif %}
-  });
-
-  // Format numbers in aggregate table if present
-  (function(){
-    const fmtCurrency = v => {
-      const n = Number(v); if (isNaN(n)) return v;
-      return '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }).format(n);
-    };
-    function formatTable(tableEl){
-      if (!tableEl) return;
-      const headers = [...tableEl.tHead?.rows[0]?.cells || []].map(th => th.textContent.trim());
-      const amountIdxs = headers.map((h,i)=>/^amount$/i.test(h)?i:-1).filter(i=>i>=0);
-      [...tableEl.tBodies].forEach(tb => {
-        [...tb.rows].forEach(row => amountIdxs.forEach(i => { const td=row.cells[i]; if (td) td.textContent = fmtCurrency(td.textContent); }));
-      });
-    }
-    const aggTable = document.querySelector('#tab-aggregate table');
-    formatTable(aggTable);
-  })();
+});
 </script>
 {% endblock %}
