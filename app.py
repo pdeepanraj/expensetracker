@@ -1350,15 +1350,32 @@ def upload():
 def budget_get():
     month = request.args.get("month", "").strip() or None
     months = get_months_from_positive()
+
     manual_categories = get_existing_manual_categories()
     income_sources = get_existing_income_sources()
-    ms_sql = f"""
-      SELECT Month, Category, Description, Amount, Note
+
+    # Manual grouped by Category and by Year (entire dataset or month filter if provided)
+    # Group by Category
+    ms_cat_sql = f"""
+      SELECT Category, SUM(Amount) AS Amount
       FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`
       { 'WHERE Month=@month' if month else '' }
+      GROUP BY Category
       ORDER BY Amount DESC
     """
-    manual_rows = bq_query(ms_sql, {"month": month} if month else None)
+    manual_by_cat = bq_query(ms_cat_sql, {"month": month} if month else None)
+
+    # Group by Year (derive from Month 'YYYY-MM')
+    ms_year_sql = f"""
+      SELECT CAST(SUBSTR(Month,1,4) AS INT64) AS Year, SUM(Amount) AS Amount
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`
+      { 'WHERE Month=@month' if month else '' }
+      GROUP BY Year
+      ORDER BY Year DESC
+    """
+    manual_by_year = bq_query(ms_year_sql, {"month": month} if month else None)
+
+    # Income rows (keep as-is, or you may also group if desired)
     inc_sql = f"""
       SELECT Month, Source, Amount, Note
       FROM `{BQ_PROJECT}.{BQ_DATASET}.monthly_income`
@@ -1366,14 +1383,19 @@ def budget_get():
       ORDER BY Amount DESC
     """
     income_rows = bq_query(inc_sql, {"month": month} if month else None)
+
     cards_total, manual_total, income_total = get_month_totals(month)
     status_txt = "Within limit" if (cards_total + manual_total) <= income_total else "Exceeded"
+
+    # MainCategory totals for card data in selected month
     main_totals = get_main_totals_for_month(month)
+
     return render_template(
         "budget.html",
         months=months,
         selected_month=month or "",
-        manual_rows=manual_rows,
+        manual_by_cat=manual_by_cat,         # <<< new
+        manual_by_year=manual_by_year,       # <<< new
         income_rows=income_rows,
         cards_total=cards_total,
         manual_total=manual_total,
@@ -1383,6 +1405,7 @@ def budget_get():
         manual_categories=manual_categories,
         income_sources=income_sources
     )
+
 
 @app.post("/budget/spend/add")
 def budget_spend_add():
