@@ -376,6 +376,42 @@ def get_sources_first_last_months():
     card_rows.sort(key=lambda r: (r.get("Source") or ""))
     return card_rows
 
+# ---------------- Monthly Comparison ----------------
+def build_monthly_comparison_rows():
+    """
+    Returns rows: [{Month, Income, Cards, Manual}]
+    Aggregates by Month across monthly_income, all_positive_monthly, and manual_spend.
+    """
+    inc_sql = f"""
+      SELECT Month, SUM(Amount) AS Income
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.monthly_income`
+      GROUP BY Month
+    """
+    cards_sql = f"""
+      SELECT Month, SUM(Amount) AS Cards
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`
+      GROUP BY Month
+    """
+    manual_sql = f"""
+      SELECT Month, SUM(Amount) AS Manual
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`
+      GROUP BY Month
+    """
+    inc_rows = {str(r["Month"]): float(r["Income"] or 0) for r in bq_query(inc_sql)}
+    cards_rows = {str(r["Month"]): float(r["Cards"] or 0) for r in bq_query(cards_sql)}
+    manual_rows = {str(r["Month"]): float(r["Manual"] or 0) for r in bq_query(manual_sql)}
+
+    months = set(inc_rows) | set(cards_rows) | set(manual_rows)
+    out = []
+    for m in sorted(months):
+      out.append({
+        "Month": m,
+        "Income": inc_rows.get(m, 0.0),
+        "Cards": cards_rows.get(m, 0.0),
+        "Manual": manual_rows.get(m, 0.0),
+      })
+    return out
+
 
 # ---------------- Routes: index/list/process ----------------
 @app.get("/")
@@ -1477,6 +1513,8 @@ def budget_get():
 
     cards_total, manual_total, income_total = get_month_totals(month)
     status_txt = "Within limit" if (cards_total + manual_total) <= income_total else "Exceeded"
+    monthly_comparison_rows = build_monthly_comparison_rows()
+
 
     main_totals = get_main_totals_for_month(month)
 
