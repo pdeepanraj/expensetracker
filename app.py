@@ -520,6 +520,67 @@ def get_main_totals_for_month(month: str | None):
     """
     return bq_query(sql, qp)
 
+# ---- Helpers for grouped manual spend and income ----
+def fetch_manual_grouped(month: str | None):
+    """
+    Returns two lists:
+      - manual_by_cat: [{Category, Amount}]
+      - manual_by_year: [{Year, Amount}]
+    Month filter is optional; if provided, both groups are scoped to that month.
+    """
+    params = {"month": month} if month else None
+
+    ms_cat_sql = f"""
+      SELECT Category, SUM(Amount) AS Amount
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`
+      { 'WHERE Month=@month' if month else '' }
+      GROUP BY Category
+      ORDER BY Amount DESC
+    """
+    manual_by_cat = bq_query(ms_cat_sql, params)
+
+    ms_year_sql = f"""
+      SELECT CAST(SUBSTR(Month,1,4) AS INT64) AS Year, SUM(Amount) AS Amount
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`
+      { 'WHERE Month=@month' if month else '' }
+      GROUP BY Year
+      ORDER BY Year DESC
+    """
+    manual_by_year = bq_query(ms_year_sql, params)
+
+    return manual_by_cat, manual_by_year
+
+
+def fetch_income_grouped(month: str | None):
+    """
+    Returns two lists:
+      - income_by_source: [{Source, Amount}]
+      - income_by_year: [{Year, Amount}]
+    Month filter is optional; if provided, both groups are scoped to that month.
+    """
+    params = {"month": month} if month else None
+
+    inc_src_sql = f"""
+      SELECT Source, SUM(Amount) AS Amount
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.monthly_income`
+      { 'WHERE Month=@month' if month else '' }
+      GROUP BY Source
+      ORDER BY Amount DESC
+    """
+    income_by_source = bq_query(inc_src_sql, params)
+
+    inc_year_sql = f"""
+      SELECT CAST(SUBSTR(Month,1,4) AS INT64) AS Year, SUM(Amount) AS Amount
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.monthly_income`
+      { 'WHERE Month=@month' if month else '' }
+      GROUP BY Year
+      ORDER BY Year DESC
+    """
+    income_by_year = bq_query(inc_year_sql, params)
+
+    return income_by_source, income_by_year
+
+
 # ---- Combined totals for dashboard and status ----
 def get_top_categories_with_manual(selected_month: str | None, where_sql: str, qp: dict):
     """
@@ -1069,6 +1130,18 @@ def get_dashboard_details_with_manual(selected_month: str | None, where_sql: str
     return cards_rows + manual_rows
 
 
+def summarize_year_rows(rows: list[dict], top_n: int = 6) -> list[dict]:
+    """
+    Sort rows by Year desc and return top N as [{'Year': int, 'Amount': float}].
+    Expects rows with keys Year and Amount.
+    """
+    if not rows:
+        return []
+    items = [{"Year": int(r["Year"]), "Amount": float(r.get("Amount") or 0)} for r in rows if r.get("Year") is not None]
+    items.sort(key=lambda x: x["Year"], reverse=True)
+    return items[:top_n]
+
+
 
 # ---------------- Bills helpers and routes ----------------
 BILLS_TABLE = "credit_card_bills"
@@ -1390,32 +1463,33 @@ def upload():
 @app.get("/budget")
 def budget_get():
     month = request.args.get("month", "").strip() or None
+
     months = get_months_from_positive()
     manual_categories = get_existing_manual_categories()
     income_sources = get_existing_income_sources()
-    ms_sql = f"""
-      SELECT Month, Category, Description, Amount, Note
-      FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`
-      { 'WHERE Month=@month' if month else '' }
-      ORDER BY Amount DESC
-    """
-    manual_rows = bq_query(ms_sql, {"month": month} if month else None)
-    inc_sql = f"""
-      SELECT Month, Source, Amount, Note
-      FROM `{BQ_PROJECT}.{BQ_DATASET}.monthly_income`
-      { 'WHERE Month=@month' if month else '' }
-      ORDER BY Amount DESC
-    """
-    income_rows = bq_query(inc_sql, {"month": month} if month else None)
+
+    manual_by_cat, manual_by_year = fetch_manual_grouped(month)
+    income_by_source, income_by_year = fetch_income_grouped(month)
+
+    # Slice top-by-year summaries for the comparison box
+    manual_year_summary = summarize_year_rows(manual_by_year, top_n=6)
+    income_year_summary = summarize_year_rows(income_by_year, top_n=6)
+
     cards_total, manual_total, income_total = get_month_totals(month)
     status_txt = "Within limit" if (cards_total + manual_total) <= income_total else "Exceeded"
+
     main_totals = get_main_totals_for_month(month)
+
     return render_template(
         "budget.html",
         months=months,
         selected_month=month or "",
-        manual_rows=manual_rows,
-        income_rows=income_rows,
+        manual_by_cat=manual_by_cat,
+        manual_by_year=manual_by_year,
+        income_by_source=income_by_source,
+        income_by_year=income_by_year,
+        manual_year_summary=manual_year_summary,   # NEW
+        income_year_summary=income_year_summary,   # NEW
         cards_total=cards_total,
         manual_total=manual_total,
         income_total=income_total,
@@ -1424,6 +1498,9 @@ def budget_get():
         manual_categories=manual_categories,
         income_sources=income_sources
     )
+
+
+
 
 @app.post("/budget/spend/add")
 def budget_spend_add():
