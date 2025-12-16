@@ -80,11 +80,7 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
         {% endfor %}
       </select>
     </div>
-    <label class="inline" style="gap:6px;">
-  <input type="checkbox" name="include_manual" value="1" {% if include_manual %}checked{% endif %}>
-  Include manual spends
-</label>
-
+    
     <div>
       <label>Category</label><br>
       <select name="cat">
@@ -94,6 +90,10 @@ Source: {{ project }}.{{ dataset }}.all_positive_monthly
         {% endfor %}
       </select>
     </div>
+    <label class="inline" style="gap:6px;">
+  <input type="checkbox" name="include_manual" value="1" {% if include_manual %}checked{% endif %}>
+  Include manual spends
+</label>
     <div class="actions">
       <button class="btn secondary" type="submit">Apply</button>
       <a class="btn" href="{{ url_for('dashboard') }}">Reset</a>
