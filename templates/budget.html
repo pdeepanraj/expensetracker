@@ -7,10 +7,14 @@
 .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 @media (max-width:980px){ .grid-2 { grid-template-columns:1fr; } }
 .table-scroll { max-height:50vh; overflow:auto; border:1px solid var(--border); border-radius:10px; }
+
 .pill { display:inline-block; padding:8px 12px; border-radius:999px; border:1px solid var(--border); background:#fff; }
 .status-ok { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
 .status-bad { background:#fee2e2; border-color:#fecaca; color:#991b1b; }
 .muted { color: var(--muted); }
+
+.badge-ok { display:inline-block; padding:4px 8px; border-radius:999px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; font-size:12px; }
+.badge-bad { display:inline-block; padding:4px 8px; border-radius:999px; background:#fee2e2; color:#991b1b; border:1px solid #fecaca; font-size:12px; }
 </style>
 {% endblock %}
 
@@ -36,12 +40,22 @@
 <!-- 2) Monthly Comparison -->
 <div class="section">
   <h3>Monthly Comparison{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
+
+  <!-- Status pill -->
   <div class="pill {% if status == 'Within limit' %}status-ok{% else %}status-bad{% endif %}">
     <strong>Status:</strong> {{ status }}
   </div>
+
+  <!-- Totals -->
   <div class="pill" style="margin-left:8px;"><strong>Cards Spend:</strong> {{ (cards_total or 0)|currency }}</div>
   <div class="pill" style="margin-left:8px;"><strong>Manual Spend:</strong> {{ (manual_total or 0)|currency }}</div>
   <div class="pill" style="margin-left:8px;"><strong>Total Income:</strong> {{ (income_total or 0)|currency }}</div>
+
+  <!-- New: Variance -->
+  {% set variance = (income_total or 0) - ((cards_total or 0) + (manual_total or 0)) %}
+  <div class="pill {% if variance >= 0 %}status-ok{% else %}status-bad{% endif %}" style="margin-left:8px;">
+    <strong>Variance (Income − Spend):</strong> {{ variance|currency }}
+  </div>
 </div>
 
 <!-- 3) Add Manual Spend & Add Income (side-by-side) -->
@@ -149,18 +163,42 @@
   </div>
 </div>
 
-<!-- 4) MainCategory totals (card data for selected month) -->
+<!-- 4) All-Month Comparison table -->
 <div class="section">
-  <h3>MainCategory totals{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
+  <h3>All-Month Comparison</h3>
+  <p class="muted" style="margin-bottom:8px;">Income vs Spend by Month. Variance = Income − (Cards + Manual).</p>
   <div class="table-scroll">
     <table>
-      <thead><tr><th>MainCategory</th><th>Total Amount</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th>Total Income</th>
+          <th>Card Spend</th>
+          <th>Manual Spend</th>
+          <th>Variance</th>
+          <th>Status</th>
+        </tr>
+      </thead>
       <tbody>
-        {% for r in main_totals %}
-          <tr><td>{{ r.MainCategory }}</td><td>{{ (r.Amount or 0)|currency }}</td></tr>
+        {% for r in monthly_comparison_rows %}
+          {% set var = (r.Income or 0) - ((r.Cards or 0) + (r.Manual or 0)) %}
+          <tr>
+            <td>{{ r.Month }}</td>
+            <td>{{ (r.Income or 0)|currency }}</td>
+            <td>{{ (r.Cards or 0)|currency }}</td>
+            <td>{{ (r.Manual or 0)|currency }}</td>
+            <td>{{ var|currency }}</td>
+            <td>
+              {% if var >= 0 %}
+                <span class="badge-ok">Within limit</span>
+              {% else %}
+                <span class="badge-bad">Exceeded</span>
+              {% endif %}
+            </td>
+          </tr>
         {% endfor %}
-        {% if main_totals|length == 0 %}
-          <tr><td colspan="2" class="muted">No card data for this view.</td></tr>
+        {% if monthly_comparison_rows|length == 0 %}
+          <tr><td colspan="6" class="muted">No data yet.</td></tr>
         {% endif %}
       </tbody>
     </table>
