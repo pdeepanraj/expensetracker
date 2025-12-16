@@ -583,7 +583,10 @@ def fetch_income_grouped(month: str | None):
 
 # ---- Combined totals for dashboard and status ----
 def get_top_categories_with_manual(selected_month: str | None, where_sql: str, qp: dict):
-    # Cards top categories
+    """
+    Cards: grouped by Category with full filters.
+    Manual: grouped by synthetic Manual_<Slug> built from manual Category, Month-only filter.
+    """
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
     cards_sql = f"""
       SELECT Category, SUM(Amount) AS Amount
@@ -594,14 +597,37 @@ def get_top_categories_with_manual(selected_month: str | None, where_sql: str, q
       LIMIT 12
     """
     top_cards = bq_query(cards_sql, qp)
-    # Manual total for selected month as a single category "Manual"
+
+    manual_base = f"`{BQ_PROJECT}.{BQ_DATASET}.manual_spend`"
     if selected_month:
-        manual_base = f"`{BQ_PROJECT}.{BQ_DATASET}.manual_spend`"
-        manual_sql = f"SELECT COALESCE(SUM(Amount),0) AS Amount FROM {manual_base} WHERE Month=@month"
-        manual_total = float(bq_query(manual_sql, {"month": selected_month})[0]["Amount"] or 0)
-        if manual_total > 0:
-            top_cards.append({"Category": "Manual", "Amount": manual_total})
-    return top_cards
+        manual_sql = f"""
+          SELECT Category, SUM(Amount) AS Amount
+          FROM {manual_base}
+          WHERE Month=@month
+          GROUP BY Category
+        """
+        manual_rows = bq_query(manual_sql, {"month": selected_month})
+    else:
+        manual_sql = f"""
+          SELECT Category, SUM(Amount) AS Amount
+          FROM {manual_base}
+          GROUP BY Category
+        """
+        manual_rows = bq_query(manual_sql)
+
+    # Merge cards + manual (manual under Manual_<Slug>)
+    by_cat = {}
+    for r in top_cards:
+        c = str(r["Category"])
+        by_cat[c] = by_cat.get(c, 0.0) + float(r["Amount"] or 0)
+
+    for r in manual_rows:
+        tag = manual_category_tag(str(r["Category"]))
+        by_cat[tag] = by_cat.get(tag, 0.0) + float(r["Amount"] or 0)
+
+    merged = [{"Category": c, "Amount": by_cat[c]} for c in sorted(by_cat, key=lambda k: by_cat[k], reverse=True)]
+    return merged[:12]
+
 
 def get_combined_monthly_totals(selected_month: str | None, trend_where_sql: str, trend_qp: dict):
     # Cards monthly totals (respect filters except Month)
@@ -659,17 +685,27 @@ def get_year_totals_combined():
     return [{"Year": y, "Amount": by_year[y]} for y in sorted(by_year)]
 
 def get_main_totals_all_with_manual():
+    # Cards by MainCategory
     cards_sql = f"""
       SELECT MainCategory, SUM(Amount) AS Amount
       FROM `{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`
       GROUP BY MainCategory
-      ORDER BY Amount DESC
     """
-    rows = bq_query(cards_sql)
-    manual_sql = f"SELECT COALESCE(SUM(Amount),0) AS Amount FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`"
-    manual_total = float(bq_query(manual_sql)[0]["Amount"] or 0)
-    rows.append({"MainCategory": "Manual", "Amount": manual_total})
+    by_main = {str(r["MainCategory"]): float(r["Amount"] or 0) for r in bq_query(cards_sql)}
+
+    # Manual grouped by Category -> use Manual_<Slug> as MainCategory
+    manual_sql = f"""
+      SELECT Category, SUM(Amount) AS Amount
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`
+      GROUP BY Category
+    """
+    for r in bq_query(manual_sql):
+        tag = manual_category_tag(str(r["Category"]))
+        by_main[tag] = by_main.get(tag, 0.0) + float(r["Amount"] or 0)
+
+    rows = [{"MainCategory": m, "Amount": by_main[m]} for m in sorted(by_main, key=lambda k: by_main[k], reverse=True)]
     return rows
+
 
 def get_month_stats_combined(limit: int = 12):
     cards_sql = f"""
@@ -691,6 +727,17 @@ def get_month_stats_combined(limit: int = 12):
     items.sort(key=lambda x: x["Month"], reverse=True)
     return items[:limit]
 
+def manual_category_tag(cat: str) -> str:
+    """
+    Build synthetic category 'Manual_<Slug>' from manual Category.
+    Example: 'Car Loan' -> 'Manual_CarLoan'
+    """
+    base = (cat or "").strip()
+    if not base:
+        return "Manual_Uncategorized"
+    # Keep letters/digits; remove spaces/punctuation; title-case without spaces
+    slug = re.sub(r'[^A-Za-z0-9]+', '', base.title())
+    return f"Manual_{slug}" if slug else "Manual_Uncategorized"
 
 
 # ---------------- Dashboard ----------------
@@ -806,7 +853,7 @@ def aggregate():
 
     months, cards, mains, cats = get_distinct_filters()
 
-    # Build WHERE for card table (all filters)
+    # WHERE for cards (all filters)
     filter_params = {"month": selected_month, "card": selected_card, "main": selected_main, "cat": selected_cat}
     where_sql, qp = apply_filters_where(filter_params)
 
@@ -814,21 +861,21 @@ def aggregate():
     group_cols_sql = ", ".join(group_cols)
     order_clause = "ORDER BY Month ASC, Amount DESC" if "Month" in group_cols else "ORDER BY Amount DESC"
 
-    # Card source (respects all filters)
+    # Cards source
     cards_select = f"""
       SELECT Month, CardName, MainCategory, Category, Amount
       FROM {table_id}
       {where_sql}
     """
 
-    # Manual source (respects Month filter only; normalized fields for grouping)
+    # Manual source: Manual_<Slug> for both MainCategory and Category
     manual_base = f"`{BQ_PROJECT}.{BQ_DATASET}.manual_spend`"
     if selected_month:
         manual_select = f"""
           SELECT Month,
                  'Manual' AS CardName,
-                 'Manual' AS MainCategory,
-                 Category,
+                 CONCAT('Manual_', REGEXP_REPLACE(INITCAP(Category), r'[^A-Za-z0-9]+', '')) AS MainCategory,
+                 CONCAT('Manual_', REGEXP_REPLACE(INITCAP(Category), r'[^A-Za-z0-9]+', '')) AS Category,
                  Amount
           FROM {manual_base}
           WHERE Month=@month
@@ -837,8 +884,8 @@ def aggregate():
         manual_select = f"""
           SELECT Month,
                  'Manual' AS CardName,
-                 'Manual' AS MainCategory,
-                 Category,
+                 CONCAT('Manual_', REGEXP_REPLACE(INITCAP(Category), r'[^A-Za-z0-9]+', '')) AS MainCategory,
+                 CONCAT('Manual_', REGEXP_REPLACE(INITCAP(Category), r'[^A-Za-z0-9]+', '')) AS Category,
                  Amount
           FROM {manual_base}
         """
@@ -857,7 +904,6 @@ def aggregate():
       LIMIT 1000
     """
 
-    # Parameters: pass card filters; ensure @month for manual if used
     agg_params = dict(qp)
     if selected_month:
         agg_params["month"] = selected_month
@@ -894,6 +940,7 @@ def aggregate():
         loaded="",
         table_modified=get_table_metadata(TARGET_TABLE).get("modified"),
     )
+
 
 
 # ---------------- Status (combined) ----------------
@@ -1040,13 +1087,7 @@ def review_post():
 
 # ---- Include manual spend in Dashboard details ----
 def get_dashboard_details_with_manual(selected_month: str | None, where_sql: str, qp: dict, include_manual: bool):
-    """
-    Returns a unified list of detail rows. Card rows honor all filters. Manual rows honor Month only
-    and are normalized to the card schema with CardName='Manual', MainCategory='Manual'.
-    """
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
-
-    # Card rows
     cards_sql = f"""
       SELECT CardName, MainCategory, Category, Description, Amount, Month
       FROM {table_id}
@@ -1056,13 +1097,12 @@ def get_dashboard_details_with_manual(selected_month: str | None, where_sql: str
     """
     cards_rows = bq_query(cards_sql, qp)
 
-    # Manual rows (Month scope)
     manual_rows = []
     if include_manual:
         manual_base = f"`{BQ_PROJECT}.{BQ_DATASET}.manual_spend`"
         if selected_month:
             manual_sql = f"""
-              SELECT Month, Category AS MainCategory, Category, Description, Amount
+              SELECT Month, Category, Description, Amount
               FROM {manual_base}
               WHERE Month=@month
               ORDER BY Amount DESC
@@ -1071,7 +1111,7 @@ def get_dashboard_details_with_manual(selected_month: str | None, where_sql: str
             mrows = bq_query(manual_sql, {"month": selected_month})
         else:
             manual_sql = f"""
-              SELECT Month, Category AS MainCategory, Category, Description, Amount
+              SELECT Month, Category, Description, Amount
               FROM {manual_base}
               ORDER BY Month DESC, Amount DESC
               LIMIT 1000
@@ -1080,8 +1120,8 @@ def get_dashboard_details_with_manual(selected_month: str | None, where_sql: str
 
         manual_rows = [{
             "CardName": "Manual",
-            "MainCategory": "Manual",
-            "Category": r.get("Category"),
+            "MainCategory": manual_category_tag(r.get("Category") or ""),
+            "Category": manual_category_tag(r.get("Category") or ""),
             "Description": r.get("Description"),
             "Amount": r.get("Amount"),
             "Month": r.get("Month"),
