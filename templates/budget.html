@@ -10,9 +10,58 @@
 .pill { display:inline-block; padding:8px 12px; border-radius:999px; border:1px solid var(--border); background:#fff; }
 .status-ok { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
 .status-bad { background:#fee2e2; border-color:#fecaca; color:#991b1b; }
+.muted { color: var(--muted); }
+.small-table { border:1px solid var(--border); border-radius:10px; overflow:auto; }
+.small-table table { width:100%; border-collapse:collapse; }
+.small-table th, .small-table td { padding:8px 10px; border-bottom:1px solid var(--border); text-align:left; }
+.small-table thead th { background:#f3f4f6; position:sticky; top:0; z-index:1; }
+.summary-grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:12px; }
+@media (max-width:980px){ .summary-grid { grid-template-columns:1fr; } }
 </style>
 {% endblock %}
+
 {% block content %}
+
+<!-- Monthly Comparison first -->
+<div class="section">
+  <h3>Monthly Comparison{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
+  <div class="pill {% if status == 'Within limit' %}status-ok{% else %}status-bad{% endif %}">
+    <strong>Status:</strong> {{ status }}
+  </div>
+  <div class="pill" style="margin-left:8px;"><strong>Cards Spend:</strong> {{ (cards_total or 0)|currency }}</div>
+  <div class="pill" style="margin-left:8px;"><strong>Manual Spend:</strong> {{ (manual_total or 0)|currency }}</div>
+  <div class="pill" style="margin-left:8px;"><strong>Total Income:</strong> {{ (income_total or 0)|currency }}</div>
+
+  <!-- Compact grouped year summaries -->
+  <div class="summary-grid">
+    <div class="small-table">
+      <table>
+        <thead><tr><th>Manual Spend (Year)</th><th>Total</th></tr></thead>
+        <tbody>
+          {% for r in manual_year_summary %}
+            <tr><td>{{ r.Year }}</td><td>{{ (r.Amount or 0)|currency }}</td></tr>
+          {% endfor %}
+          {% if manual_year_summary|length == 0 %}
+            <tr><td colspan="2" class="muted">No manual spend summary.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    <div class="small-table">
+      <table>
+        <thead><tr><th>Income (Year)</th><th>Total</th></tr></thead>
+        <tbody>
+          {% for r in income_year_summary %}
+            <tr><td>{{ r.Year }}</td><td>{{ (r.Amount or 0)|currency }}</td></tr>
+          {% endfor %}
+          {% if income_year_summary|length == 0 %}
+            <tr><td colspan="2" class="muted">No income summary.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 <!-- Month filter -->
 <div class="section">
@@ -31,7 +80,7 @@
   </form>
 </div>
 
-<!-- MainCategory totals for selected month -->
+<!-- Card MainCategory totals (selected month) -->
 <div class="section">
   <h3>MainCategory totals{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
   <div class="table-scroll">
@@ -42,7 +91,7 @@
           <tr><td>{{ r.MainCategory }}</td><td>{{ (r.Amount or 0)|currency }}</td></tr>
         {% endfor %}
         {% if main_totals|length == 0 %}
-          <tr><td colspan="2" class="muted">No data for this view.</td></tr>
+          <tr><td colspan="2" class="muted">No card data for this view.</td></tr>
         {% endif %}
       </tbody>
     </table>
@@ -50,7 +99,7 @@
 </div>
 
 <div class="grid-2">
-  <!-- Manual spend -->
+  <!-- Manual spend: add form + grouped tables -->
   <div class="section">
     <h3>Add Manual Spend</h3>
     <form method="post" action="{{ url_for('budget_spend_add') }}" class="inline">
@@ -83,28 +132,46 @@
       <button class="btn secondary" type="submit">Add Spend</button>
     </form>
 
-    <div class="table-scroll" style="margin-top:12px;">
+    <!-- Grouped by Category -->
+    <h3 style="margin-top:14px;">Manual Spend by Category{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
+    <div class="table-scroll" style="margin-top:8px;">
       <table>
-        <thead><tr><th>Month</th><th>Category</th><th>Description</th><th>Amount</th><th>Note</th></tr></thead>
+        <thead><tr><th>Category</th><th>Total Amount</th></tr></thead>
         <tbody>
-          {% for r in manual_rows %}
-          <tr>
-            <td>{{ r.Month }}</td>
-            <td>{{ r.Category }}</td>
-            <td>{{ r.Description }}</td>
-            <td>{{ (r.Amount or 0)|currency }}</td>
-            <td>{{ r.Note or '' }}</td>
-          </tr>
+          {% for r in manual_by_cat %}
+            <tr>
+              <td>{{ r.Category }}</td>
+              <td>{{ (r.Amount or 0)|currency }}</td>
+            </tr>
           {% endfor %}
-          {% if manual_rows|length == 0 %}
-          <tr><td colspan="5" class="muted">No manual spends yet for this view.</td></tr>
+          {% if manual_by_cat|length == 0 %}
+            <tr><td colspan="2" class="muted">No manual spend for this view.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Grouped by Year -->
+    <h3 style="margin-top:14px;">Manual Spend by Year{% if selected_month %} (filtered){% endif %}</h3>
+    <div class="table-scroll" style="margin-top:8px;">
+      <table>
+        <thead><tr><th>Year</th><th>Total Amount</th></tr></thead>
+        <tbody>
+          {% for r in manual_by_year %}
+            <tr>
+              <td>{{ r.Year }}</td>
+              <td>{{ (r.Amount or 0)|currency }}</td>
+            </tr>
+          {% endfor %}
+          {% if manual_by_year|length == 0 %}
+            <tr><td colspan="2" class="muted">No manual spend for this view.</td></tr>
           {% endif %}
         </tbody>
       </table>
     </div>
   </div>
 
-  <!-- Income -->
+  <!-- Income: add form + grouped tables -->
   <div class="section">
     <h3>Add Income</h3>
     <form method="post" action="{{ url_for('budget_income_add') }}" class="inline">
@@ -133,36 +200,44 @@
       <button class="btn secondary" type="submit">Add Income</button>
     </form>
 
-    <div class="table-scroll" style="margin-top:12px;">
+    <!-- Grouped by Source -->
+    <h3 style="margin-top:14px;">Income by Source{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
+    <div class="table-scroll" style="margin-top:8px;">
       <table>
-        <thead><tr><th>Month</th><th>Source</th><th>Amount</th><th>Note</th></tr></thead>
+        <thead><tr><th>Source</th><th>Total Amount</th></tr></thead>
         <tbody>
-          {% for r in income_rows %}
-          <tr>
-            <td>{{ r.Month }}</td>
-            <td>{{ r.Source }}</td>
-            <td>{{ (r.Amount or 0)|currency }}</td>
-            <td>{{ r.Note or '' }}</td>
-          </tr>
+          {% for r in income_by_source %}
+            <tr>
+              <td>{{ r.Source }}</td>
+              <td>{{ (r.Amount or 0)|currency }}</td>
+            </tr>
           {% endfor %}
-          {% if income_rows|length == 0 %}
-          <tr><td colspan="4" class="muted">No income rows yet for this view.</td></tr>
+          {% if income_by_source|length == 0 %}
+            <tr><td colspan="2" class="muted">No income for this view.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Grouped by Year -->
+    <h3 style="margin-top:14px;">Income by Year{% if selected_month %} (filtered){% endif %}</h3>
+    <div class="table-scroll" style="margin-top:8px;">
+      <table>
+        <thead><tr><th>Year</th><th>Total Amount</th></tr></thead>
+        <tbody>
+          {% for r in income_by_year %}
+            <tr>
+              <td>{{ r.Year }}</td>
+              <td>{{ (r.Amount or 0)|currency }}</td>
+            </tr>
+          {% endfor %}
+          {% if income_by_year|length == 0 %}
+            <tr><td colspan="2" class="muted">No income for this view.</td></tr>
           {% endif %}
         </tbody>
       </table>
     </div>
   </div>
-</div>
-
-<!-- Summary -->
-<div class="section">
-  <h3>Monthly Comparison</h3>
-  <div class="pill {% if status == 'Within limit' %}status-ok{% else %}status-bad{% endif %}">
-    <strong>Status:</strong> {{ status }}
-  </div>
-  <div class="pill" style="margin-left:8px;"><strong>Cards Spend:</strong> {{ (cards_total or 0)|currency }}</div>
-  <div class="pill" style="margin-left:8px;"><strong>Manual Spend:</strong> {{ (manual_total or 0)|currency }}</div>
-  <div class="pill" style="margin-left:8px;"><strong>Total Income:</strong> {{ (income_total or 0)|currency }}</div>
 </div>
 
 {% endblock %}
