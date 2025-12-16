@@ -377,40 +377,54 @@ def get_sources_first_last_months():
     return card_rows
 
 # ---------------- Monthly Comparison ----------------
-def build_monthly_comparison_rows():
+def build_monthly_comparison_rows(limit_months: int = 24) -> list[dict]:
     """
-    Returns rows: [{Month, Income, Cards, Manual}]
-    Aggregates by Month across monthly_income, all_positive_monthly, and manual_spend.
+    Returns rows: [{Month, Income, Cards, Manual}] across all months present in any source.
+    Month must be a string 'YYYY-MM' in each table.
+    limit_months: number of most recent months to return (None for all).
     """
-    inc_sql = f"""
-      SELECT Month, SUM(Amount) AS Income
-      FROM `{BQ_PROJECT}.{BQ_DATASET}.monthly_income`
-      GROUP BY Month
+    sql = f"""
+      WITH income AS (
+        SELECT Month, SUM(Amount) AS Income
+        FROM `{BQ_PROJECT}.{BQ_DATASET}.monthly_income`
+        WHERE Month IS NOT NULL
+        GROUP BY Month
+      ),
+      cards AS (
+        SELECT Month, SUM(Amount) AS Cards
+        FROM `{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`
+        WHERE Month IS NOT NULL
+        GROUP BY Month
+      ),
+      manual AS (
+        SELECT Month, SUM(Amount) AS Manual
+        FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`
+        WHERE Month IS NOT NULL
+        GROUP BY Month
+      ),
+      months AS (
+        SELECT Month FROM income
+        UNION DISTINCT
+        SELECT Month FROM cards
+        UNION DISTINCT
+        SELECT Month FROM manual
+      )
+      SELECT m.Month,
+             COALESCE(i.Income, 0) AS Income,
+             COALESCE(c.Cards, 0)  AS Cards,
+             COALESCE(man.Manual, 0) AS Manual
+      FROM months m
+      LEFT JOIN income i ON i.Month = m.Month
+      LEFT JOIN cards  c ON c.Month = m.Month
+      LEFT JOIN manual man ON man.Month = m.Month
+      ORDER BY m.Month DESC
     """
-    cards_sql = f"""
-      SELECT Month, SUM(Amount) AS Cards
-      FROM `{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`
-      GROUP BY Month
-    """
-    manual_sql = f"""
-      SELECT Month, SUM(Amount) AS Manual
-      FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`
-      GROUP BY Month
-    """
-    inc_rows = {str(r["Month"]): float(r["Income"] or 0) for r in bq_query(inc_sql)}
-    cards_rows = {str(r["Month"]): float(r["Cards"] or 0) for r in bq_query(cards_sql)}
-    manual_rows = {str(r["Month"]): float(r["Manual"] or 0) for r in bq_query(manual_sql)}
+    rows = bq_query(sql)
+    if not rows:
+        return []
+    # If you want to limit the number of rows shown (e.g., last 24 months)
+    return rows[:limit_months] if limit_months else rows
 
-    months = set(inc_rows) | set(cards_rows) | set(manual_rows)
-    out = []
-    for m in sorted(months):
-      out.append({
-        "Month": m,
-        "Income": inc_rows.get(m, 0.0),
-        "Cards": cards_rows.get(m, 0.0),
-        "Manual": manual_rows.get(m, 0.0),
-      })
-    return out
 
 
 # ---------------- Routes: index/list/process ----------------
@@ -1498,44 +1512,99 @@ def upload():
 # ---------------- Budget & Income ----------------
 @app.get("/budget")
 def budget_get():
+    # Optional month filter from UI
     month = request.args.get("month", "").strip() or None
 
+    # Dropdown sources
     months = get_months_from_positive()
     manual_categories = get_existing_manual_categories()
     income_sources = get_existing_income_sources()
 
-    manual_by_cat, manual_by_year = fetch_manual_grouped(month)
-    income_by_source, income_by_year = fetch_income_grouped(month)
+    # Grouped manual spend (by Category for selected month or all)
+    manual_by_cat_sql = f"""
+      SELECT Category, SUM(Amount) AS Amount
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`
+      { 'WHERE Month=@month' if month else '' }
+      GROUP BY Category
+      ORDER BY Amount DESC
+    """
+    manual_by_cat = bq_query(manual_by_cat_sql, {"month": month} if month else None)
 
-    # Slice top-by-year summaries for the comparison box
-    manual_year_summary = summarize_year_rows(manual_by_year, top_n=6)
-    income_year_summary = summarize_year_rows(income_by_year, top_n=6)
+    # Grouped income (by Source for selected month or all)
+    income_by_source_sql = f"""
+      SELECT Source, SUM(Amount) AS Amount
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.monthly_income`
+      { 'WHERE Month=@month' if month else '' }
+      GROUP BY Source
+      ORDER BY Amount DESC
+    """
+    income_by_source = bq_query(income_by_source_sql, {"month": month} if month else None)
 
+    # Totals for Monthly Comparison (selected month or all)
     cards_total, manual_total, income_total = get_month_totals(month)
     status_txt = "Within limit" if (cards_total + manual_total) <= income_total else "Exceeded"
-    monthly_comparison_rows = build_monthly_comparison_rows()
 
+    # Build All-Month Comparison table (last 24 months)
+    all_months_sql = f"""
+      WITH income AS (
+        SELECT Month, SUM(Amount) AS Income
+        FROM `{BQ_PROJECT}.{BQ_DATASET}.monthly_income`
+        WHERE Month IS NOT NULL
+        GROUP BY Month
+      ),
+      cards AS (
+        SELECT Month, SUM(Amount) AS Cards
+        FROM `{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`
+        WHERE Month IS NOT NULL
+        GROUP BY Month
+      ),
+      manual AS (
+        SELECT Month, SUM(Amount) AS Manual
+        FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`
+        WHERE Month IS NOT NULL
+        GROUP BY Month
+      ),
+      months AS (
+        SELECT Month FROM income
+        UNION DISTINCT
+        SELECT Month FROM cards
+        UNION DISTINCT
+        SELECT Month FROM manual
+      )
+      SELECT m.Month,
+             COALESCE(i.Income, 0) AS Income,
+             COALESCE(c.Cards, 0)  AS Cards,
+             COALESCE(man.Manual, 0) AS Manual
+      FROM months m
+      LEFT JOIN income i ON i.Month = m.Month
+      LEFT JOIN cards  c ON c.Month = m.Month
+      LEFT JOIN manual man ON man.Month = m.Month
+      ORDER BY m.Month DESC
+    """
+    monthly_comparison_rows = bq_query(all_months_sql)
+    # Trim to most recent 24 months (adjust if you want more/less)
+    monthly_comparison_rows = monthly_comparison_rows[:24] if monthly_comparison_rows else []
 
-    main_totals = get_main_totals_for_month(month)
-
+    # Render page (MainCategory totals removed per your request)
     return render_template(
         "budget.html",
+        # Filter
         months=months,
         selected_month=month or "",
-        manual_by_cat=manual_by_cat,
-        manual_by_year=manual_by_year,
-        income_by_source=income_by_source,
-        income_by_year=income_by_year,
-        manual_year_summary=manual_year_summary,   # NEW
-        income_year_summary=income_year_summary,   # NEW
+        # Monthly comparison totals
         cards_total=cards_total,
         manual_total=manual_total,
         income_total=income_total,
         status=status_txt,
-        main_totals=main_totals,
+        # Grouped sections
+        manual_by_cat=manual_by_cat,
+        income_by_source=income_by_source,
         manual_categories=manual_categories,
-        income_sources=income_sources
+        income_sources=income_sources,
+        # All-month comparison table
+        monthly_comparison_rows=monthly_comparison_rows
     )
+
 
 
 
