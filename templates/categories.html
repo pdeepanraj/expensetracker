@@ -2,63 +2,16 @@
 {% block title %}Categories{% endblock %}
 
 {% block head %}
-<style>
-  /* Top tab bar */
-  .tabs {
-    display: flex; gap: 8px; padding: 8px; background: #0b5cff; border-radius: 10px;
-    color: #fff; align-items: center;
-  }
-  .tab {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 10px 14px; border-radius: 8px; cursor: pointer; user-select: none;
-    background: rgba(255,255,255,.08);
-  }
-  .tab.active { background: #fff; color: #0b5cff; font-weight: 600; }
-  .tabs-spacer { flex: 1; }
-
-  /* Section cards inside the page */
-  .section { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-top: 12px; }
-  .section h3 { margin: 0 0 8px 0; }
-  .row { display: grid; gap: 12px; }
-  .grid-2 { grid-template-columns: 1fr 1fr; }
-  .grid-3 { grid-template-columns: repeat(3, 1fr); }
-  .muted { color: var(--muted); }
-
-  /* Compact form controls */
-  .form-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
-  .form-field { display:flex; flex-direction: column; gap:6px; min-width: 220px; }
-  .form-field input[type="text"], .form-field select, .form-field textarea {
-    padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: #fff;
-  }
-  .hint { font-size: 12px; color: var(--muted); }
-
-  /* Sticky table */
-  .table-wrap { margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-  .table-scroll { max-height: 58vh; overflow: auto; }
-  table { width: 100%; border-collapse: collapse; }
-  thead th { position: sticky; top: 0; background: #f3f4f6; border-bottom: 1px solid var(--border); padding: 10px; text-align: left; z-index: 1; }
-  tbody td { padding: 10px; border-bottom: 1px solid var(--border); }
-  tbody tr:hover { background: #fafafa; }
-
-  /* Pills for results */
-  .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); }
-  .pill.ok { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
-  .pill.warn { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
-
-  @media (max-width: 980px) {
-    .grid-2, .grid-3 { grid-template-columns: 1fr; }
-    .form-field { min-width: 180px; }
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/categories.css') }}">
 {% endblock %}
 
 {% block content %}
 
 <!-- Tab bar -->
-<div class="tabs">
-  <div class="tab active" data-tab="tester">Source Database</div>
-  <div class="tab" data-tab="add">Destination Database</div>
-  <div class="tab" data-tab="reclass">Recovery</div>
+<div class="tabs" role="tablist">
+  <button class="tab active" data-tab="tester" role="tab" tabindex="0" aria-selected="true">Source Database</button>
+  <button class="tab" data-tab="add" role="tab" tabindex="-1" aria-selected="false">Destination Database</button>
+  <button class="tab" data-tab="reclass" role="tab" tabindex="-1" aria-selected="false">Recovery</button>
   <div class="tabs-spacer"></div>
   <div class="muted">Configuration</div>
 </div>
@@ -67,10 +20,10 @@
 <div class="section" id="tab-tester">
   <h3>Category Tester</h3>
   {% if message %}
-    <p class="muted" style="color: {{ 'green' if message_type=='ok' else 'crimson' }};">{{ message }}</p>
+    <p class="muted {{ 'msg-ok' if message_type=='ok' else 'msg-err' }}">{{ message }}</p>
   {% endif %}
-  <form method="get" action="{{ url_for('categories_get') }}" class="form-row" style="margin-top:8px;">
-    <div class="form-field" style="flex:1; min-width:360px;">
+  <form method="get" action="{{ url_for('categories_get') }}" class="form-row mt-8">
+    <div class="form-field flex-1 min-360">
       <label for="desc">Description</label>
       <input id="desc" name="desc" type="text" value="{{ description }}" placeholder="Paste a transaction description">
       <div class="hint">Try a real Description from your data to see how it classifies.</div>
@@ -81,7 +34,7 @@
   </form>
 
   {% if description %}
-    <div style="margin-top:10px;">
+    <div class="mt-10">
       <span class="muted">Result:</span>
       <span class="pill {{ 'ok' if result_cat!='Other' else 'warn' }}">Main = {{ result_main or '—' }}</span>
       <span class="pill {{ 'ok' if result_cat!='Other' else 'warn' }}">Category = {{ result_cat or '—' }}</span>
@@ -90,11 +43,11 @@
 </div>
 
 <!-- Add Category section -->
-<div class="section" id="tab-add" style="display:none;">
+<div class="section hidden" id="tab-add">
   <h3>Add New Category</h3>
   <p class="muted">Adds keywords to BigQuery: {{ project if project else 'deepanexpense' }}.{{ dataset if dataset else 'expense_analytics' }}.category_config and reclassifies matching “Other” rows.</p>
 
-  <form method="post" action="{{ url_for('categories_add_post') }}" class="form-row" style="margin-top:8px;">
+  <form method="post" action="{{ url_for('categories_add_post') }}" class="form-row mt-8">
     <input type="hidden" name="desc" value="{{ description }}">
     <div class="form-field">
       <label for="main">Main</label>
@@ -109,7 +62,7 @@
       <label for="category">Category</label>
       <input id="category" name="category" type="text" placeholder="e.g., Local Cafe">
     </div>
-    <div class="form-field" style="flex:1; min-width:360px;">
+    <div class="form-field flex-1 min-360">
       <label for="keywords">Keywords (comma separated)</label>
       <input id="keywords" name="keywords" type="text" placeholder="e.g., cafe, local cafe, lcafe, kohl's">
       <div class="hint">You can include punctuation. We’ll handle regex escaping safely.</div>
@@ -121,20 +74,20 @@
 </div>
 
 <!-- Reclassify Other section -->
-<div class="section" id="tab-reclass" style="display:none;">
+<div class="section hidden" id="tab-reclass">
   <h3>Reclassify “Other”</h3>
   <p class="muted">Source: {{ project if project else 'deepanexpense' }}.{{ dataset if dataset else 'expense_analytics' }}.all_positive_monthly</p>
 
-  <div class="table-wrap">
+  <div class="table-wrap mt-10">
     <div class="table-scroll">
       <table>
         <thead>
           <tr>
-            <th style="width:120px;">Month</th>
-            <th style="width:160px;">Card</th>
+            <th class="w-120">Month</th>
+            <th class="w-160">Card</th>
             <th>Description</th>
-            <th style="width:120px;">Amount</th>
-            <th style="width:360px;">Set Main/Category</th>
+            <th class="w-120">Amount</th>
+            <th class="w-360">Set Main/Category</th>
           </tr>
         </thead>
         <tbody>
@@ -145,18 +98,18 @@
             <td>{{ r.Description }}</td>
             <td>{{ r.Amount|currency }}</td>
             <td>
-              <form method="post" action="{{ url_for('categories_reclassify_monthly') }}" class="inline reclass-form" style="gap:8px; flex-wrap:nowrap;">
+              <form method="post" action="{{ url_for('categories_reclassify_monthly') }}" class="inline reclass-form nowrap gap-8">
                 <input type="hidden" name="month" value="{{ r.Month }}">
                 <input type="hidden" name="card" value="{{ r.CardName }}">
                 <input type="hidden" name="desc" value="{{ r.Description }}">
 
-                <select name="main" class="main-select" style="min-width:160px;">
+                <select name="main" class="main-select min-160">
                   {% for m in mains %}
                     <option value="{{ m }}">{{ m }}</option>
                   {% endfor %}
                 </select>
 
-                <select name="category" class="category-select" style="min-width:180px;"></select>
+                <select name="category" class="category-select min-180"></select>
 
                 <button class="btn" type="submit">Update</button>
               </form>
@@ -179,23 +132,34 @@
 {% block scripts %}
 <script>
 (function(){
-  // Tab switching
-  const tabs = document.querySelectorAll('.tab');
+  // Tab switching with accessibility
+  const tabs = Array.from(document.querySelectorAll('.tabs .tab'));
   const panels = {
     tester: document.getElementById('tab-tester'),
     add: document.getElementById('tab-add'),
     reclass: document.getElementById('tab-reclass'),
   };
-  function activate(name){
-    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    Object.entries(panels).forEach(([k, el]) => el.style.display = (k === name ? '' : 'none'));
+  function show(name){
+    tabs.forEach(t => {
+      const isActive = t.dataset.tab === name;
+      t.classList.toggle('active', isActive);
+      t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      t.setAttribute('tabindex', isActive ? '0' : '-1');
+    });
+    Object.entries(panels).forEach(([k, el]) => el.classList.toggle('hidden', k !== name));
   }
-  tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
-  // Choose initial tab based on context
+  tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab)));
+  document.querySelector('.tabs').addEventListener('keydown', e => {
+    const idx = tabs.findIndex(t => t.classList.contains('active'));
+    if (e.key === 'ArrowRight') { e.preventDefault(); const n = tabs[(idx+1)%tabs.length]; n.focus(); show(n.dataset.tab); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); const p = tabs[(idx-1+tabs.length)%tabs.length]; p.focus(); show(p.dataset.tab); }
+  });
+
+  // Initial tab based on context
   {% if description and (result_cat == 'Other' or result_cat == '') %}
-    activate('add');
+    show('add');
   {% else %}
-    activate('tester');
+    show('tester');
   {% endif %}
 
   // Categories by Main (provided by app.py)
