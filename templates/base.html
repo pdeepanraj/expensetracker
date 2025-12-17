@@ -10,7 +10,7 @@
       --header-h: 56px;
       --sidebar-w: 240px;
 
-      /* Global palette */
+      /* Base palette (light) */
       --bg: #f6f7fb;
       --panel: #ffffff;
       --text: #1f2937;
@@ -19,43 +19,103 @@
       --accent: #0b5cff;
       --accent-contrast: #ffffff;
 
-      /* Sidebar theming variables (customize these) */
+      /* Sidebar */
       --sidebar-bg: #0b1a2f;
       --sidebar-border: #0e264f;
       --sidebar-text: #cfe3ff;
-      --sidebar-hover: #0f2d5c;
+      --sidebar-hover: #103367;
       --sidebar-active-bg: #2d6cdf;
       --sidebar-active-text: #ffffff;
+
+      /* Header */
+      --header-bg: #0f172a;
+      --header-text: #ffffff;
+
+      /* Animation and effects */
+      --transition-fast: 180ms ease;
+      --transition-med: 260ms ease;
+      --shadow-1: 0 1px 3px rgba(0,0,0,.08);
+      --shadow-2: 0 6px 24px rgba(0,0,0,.12);
     }
 
+    /* Dark theme palette */
+    html[data-theme="dark"]{
+      --bg: #0e1116;
+      --panel: #141922;
+      --text: #e9eef6;
+      --muted: #9aa3af;
+      --border: rgba(255,255,255,0.12);
+      --accent: #38a1ff;
+      --accent-contrast: #0b1016;
+
+      --sidebar-bg: #0a0f1a;
+      --sidebar-border: #0f1a2a;
+      --sidebar-text: #c5dcff;
+      --sidebar-hover: #13233c;
+      --sidebar-active-bg: #38a1ff;
+      --sidebar-active-text: #0b1016;
+
+      --header-bg: #0b1016;
+      --header-text: #e9eef6;
+    }
+
+    /* Global transitions */
+    * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
     body {
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
       color: var(--text);
       background: var(--bg);
+      transition: background-color var(--transition-med), color var(--transition-med);
     }
 
-    /* Header (fixed) */
+    /* Header (fixed) with scroll tint */
     .app-header {
       position: fixed; top: 0; left: 0; right: 0;
       height: var(--header-h);
-      background: #0f172a; color: #fff;
+      background: var(--header-bg);
+      color: var(--header-text);
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 12px; z-index: 1100; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+      padding: 0 12px; z-index: 1100; box-shadow: var(--shadow-1);
+      transition: background-color var(--transition-med), color var(--transition-med), box-shadow var(--transition-med);
+    }
+    .app-header.scrolled {
+      box-shadow: 0 6px 20px rgba(0,0,0,.18);
+      background: linear-gradient(180deg, var(--header-bg), rgba(0,0,0,0.06));
     }
     .app-brand { display:flex; align-items:center; gap:10px; font-weight:600; }
     .app-brand .logo {
       width: 28px; height: 28px; border-radius: 6px;
-      background: linear-gradient(135deg, #22d3ee, #6366f1);
-      display:inline-block;
+      background: conic-gradient(from 180deg, #22d3ee, #6366f1, #22d3ee);
+      animation: spinLogo 3s linear infinite paused;
     }
+    .app-brand:hover .logo { animation-play-state: running; }
+    @keyframes spinLogo { to { transform: rotate(360deg); } }
     .app-actions { display:flex; align-items:center; gap:8px; }
-    .btn { border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+
+    /* Buttons with ripple */
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      border-radius: 8px; padding: 6px 12px; cursor: pointer;
+      position: relative; overflow: hidden;
+      transition: transform var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+    }
     .btn.secondary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+    .btn:active { transform: scale(0.98); }
+    .btn::after {
+      content: ""; position: absolute; inset: 0; border-radius: inherit;
+      transform: scale(0); background: rgba(255,255,255,0.25);
+      transition: transform 320ms ease, opacity 320ms ease;
+      pointer-events: none;
+    }
+    .btn:hover::after { transform: scale(1); opacity: 0; }
     .btn:disabled { opacity:.6; cursor:not-allowed; }
+
     .sidebar-toggle { display:none; }
 
-    /* Sidebar (fixed) */
+    /* Sidebar (fixed) with hover glow */
     .app-sidebar {
       position: fixed; top: var(--header-h); left: 0; bottom: 0;
       width: var(--sidebar-w);
@@ -64,14 +124,21 @@
       border-right: 1px solid var(--sidebar-border);
       z-index: 1001;
       display: flex; flex-direction: column; padding: 12px 8px;
+      transition: background-color var(--transition-med), color var(--transition-med), border-color var(--transition-med);
     }
     .nav-title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: rgba(255,255,255,0.7); padding: 10px 12px; }
     .nav a {
       display: flex; align-items: center; gap: 10px;
       color: var(--sidebar-text); text-decoration: none;
-      padding: 10px 12px; border-radius: 8px; margin: 2px 4px;
+      padding: 10px 12px; border-radius: 10px; margin: 2px 4px;
+      transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+      position: relative;
     }
-    .nav a:hover { background: var(--sidebar-hover); }
+    .nav a:hover {
+      background: var(--sidebar-hover);
+      box-shadow: 0 6px 18px rgba(0,0,0,.24);
+      transform: translateX(2px);
+    }
     .nav a.active { background: var(--sidebar-active-bg); color: var(--sidebar-active-text); }
 
     /* Content area (scrolls) */
@@ -83,6 +150,7 @@
       bottom: 0;
       overflow: auto;
       padding: 16px 20px;
+      transition: background-color var(--transition-med), color var(--transition-med);
     }
 
     /* Cards/tables/common */
@@ -92,22 +160,30 @@
       border-radius: 10px;
       padding: 16px;
       margin-bottom: 16px;
-      box-shadow: 0 1px 2px rgba(0,0,0,.03);
+      box-shadow: var(--shadow-1);
+      transition: background-color var(--transition-med), border-color var(--transition-med), box-shadow var(--transition-med);
     }
+    .card:hover { box-shadow: var(--shadow-2); }
     .muted { color: var(--muted); }
     .inline { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
     input[type="text"], input[type="number"], input[type="month"], input[type="file"], select, textarea {
-      border: 1px solid var(--border); background: #fff; color: var(--text);
+      border: 1px solid var(--border); background: var(--panel); color: var(--text);
       border-radius: 8px; padding: 8px 10px; min-width: 200px;
+      transition: background-color var(--transition-med), border-color var(--transition-med), color var(--transition-med), box-shadow var(--transition-fast);
+    }
+    input[type="text"]:focus, input[type="number"]:focus, input[type="month"]:focus, input[type="file"]:focus, select:focus, textarea:focus {
+      outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(11,92,255,0.18);
     }
     table { width: 100%; border-collapse: collapse; }
     thead th {
       position: sticky; top: 0; background: #f3f4f6; color: #111827;
       font-weight: 600; text-align: left; border-bottom: 1px solid var(--border);
       padding: 10px; z-index: 1;
+      transition: background-color var(--transition-med), color var(--transition-med);
     }
-    tbody td { padding: 10px; border-bottom: 1px solid var(--border); }
-    .table-scroll { max-height: 60vh; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+    html[data-theme="dark"] thead th { background: #1b2230; color: var(--text); }
+    tbody td { padding: 10px; border-bottom: 1px solid var(--border); transition: color var(--transition-med), border-color var(--transition-med); }
+    .table-scroll { max-height: 60vh; overflow: auto; border: 1px solid var(--border); border-radius: 10px; transition: border-color var(--transition-med); }
 
     /* Mobile responsiveness */
     @media (max-width: 720px) {
@@ -119,16 +195,6 @@
       .app-sidebar.open { transform: translateX(0); }
       .app-content { left: 0; padding: 12px 14px; }
       .sidebar-toggle { display: inline-flex; }
-    }
-
-    /* Optional dark theme sidebar palette */
-    html[data-theme="dark"]{
-      --sidebar-bg: #0a0f1a;
-      --sidebar-border: #0f1a2a;
-      --sidebar-text: #bcd0ff;
-      --sidebar-hover: #11213a;
-      --sidebar-active-bg: #38a1ff;
-      --sidebar-active-text: #0b1016;
     }
   </style>
 
@@ -152,8 +218,7 @@
     <div class="nav">
       <div class="nav-title">Main</div>
       <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint=='index' else '' }}">Home</a>
-      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint=='dashboard' else '' }}">Dashboard</a>
-      <a href="{{ url_for('review_get') }}" class="{{ 'active' if request.endpoint=='review_get' else '' }}">Review</a>
+      <a href="{{ url_for('dashboard_details') }}" class="{{ 'active' if request.endpoint in ['dashboard','dashboard_details','dashboard_manual','dashboard_income','aggregate'] else '' }}">Dashboard</a>
       <a href="{{ url_for('bills') }}" class="{{ 'active' if request.endpoint=='bills' else '' }}">Bills</a>
       <a href="{{ url_for('categories_get') }}" class="{{ 'active' if request.endpoint=='categories_get' else '' }}">Categories</a>
       <a href="{{ url_for('status') }}" class="{{ 'active' if request.endpoint=='status' else '' }}">Status</a>
@@ -179,15 +244,21 @@
       if (ov) ov.style.display = open ? '' : 'none';
     }
 
-    // Light/Dark theme toggle with persistence
+    // Theme toggle with persistence + header scroll tint
     (function(){
       const html = document.documentElement;
       const key = 'app-theme';
       const btn = document.getElementById('themeToggle');
       const saved = localStorage.getItem(key);
-      if (saved === 'dark' || saved === 'light') {
+
+      // Respect OS preference if nothing saved
+      if (!saved) {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (prefersDark) html.setAttribute('data-theme', 'dark');
+      } else {
         html.setAttribute('data-theme', saved);
       }
+
       function setTheme(next){
         if (next) {
           html.setAttribute('data-theme', next);
@@ -198,6 +269,7 @@
         }
         window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme: next }}));
       }
+
       if (btn) {
         btn.addEventListener('click', () => {
           const cur = html.getAttribute('data-theme');
@@ -205,6 +277,20 @@
           setTheme(next);
         });
       }
+
+      // Scroll tint for header (works with page or content scroll)
+      const header = document.querySelector('.app-header');
+      const content = document.querySelector('.app-content');
+
+      function onScroll(){
+        if (!header) return;
+        const scTop = (window.scrollY || 0) + (content ? content.scrollTop || 0 : 0);
+        const scrolled = scTop > 8;
+        header.classList.toggle('scrolled', !!scrolled);
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      if (content) content.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
     })();
   </script>
 
