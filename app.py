@@ -376,6 +376,24 @@ def get_sources_first_last_months():
     card_rows.sort(key=lambda r: (r.get("Source") or ""))
     return card_rows
 
+# ---------------- Add a general-purpose query helper with sorting and pagination (safe, whitelisted) ----------------
+
+ALLOWED_SORT_FIELDS = {
+    "details": {"Month","CardName","MainCategory","Category","Description","Amount"},
+    "manual": {"Month","Category","Description","Amount","Note"},
+    "income": {"Month","Source","Amount","Note"},
+}
+
+def parse_sorting(tab: str, request_args) -> tuple[str, str]:
+    sort = (request_args.get("sort") or "").strip()
+    order = (request_args.get("order") or "desc").strip().lower()
+    order = "asc" if order == "asc" else "desc"
+    allowed = ALLOWED_SORT_FIELDS.get(tab, set())
+    if sort not in allowed:
+        sort = next(iter(allowed)) if allowed else ""
+    return sort, order
+
+
 # ---------------- Monthly Comparison ----------------
 def build_monthly_comparison_rows(limit_months: int = 24) -> list[dict]:
     """
@@ -793,87 +811,167 @@ def manual_category_tag(cat: str) -> str:
 # ---------------- Dashboard ----------------
 @app.get("/dashboard")
 def dashboard():
-    if not validate_dataset(BQ_PROJECT, BQ_DATASET):
-        return f"Error: Dataset {BQ_PROJECT}.{BQ_DATASET} not accessible.", 500
+    # Default tab
+    return redirect(url_for("dashboard_details"))
 
-    loaded = request.args.get("loaded", "")
-    include_manual = (request.args.get("include_manual", "1").strip() == "1")  # default ON
+@app.get("/dashboard/details")
+def dashboard_details():
+    if not validate_dataset(BQ_PROJECT, BQ_DATASET):
+        return "Dataset not accessible.", 500
+    # Filters
+    month = (request.args.get("month") or "").strip()
+    card  = (request.args.get("card") or "").strip()
+    main  = (request.args.get("main") or "").strip()
+    cat   = (request.args.get("cat") or "").strip()
+    include_manual = (request.args.get("include_manual","1") == "1")
+
+    # Sorting
+    sort, order = parse_sorting("details", request.args)
+    order_sql = f"ORDER BY {sort} {order.upper()}"
 
     months, cards, mains, cats = get_distinct_filters()
 
-    selected_month = request.args.get("month", "").strip() or None
-    selected_card = request.args.get("card", "").strip() or None
-    selected_main = request.args.get("main", "").strip() or None
-    selected_cat = request.args.get("cat", "").strip() or None
+    # Card WHERE
+    where_sql, qp = apply_filters_where({"month": month or None, "card": card or None, "main": main or None, "cat": cat or None})
 
-    filter_params = {"month": selected_month, "card": selected_card, "main": selected_main, "cat": selected_cat}
-    where_sql, qp = apply_filters_where(filter_params)
-
+    # Cards select
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
-    meta = get_table_metadata(TARGET_TABLE)
+    card_sql = f"""
+      SELECT Month, CardName, MainCategory, Category, Description, Amount
+      FROM {table_id}
+      {where_sql}
+    """
 
-    latest_month_sql = f"SELECT Month FROM {table_id} WHERE Month IS NOT NULL ORDER BY Month DESC LIMIT 1"
-    latest_month_rows = bq_query(latest_month_sql)
-    if not latest_month_rows:
-        return render_template(
-            "dashboard.html",
-            latest_month="",
-            month_for_view="",
-            top_categories=[],
-            monthly_totals=[],
-            latest_details=[],
-            project=BQ_PROJECT,
-            dataset=BQ_DATASET,
-            aggregate_labels=[],
-            aggregate_values=[],
-            aggregate_group_by="",
-            aggregate_month="",
-            aggregate_min_amount="",
-            aggregate_rows=[],
-            months=months, cards=cards, mains=mains, cats=cats,
-            selected_month=selected_month, selected_card=selected_card,
-            selected_main=selected_main, selected_cat=selected_cat,
-            include_manual=include_manual,
-            loaded=loaded,
-            table_modified=meta.get("modified"),
-        )
+    # Manual select (Month scope only, normalized fields)
+    manual_rows = []
+    if include_manual:
+        base_manual = f"`{BQ_PROJECT}.{BQ_DATASET}.manual_spend`"
+        if month:
+            manual_sql = f"""
+              SELECT Month, 'Manual' AS CardName,
+                     Category AS MainCategory, Category AS Category,
+                     Description, Amount
+              FROM {base_manual}
+              WHERE Month=@m
+            """
+            manual_rows = bq_query(manual_sql, {"m": month})
+        else:
+            manual_sql = f"""
+              SELECT Month, 'Manual' AS CardName,
+                     Category AS MainCategory, Category AS Category,
+                     Description, Amount
+              FROM {base_manual}
+            """
+            manual_rows = bq_query(manual_sql)
 
-    latest_month = latest_month_rows[0]["Month"]
-    month_for_view = selected_month or latest_month
+    # Cards rows
+    card_rows = bq_query(card_sql, qp)
 
-    # Top categories with Manual category appended when a month is selected
-    top_categories = get_top_categories_with_manual(selected_month, where_sql, qp)
+    rows = card_rows + manual_rows
 
-    # Monthly totals (cards + manual)
-    trend_where_params = {k: v for k, v in filter_params.items() if k != "month"}
-    trend_where_sql, trend_qp = apply_filters_where(trend_where_params)
-    monthly_totals = get_combined_monthly_totals(selected_month, trend_where_sql, trend_qp)
-
-    # Unified Details (cards + manual normalized)
-    latest_details = get_dashboard_details_with_manual(selected_month, where_sql, qp, include_manual)
+    # Apply client-side like sorting in Python to keep SQL simple for union
+    def keyer(r):
+        v = r.get(sort)
+        # numeric amounts else string
+        return (float(v) if sort=="Amount" else (str(v) or ""))
+    rows.sort(key=keyer, reverse=(order=="desc"))
 
     return render_template(
         "dashboard.html",
-        latest_month=latest_month,
-        month_for_view=month_for_view,
-        top_categories=top_categories,
-        monthly_totals=monthly_totals,
-        latest_details=latest_details,
-        project=BQ_PROJECT,
-        dataset=BQ_DATASET,
-        aggregate_labels=[],
-        aggregate_values=[],
-        aggregate_group_by="",
-        aggregate_month="",
-        aggregate_min_amount="",
-        aggregate_rows=[],
+        tab="details",
+        rows=rows,
+        # filters
         months=months, cards=cards, mains=mains, cats=cats,
-        selected_month=selected_month, selected_card=selected_card,
-        selected_main=selected_main, selected_cat=selected_cat,
+        selected_month=month, selected_card=card, selected_main=main, selected_cat=cat,
         include_manual=include_manual,
-        loaded=loaded,
-        table_modified=meta.get("modified"),
+        sort=sort, order=order,
+        # aggregate placeholders
+        aggregate_labels=[], aggregate_values=[], aggregate_group_by="", aggregate_rows=[]
     )
+
+@app.get("/dashboard/manual")
+def dashboard_manual():
+    if not validate_dataset(BQ_PROJECT, BQ_DATASET):
+        return "Dataset not accessible.", 500
+    month = (request.args.get("month") or "").strip()
+    cat   = (request.args.get("cat") or "").strip()
+    text  = (request.args.get("q") or "").strip()
+    sort, order = parse_sorting("manual", request.args)
+    order_sql = f"ORDER BY {sort} {order.upper()}"
+
+    # Distinct categories for dropdown
+    cats_sql = f"SELECT DISTINCT Category FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend` ORDER BY Category"
+    cats_list = [r["Category"] for r in bq_query(cats_sql)]
+
+    where = []
+    qp = {}
+    if month:
+        where.append("Month=@m"); qp["m"]=month
+    if cat:
+        where.append("Category=@c"); qp["c"]=cat
+    if text:
+        where.append("LOWER(Description) LIKE @t"); qp["t"]=f"%{text.lower()}%"
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+
+    sql = f"""
+      SELECT Month, Category, Description, Amount, Note
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.manual_spend`
+      {where_sql}
+      {order_sql}
+      LIMIT 2000
+    """
+    rows = bq_query(sql, qp)
+
+    months, _, _, _ = get_distinct_filters()  # reuse months from cards table
+    return render_template(
+        "dashboard.html",
+        tab="manual",
+        rows=rows,
+        months=months, cats=cats_list,
+        selected_month=month, selected_cat=cat, q=text,
+        sort=sort, order=order,
+        aggregate_labels=[], aggregate_values=[], aggregate_group_by="", aggregate_rows=[]
+    )
+
+@app.get("/dashboard/income")
+def dashboard_income():
+    if not validate_dataset(BQ_PROJECT, BQ_DATASET):
+        return "Dataset not accessible.", 500
+    month = (request.args.get("month") or "").strip()
+    src   = (request.args.get("src") or "").strip()
+    sort, order = parse_sorting("income", request.args)
+    order_sql = f"ORDER BY {sort} {order.upper()}"
+
+    # Distinct sources
+    src_sql = f"SELECT DISTINCT Source FROM `{BQ_PROJECT}.{BQ_DATASET}.monthly_income` ORDER BY Source"
+    src_list = [r["Source"] for r in bq_query(src_sql)]
+
+    where = []; qp={}
+    if month: where.append("Month=@m"); qp["m"]=month
+    if src:   where.append("Source=@s"); qp["s"]=src
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+
+    sql = f"""
+      SELECT Month, Source, Amount, Note
+      FROM `{BQ_PROJECT}.{BQ_DATASET}.monthly_income`
+      {where_sql}
+      {order_sql}
+      LIMIT 2000
+    """
+    rows = bq_query(sql, qp)
+
+    months, _, _, _ = get_distinct_filters()
+    return render_template(
+        "dashboard.html",
+        tab="income",
+        rows=rows,
+        months=months, sources=src_list,
+        selected_month=month, selected_src=src,
+        sort=sort, order=order,
+        aggregate_labels=[], aggregate_values=[], aggregate_group_by="", aggregate_rows=[]
+    )
+
+
 
 
 def normalize_group_by_param(vals: list[str]) -> list[str]:
