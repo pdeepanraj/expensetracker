@@ -2,33 +2,33 @@
 {% block title %}Data Sources{% endblock %}
 
 {% block head %}
-<style>
-  /* Tab bar */
-  .tabs { display:flex; gap:8px; padding:8px; background:#0b5cff; border-radius:10px; color:#fff; align-items:center; }
-  .tab { display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; cursor:pointer; user-select:none; background:rgba(255,255,255,.08); }
-  .tab.active { background:#fff; color:#0b5cff; font-weight:600; }
-  .tabs-spacer { flex:1; }
-
-  /* Sections */
-  .section { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:12px; }
-  .section h3 { margin:0 0 8px 0; }
-  .inline { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
-  .form-field { display:flex; flex-direction:column; gap:6px; min-width:220px; }
-  .form-field input[type="text"], .form-field input[type="file"] { padding:8px 10px; border:1px solid var(--border); border-radius:8px; }
-  .muted { color:var(--muted); }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="card" style="border:none; background:transparent; box-shadow:none; padding:0; margin-bottom:8px;">
-  <h3 style="margin:0 0 6px;">Data Sources</h3>
+<div class="card card-plain mb-8">
+  <h3 class="mb-6">Data Sources</h3>
   <p class="muted">Choose from a GitHub repository or upload local files.</p>
 </div>
 
 <!-- Tab bar -->
-<div class="tabs">
-  <div class="tab active" data-tab="github">GitHub Repository</div>
-  <div class="tab" data-tab="upload">Local Upload</div>
+<div class="tabs" role="tablist">
+  <button class="tab active"
+          type="button"
+          data-tab="github"
+          role="tab"
+          tabindex="0"
+          aria-selected="true">
+    GitHub Repository
+  </button>
+  <button class="tab"
+          type="button"
+          data-tab="upload"
+          role="tab"
+          tabindex="-1"
+          aria-selected="false">
+    Local Upload
+  </button>
   <div class="tabs-spacer"></div>
   <div class="muted">Index</div>
 </div>
@@ -36,7 +36,7 @@
 <!-- GitHub repo listing -->
 <div class="section" id="tab-github">
   <h3>Select GitHub Repository</h3>
-  <form method="get" action="{{ url_for('list_csvs') }}" class="inline" style="align-items:flex-start;">
+  <form method="get" action="{{ url_for('list_csvs') }}" class="inline inline-start">
     <div class="form-field">
       <label>Owner (user or org)</label>
       <input type="text" name="owner" required placeholder="octocat">
@@ -49,7 +49,7 @@
       <label>Branch (default main)</label>
       <input type="text" name="branch" placeholder="main">
     </div>
-    <div class="form-field" style="flex:1; min-width:260px;">
+    <div class="form-field flex-1 min-260">
       <label>Path (folder within repo, default root)</label>
       <input type="text" name="path" placeholder="">
     </div>
@@ -60,18 +60,18 @@
 </div>
 
 <!-- Local upload -->
-<div class="section" id="tab-upload" style="display:none;">
+<div class="section hidden" id="tab-upload">
   <h3>Upload Local Files</h3>
   <p class="muted">Upload CSV or Excel files to process without GitHub.</p>
-  <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" class="inline" style="align-items:flex-start;">
-    <div class="form-field" style="flex:1; min-width:320px;">
+  <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" class="inline inline-start">
+    <div class="form-field flex-1 min-320">
       <label>Files (CSV or Excel)</label>
       <input type="file" name="files" multiple accept=".csv, .xls, .xlsx">
     </div>
-    <div class="form-field" style="flex:1; min-width:320px;">
+    <div class="form-field flex-1 min-320">
       <label>categories_grouped.json (optional)</label>
       <input type="file" name="json_cfg" accept=".json">
-      <span class="muted" style="font-size:12px;">Note: your app now reads categories from BigQuery; this file is optional.</span>
+      <span class="muted small-note">Note: your app now reads categories from BigQuery; this file is optional.</span>
     </div>
     <div>
       <button class="btn secondary" type="submit">Run Pipeline</button>
@@ -82,18 +82,47 @@
 
 {% block scripts %}
 <script>
-  (function(){
-    const tabs = document.querySelectorAll('.tab');
-    const panels = {
-      github: document.getElementById('tab-github'),
-      upload: document.getElementById('tab-upload')
-    };
-    function activate(name){
-      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-      Object.entries(panels).forEach(([k, el]) => el.style.display = (k === name ? '' : 'none'));
+// Tabs: roving tabindex + panel toggle
+(function(){
+  const tabs = Array.from(document.querySelectorAll('.tabs .tab'));
+  const panels = {
+    github: document.getElementById('tab-github'),
+    upload: document.getElementById('tab-upload')
+  };
+
+  function show(name){
+    tabs.forEach(t => {
+      const isActive = t.dataset.tab === name;
+      t.classList.toggle('active', isActive);
+      t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      t.setAttribute('tabindex', isActive ? '0' : '-1');
+    });
+    Object.entries(panels).forEach(([k, el]) => {
+      if (!el) return;
+      el.classList.toggle('hidden', k !== name);
+    });
+  }
+
+  // Click
+  tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab)));
+
+  // Keyboard: Left/Right arrow to switch
+  const keyNav = (e) => {
+    const idx = tabs.findIndex(t => t.classList.contains('active'));
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      const next = tabs[(idx + 1) % tabs.length];
+      next.focus(); show(next.dataset.tab);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prev = tabs[(idx - 1 + tabs.length) % tabs.length];
+      prev.focus(); show(prev.dataset.tab);
     }
-    activate('github'); // default
-    tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
-  })();
+  };
+  document.querySelector('.tabs').addEventListener('keydown', keyNav);
+
+  // Default
+  show('github');
+})();
 </script>
 {% endblock %}

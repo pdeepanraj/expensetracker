@@ -1,21 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Budget & Income{% endblock %}
+
 {% block head %}
-<style>
-.section { background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:12px; }
-.inline { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
-.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-@media (max-width:980px){ .grid-2 { grid-template-columns:1fr; } }
-.table-scroll { max-height:50vh; overflow:auto; border:1px solid var(--border); border-radius:10px; }
-
-.pill { display:inline-block; padding:8px 12px; border-radius:999px; border:1px solid var(--border); background:#fff; }
-.status-ok { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
-.status-bad { background:#fee2e2; border-color:#fecaca; color:#991b1b; }
-.muted { color: var(--muted); }
-
-.badge-ok { display:inline-block; padding:4px 8px; border-radius:999px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; font-size:12px; }
-.badge-bad { display:inline-block; padding:4px 8px; border-radius:999px; background:#fee2e2; color:#991b1b; border:1px solid #fecaca; font-size:12px; }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/budget.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -23,7 +10,7 @@
 <!-- 1) Select Month -->
 <div class="section">
   <h3>Select Month</h3>
-  <form method="get" action="{{ url_for('budget_get') }}" class="inline">
+  <form method="get" action="{{ url_for('budget_get') }}" class="inline inline-end">
     <div>
       <label>Month</label><br>
       <select name="month">
@@ -47,13 +34,13 @@
   </div>
 
   <!-- Totals -->
-  <div class="pill" style="margin-left:8px;"><strong>Cards Spend:</strong> {{ (cards_total or 0)|currency }}</div>
-  <div class="pill" style="margin-left:8px;"><strong>Manual Spend:</strong> {{ (manual_total or 0)|currency }}</div>
-  <div class="pill" style="margin-left:8px;"><strong>Total Income:</strong> {{ (income_total or 0)|currency }}</div>
+  <div class="pill ml-8"><strong>Cards Spend:</strong> {{ (cards_total or 0)|currency }}</div>
+  <div class="pill ml-8"><strong>Manual Spend:</strong> {{ (manual_total or 0)|currency }}</div>
+  <div class="pill ml-8"><strong>Total Income:</strong> {{ (income_total or 0)|currency }}</div>
 
   <!-- New: Variance -->
   {% set variance = (income_total or 0) - ((cards_total or 0) + (manual_total or 0)) %}
-  <div class="pill {% if variance >= 0 %}status-ok{% else %}status-bad{% endif %}" style="margin-left:8px;">
+  <div class="pill {% if variance >= 0 %}status-ok{% else %}status-bad{% endif %} ml-8">
     <strong>Variance (Income − Spend):</strong> {{ variance|currency }}
   </div>
 </div>
@@ -63,9 +50,9 @@
   <!-- Add Manual Spend + grouped by Category -->
   <div class="section">
     <h3>Add Manual Spend</h3>
-    <form method="post" action="{{ url_for('budget_spend_add') }}" class="inline">
+    <form method="post" action="{{ url_for('budget_spend_add') }}" class="inline inline-end">
       <input type="hidden" name="month" value="{{ selected_month }}">
-      <div style="min-width:200px;">
+      <div class="min-200">
         <label>Category (existing)</label><br>
         <select name="category">
           <option value="">-- Select --</option>
@@ -74,19 +61,19 @@
           {% endfor %}
         </select>
       </div>
-      <div style="min-width:200px;">
+      <div class="min-200">
         <label>Or new category</label><br>
         <input type="text" name="category_new" placeholder="Kids Class, Loan, Cash...">
       </div>
-      <div style="flex:1; min-width:240px;">
+      <div class="flex-1 min-240">
         <label>Description</label><br>
         <input type="text" name="description" placeholder="Detail..." required>
       </div>
-      <div style="min-width:140px;">
+      <div class="min-140">
         <label>Amount</label><br>
         <input type="number" step="0.01" name="amount" required>
       </div>
-      <div style="flex:1; min-width:240px;">
+      <div class="flex-1 min-240">
         <label>Note</label><br>
         <input type="text" name="note" placeholder="Optional">
       </div>
@@ -94,8 +81,8 @@
     </form>
 
     <!-- Grouped by Category -->
-    <h3 style="margin-top:14px;">Manual Spend by Category{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
-    <div class="table-scroll" style="margin-top:8px;">
+    <h3 class="mt-14">Manual Spend by Category{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
+    <div class="table-scroll mt-8">
       <table>
         <thead><tr><th>Category</th><th>Total Amount</th></tr></thead>
         <tbody>
@@ -116,9 +103,9 @@
   <!-- Add Income + grouped by Source -->
   <div class="section">
     <h3>Add Income</h3>
-    <form method="post" action="{{ url_for('budget_income_add') }}" class="inline">
+    <form method="post" action="{{ url_for('budget_income_add') }}" class="inline inline-end">
       <input type="hidden" name="month" value="{{ selected_month }}">
-      <div style="min-width:200px;">
+      <div class="min-200">
         <label>Source (existing)</label><br>
         <select name="source">
           <option value="">-- Select --</option>
@@ -127,15 +114,15 @@
           {% endfor %}
         </select>
       </div>
-      <div style="min-width:200px;">
+      <div class="min-200">
         <label>Or new source</label><br>
         <input type="text" name="source_new" placeholder="Salary, Bonus, Other...">
       </div>
-      <div style="min-width:140px;">
+      <div class="min-140">
         <label>Amount</label><br>
         <input type="number" step="0.01" name="amount" required>
       </div>
-      <div style="flex:1; min-width:240px;">
+      <div class="flex-1 min-240">
         <label>Note</label><br>
         <input type="text" name="note" placeholder="Optional">
       </div>
@@ -143,8 +130,8 @@
     </form>
 
     <!-- Grouped by Source -->
-    <h3 style="margin-top:14px;">Income by Source{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
-    <div class="table-scroll" style="margin-top:8px;">
+    <h3 class="mt-14">Income by Source{% if selected_month %} ({{ selected_month }}){% endif %}</h3>
+    <div class="table-scroll mt-8">
       <table>
         <thead><tr><th>Source</th><th>Total Amount</th></tr></thead>
         <tbody>
@@ -166,7 +153,7 @@
 <!-- 4) All-Month Comparison table -->
 <div class="section">
   <h3>All-Month Comparison</h3>
-  <p class="muted" style="margin-bottom:8px;">Income vs Spend by Month. Variance = Income − (Cards + Manual).</p>
+  <p class="muted mb-8">Income vs Spend by Month. Variance = Income − (Cards + Manual).</p>
   <div class="table-scroll">
     <table>
       <thead>

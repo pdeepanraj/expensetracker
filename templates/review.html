@@ -2,32 +2,7 @@
 {% block title %}Review & Adjust{% endblock %}
 
 {% block head %}
-<style>
-  /* Tab bar */
-  .tabs { display:flex; gap:8px; padding:8px; background:#0b5cff; border-radius:10px; color:#fff; align-items:center; }
-  .tab { display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; cursor:pointer; user-select:none; background:rgba(255,255,255,.08); }
-  .tab.active { background:#fff; color:#0b5cff; font-weight:600; }
-  .tabs-spacer { flex:1; }
-
-  /* Sections */
-  .section { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:12px; }
-  .section h3 { margin:0 0 8px 0; }
-  .inline { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
-  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  @media (max-width: 980px){ .grid-2 { grid-template-columns:1fr; } }
-
-  /* Table */
-  .table-scroll { max-height:60vh; overflow:auto; border:1px solid var(--border); border-radius:10px; }
-  table { width:100%; border-collapse:collapse; }
-  thead th { position:sticky; top:0; background:#f3f4f6; border-bottom:1px solid var(--border); padding:10px; text-align:left; z-index:1; }
-  tbody td { padding:10px; border-bottom:1px solid var(--border); }
-  .selectable { cursor:pointer; }
-  .selectable.selected { background:#fff3c4; }
-
-  .pill { display:inline-block; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:#fff; }
-  .muted { color:var(--muted); }
-  .error { color:crimson; }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/review.css') }}">
 {% endblock %}
 
 {% block header_meta %}
@@ -35,22 +10,22 @@
 {% endblock %}
 
 {% block content %}
-<div class="card" style="border:none; background:transparent; box-shadow:none; padding:0; margin-bottom:8px;">
-  <h3 style="margin:0 0 6px;">Review & Adjust</h3>
+<div class="card card-plain mb-8">
+  <h3 class="mb-6">Review & Adjust</h3>
   <p class="muted">Select a transaction, enter a percentage and optional note, preview your share, then apply the change to BigQuery.</p>
 </div>
 
 {% if message %}
-<div class="card" style="border-color: {{ 'var(--border)' if message_type != 'error' else '#ffccd2' }};">
+<div class="card {{ 'border-default' if message_type != 'error' else 'border-error' }}">
   <p class="{{ 'muted' if message_type != 'error' else 'error' }}">{{ message }}</p>
 </div>
 {% endif %}
 
 <!-- Tab bar -->
-<div class="tabs">
-  <div class="tab active" data-tab="filters">Filters</div>
-  <div class="tab" data-tab="transactions">Transactions</div>
-  <div class="tab" data-tab="review">Review Box</div>
+<div class="tabs" role="tablist">
+  <button class="tab active" data-tab="filters" role="tab" tabindex="0" aria-selected="true">Filters</button>
+  <button class="tab" data-tab="transactions" role="tab" tabindex="-1" aria-selected="false">Transactions</button>
+  <button class="tab" data-tab="review" role="tab" tabindex="-1" aria-selected="false">Review Box</button>
   <div class="tabs-spacer"></div>
   <div class="muted">Review</div>
 </div>
@@ -58,7 +33,7 @@
 <!-- Filters -->
 <div class="section" id="tab-filters">
   <h3>Filters</h3>
-  <form method="get" action="{{ url_for('review_get') }}" class="inline">
+  <form method="get" action="{{ url_for('review_get') }}" class="inline inline-end">
     <div>
       <label>Month</label><br>
       <select name="month">
@@ -103,7 +78,7 @@
 </div>
 
 <!-- Transactions table -->
-<div class="section" id="tab-transactions" style="display:none;">
+<div class="section hidden" id="tab-transactions">
   <h3>Transactions{% if selected_month %} ({{ selected_month }}){% else %} (All){% endif %}</h3>
   <div class="table-scroll">
     <table id="reviewTable">
@@ -144,20 +119,20 @@
       </tbody>
     </table>
   </div>
-  <p class="muted" style="margin-top:8px;">Tip: click a row to open it in the Review Box tab.</p>
+  <p class="muted mt-8">Tip: click a row to open it in the Review Box tab.</p>
 </div>
 
 <!-- Review Box -->
-<div class="section" id="tab-review" style="display:none;">
+<div class="section hidden" id="tab-review">
   <h3>Review Box</h3>
   <p class="muted" id="panelHint">Select a row from the Transactions tab.</p>
 
-  <div id="panelContent" style="display:none;">
+  <div id="panelContent" class="hidden">
     <div class="grid-2">
       <div>
-        <div class="pill" style="margin-bottom:6px;"><strong>Month:</strong> <span id="pMonth"></span></div><br>
-        <div class="pill" style="margin-bottom:6px;"><strong>Card:</strong> <span id="pCard"></span></div><br>
-        <div class="pill" style="margin-bottom:6px;"><strong>Main:</strong> <span id="pMain"></span></div><br>
+        <div class="pill mb-6"><strong>Month:</strong> <span id="pMonth"></span></div><br>
+        <div class="pill mb-6"><strong>Card:</strong> <span id="pCard"></span></div><br>
+        <div class="pill mb-6"><strong>Main:</strong> <span id="pMain"></span></div><br>
         <div class="pill"><strong>Category:</strong> <span id="pCat"></span></div>
       </div>
       <div>
@@ -167,9 +142,9 @@
       </div>
     </div>
 
-    <hr style="margin:12px 0; border:none; border-top:1px solid var(--border);">
+    <hr class="hr mt-12">
 
-    <form method="post" action="{{ url_for('review_post') }}" id="reviewForm" class="inline" style="align-items:flex-start;">
+    <form method="post" action="{{ url_for('review_post') }}" id="reviewForm" class="inline inline-start">
       <input type="hidden" name="rowhash" id="fRowhash">
       <!-- Keep current filters sticky across submit -->
       <input type="hidden" name="month" id="fMonth" value="{{ selected_month or '' }}">
@@ -183,7 +158,7 @@
         <label>Percentage (%)</label><br>
         <input type="number" name="percentage" id="fPct" step="0.01" min="0" max="100" placeholder="e.g., 25">
       </div>
-      <div style="flex:1; min-width:260px;">
+      <div class="flex-1 min-260">
         <label>Note (optional)</label><br>
         <input type="text" name="note" id="fNote" placeholder="Your note...">
       </div>
@@ -199,119 +174,143 @@
 
 {% block scripts %}
 <script>
-  // Tabs
-  (function(){
-    const tabs = document.querySelectorAll('.tab');
-    const panels = {
-      filters: document.getElementById('tab-filters'),
-      transactions: document.getElementById('tab-transactions'),
-      review: document.getElementById('tab-review')
-    };
-    function activate(name){
-      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-      Object.entries(panels).forEach(([k, el]) => el.style.display = (k === name ? '' : 'none'));
-    }
-    const serverTab = "{{ tab or '' }}";
-    if (serverTab && panels[serverTab]) {
-      activate(serverTab);
-    } else if ({% if review_rows and review_rows|length > 0 %}true{% else %}false{% endif %}) {
-      activate('transactions');
-    } else {
-      activate('filters');
-    }
-    tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
-  })();
-</script>
+// Tabs: accessible roving tabindex and panel visibility
+(function(){
+  const tabs = Array.from(document.querySelectorAll('.tabs .tab'));
+  const panels = {
+    filters: document.getElementById('tab-filters'),
+    transactions: document.getElementById('tab-transactions'),
+    review: document.getElementById('tab-review')
+  };
 
-<script>
-  // Helper: format currency
-  const fmt2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  // Elements
-  const table = document.getElementById('reviewTable');
-  const panelHint = document.getElementById('panelHint');
-  const panelContent = document.getElementById('panelContent');
-
-  const pMonth = document.getElementById('pMonth');
-  const pCard  = document.getElementById('pCard');
-  const pMain  = document.getElementById('pMain');
-  const pCat   = document.getElementById('pCat');
-  const pDesc  = document.getElementById('pDesc');
-  const pAmount= document.getElementById('pAmount');
-  const pComment = document.getElementById('pComment');
-  const pShare = document.getElementById('pShare');
-
-  const fRowhash = document.getElementById('fRowhash');
-  const fPct     = document.getElementById('fPct');
-  const fNote    = document.getElementById('fNote');
-  const clearBtn = document.getElementById('clearPanel');
-  const reviewForm = document.getElementById('reviewForm');
-
-  function selectRow(tr) {
-    const data = tr.dataset;
-    const origAmt = Number(data.amount || 0);
-    pMonth.textContent = data.month || '';
-    pCard.textContent  = data.card || '';
-    pMain.textContent  = data.main || '';
-    pCat.textContent   = data.cat || '';
-    pDesc.textContent  = data.desc || '';
-    pAmount.textContent= '$' + fmt2.format(origAmt);
-    pComment.textContent = data.comment || '';
-
-    fRowhash.value = data.rowhash || '';
-    fPct.value = '';
-    fNote.value = '';
-    pShare.textContent = '$' + fmt2.format(0);
-
-    panelHint.style.display = 'none';
-    panelContent.style.display = '';
-
-    // Switch to Review tab automatically on selection
-    const reviewTab = document.querySelector('.tab[data-tab="review"]');
-    reviewTab && reviewTab.click();
-  }
-
-  function computeShare() {
-    const amtText = pAmount.textContent.replace(/[^0-9.\-]/g, '') || '0';
-    const origAmt = Number(amtText);
-    const pct = Number(fPct.value || 0);
-    const share = origAmt * (pct / 100);
-    pShare.textContent = '$' + fmt2.format(share);
-  }
-
-  if (table) {
-    table.addEventListener('click', (e) => {
-      const tr = e.target.closest('tr.selectable');
-      if (tr) {
-        [...table.tBodies[0].rows].forEach(r => r.classList.remove('selected'));
-        tr.classList.add('selected');
-        selectRow(tr);
-      }
+  function show(name){
+    tabs.forEach(t => {
+      const isActive = t.dataset.tab === name;
+      t.classList.toggle('active', isActive);
+      t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      t.setAttribute('tabindex', isActive ? '0' : '-1');
+    });
+    Object.entries(panels).forEach(([k, el]) => {
+      el.classList.toggle('hidden', k !== name);
     });
   }
 
-  fPct && fPct.addEventListener('input', computeShare);
+  // Default tab logic
+  const serverTab = "{{ tab or '' }}";
+  if (serverTab && panels[serverTab]) {
+    show(serverTab);
+  } else if ({% if review_rows and review_rows|length > 0 %}true{% else %}false{% endif %}) {
+    show('transactions');
+  } else {
+    show('filters');
+  }
 
-  reviewForm && reviewForm.addEventListener('submit', (e) => {
-    const pct = Number(fPct.value || 0);
-    const shareText = pShare.textContent || '$0.00';
-    if (isNaN(pct) || pct <= 0 || pct > 100) {
+  // Click and keyboard
+  tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab)));
+  document.querySelector('.tabs').addEventListener('keydown', e => {
+    const idx = tabs.findIndex(t => t.classList.contains('active'));
+    if (e.key === 'ArrowRight') {
       e.preventDefault();
-      alert('Please enter a valid percentage between 0 and 100.');
-      return;
+      const next = tabs[(idx + 1) % tabs.length];
+      next.focus(); show(next.dataset.tab);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prev = tabs[(idx - 1 + tabs.length) % tabs.length];
+      prev.focus(); show(prev.dataset.tab);
     }
-    const ok = confirm(`Apply this review?\n\nPercentage: ${pct.toFixed(2)}%\nYour share: ${shareText}\n\nThis will write to BigQuery.`);
-    if (!ok) { e.preventDefault(); return; }
-    const btn = reviewForm.querySelector('button[type="submit"]');
-    if (btn) { btn.disabled = true; btn.textContent = 'Applying...'; }
   });
+})();
+</script>
 
-  clearBtn && clearBtn.addEventListener('click', () => {
-    panelContent.style.display = 'none';
-    panelHint.style.display = '';
-    if (table) [...table.tBodies[0].rows].forEach(r => r.classList.remove('selected'));
-    const txTab = document.querySelector('.tab[data-tab="transactions"]');
-    txTab && txTab.click();
+<script>
+// Helper: format currency
+const fmt2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Elements
+const table = document.getElementById('reviewTable');
+const panelHint = document.getElementById('panelHint');
+const panelContent = document.getElementById('panelContent');
+
+const pMonth = document.getElementById('pMonth');
+const pCard  = document.getElementById('pCard');
+const pMain  = document.getElementById('pMain');
+const pCat   = document.getElementById('pCat');
+const pDesc  = document.getElementById('pDesc');
+const pAmount= document.getElementById('pAmount');
+const pComment = document.getElementById('pComment');
+const pShare = document.getElementById('pShare');
+
+const fRowhash = document.getElementById('fRowhash');
+const fPct     = document.getElementById('fPct');
+const fNote    = document.getElementById('fNote');
+const clearBtn = document.getElementById('clearPanel');
+const reviewForm = document.getElementById('reviewForm');
+
+function selectRow(tr) {
+  const data = tr.dataset;
+  const origAmt = Number(data.amount || 0);
+  pMonth.textContent = data.month || '';
+  pCard.textContent  = data.card || '';
+  pMain.textContent  = data.main || '';
+  pCat.textContent   = data.cat || '';
+  pDesc.textContent  = data.desc || '';
+  pAmount.textContent= '$' + fmt2.format(origAmt);
+  pComment.textContent = data.comment || '';
+
+  fRowhash.value = data.rowhash || '';
+  fPct.value = '';
+  fNote.value = '';
+  pShare.textContent = '$' + fmt2.format(0);
+
+  panelHint.classList.add('hidden');
+  panelContent.classList.remove('hidden');
+
+  // Switch to Review tab automatically
+  const reviewTab = document.querySelector('.tab[data-tab="review"]');
+  reviewTab && reviewTab.click();
+}
+
+function computeShare() {
+  const amtText = pAmount.textContent.replace(/[^0-9.\-]/g, '') || '0';
+  const origAmt = Number(amtText);
+  const pct = Number(fPct.value || 0);
+  const share = origAmt * (pct / 100);
+  pShare.textContent = '$' + fmt2.format(share);
+}
+
+if (table) {
+  table.addEventListener('click', (e) => {
+    const tr = e.target.closest('tr.selectable');
+    if (tr) {
+      [...table.tBodies[0].rows].forEach(r => r.classList.remove('selected'));
+      tr.classList.add('selected');
+      selectRow(tr);
+    }
   });
+}
+
+fPct && fPct.addEventListener('input', computeShare);
+
+reviewForm && reviewForm.addEventListener('submit', (e) => {
+  const pct = Number(fPct.value || 0);
+  const shareText = pShare.textContent || '$0.00';
+  if (isNaN(pct) || pct <= 0 || pct > 100) {
+    e.preventDefault();
+    alert('Please enter a valid percentage between 0 and 100.');
+    return;
+  }
+  const ok = confirm(`Apply this review?\n\nPercentage: ${pct.toFixed(2)}%\nYour share: ${shareText}\n\nThis will write to BigQuery.`);
+  if (!ok) { e.preventDefault(); return; }
+  const btn = reviewForm.querySelector('button[type="submit"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Applying...'; }
+});
+
+clearBtn && clearBtn.addEventListener('click', () => {
+  panelContent.classList.add('hidden');
+  panelHint.classList.remove('hidden');
+  if (table) [...table.tBodies[0].rows].forEach(r => r.classList.remove('selected'));
+  const txTab = document.querySelector('.tab[data-tab="transactions"]');
+  txTab && txTab.click();
+});
 </script>
 {% endblock %}

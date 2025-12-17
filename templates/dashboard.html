@@ -1,31 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
+
 {% block head %}
-<style>
-/* Tab bar */
-.tabs { display:flex; gap:8px; padding:8px; background:#0b5cff; border-radius:10px; color:#fff; align-items:center; }
-.tab { display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; cursor:pointer; user-select:none; background:rgba(255,255,255,.08); }
-.tab.active { background:#fff; color:#0b5cff; font-weight:600; }
-.tabs-spacer { flex:1; }
-
-/* Sections */
-.section { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:12px; }
-.section h3 { margin:0 0 8px 0; }
-.inline { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
-.table-scroll { max-height:60vh; overflow:auto; border:1px solid var(--border); border-radius:10px; }
-table { width:100%; border-collapse:collapse; }
-thead th { position:sticky; top:0; background:#f3f4f6; border-bottom:1px solid var(--border); padding:10px; text-align:left; z-index:1; cursor:pointer; }
-tbody td { padding:10px; border-bottom:1px solid var(--border); }
-.muted { color:var(--muted); }
-.btn-small { padding:6px 10px; border-radius:6px; }
-
-/* Form bits */
-label { font-size:13px; color:var(--muted); }
-select, input[type="text"] { min-width: 160px; }
-
-/* Active tab badge */
-.badge { display:inline-block; padding:4px 8px; border-radius:999px; border:1px solid var(--border); background:#fff; font-size:12px; }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 {% endblock %}
 
 {% block header_meta %}
@@ -35,11 +12,35 @@ Source: {{ project }}.{{ dataset }}
 {% block content %}
 
 <!-- Tab bar -->
-<div class="tabs">
-  <a class="tab {% if tab=='details' or not tab %}active{% endif %}" href="{{ url_for('dashboard_details') }}">Details</a>
-  <a class="tab {% if tab=='manual' %}active{% endif %}" href="{{ url_for('dashboard_manual') }}">Manual</a>
-  <a class="tab {% if tab=='income' %}active{% endif %}" href="{{ url_for('dashboard_income') }}">Income</a>
-  <a class="tab {% if tab=='aggregate' %}active{% endif %}" href="{{ url_for('aggregate') }}">Aggregate</a>
+<div class="tabs" role="tablist">
+  <a class="tab {% if tab=='details' or not tab %}active{% endif %}"
+     href="{{ url_for('dashboard_details') }}"
+     role="tab"
+     tabindex="{% if tab=='details' or not tab %}0{% else %}-1{% endif %}"
+     aria-selected="{% if tab=='details' or not tab %}true{% else %}false{% endif %}">
+    Details
+  </a>
+  <a class="tab {% if tab=='manual' %}active{% endif %}"
+     href="{{ url_for('dashboard_manual') }}"
+     role="tab"
+     tabindex="{% if tab=='manual' %}0{% else %}-1{% endif %}"
+     aria-selected="{% if tab=='manual' %}true{% else %}false{% endif %}">
+    Manual
+  </a>
+  <a class="tab {% if tab=='income' %}active{% endif %}"
+     href="{{ url_for('dashboard_income') }}"
+     role="tab"
+     tabindex="{% if tab=='income' %}0{% else %}-1{% endif %}"
+     aria-selected="{% if tab=='income' %}true{% else %}false{% endif %}">
+    Income
+  </a>
+  <a class="tab {% if tab=='aggregate' %}active{% endif %}"
+     href="{{ url_for('aggregate') }}"
+     role="tab"
+     tabindex="{% if tab=='aggregate' %}0{% else %}-1{% endif %}"
+     aria-selected="{% if tab=='aggregate' %}true{% else %}false{% endif %}">
+    Aggregate
+  </a>
   <div class="tabs-spacer"></div>
   <div class="muted">Data Explorer</div>
 </div>
@@ -48,7 +49,7 @@ Source: {{ project }}.{{ dataset }}
 {% if tab=='details' or not tab %}
 <div class="section">
   <h3>Details (Cards{% if include_manual %} + Manual{% endif %})</h3>
-  <form method="get" action="{{ url_for('dashboard_details') }}" class="inline">
+  <form method="get" action="{{ url_for('dashboard_details') }}" class="inline inline-end">
     <div>
       <label>Month</label><br>
       <select name="month">
@@ -77,7 +78,7 @@ Source: {{ project }}.{{ dataset }}
         {% for ct in cats %}<option value="{{ ct }}" {% if selected_cat==ct %}selected{% endif %}>{{ ct }}</option>{% endfor %}
       </select>
     </div>
-    <label class="inline" style="gap:6px;">
+    <label class="inline gap-6">
       <input type="checkbox" name="include_manual" value="1" {% if include_manual %}checked{% endif %}>
       Include manual spends
     </label>
@@ -100,7 +101,7 @@ Source: {{ project }}.{{ dataset }}
     </div>
   </form>
 
-  <div class="table-scroll" style="margin-top:10px;">
+  <div class="table-scroll mt-10">
     <table id="detailsTable">
       <thead>
         <tr>
@@ -136,7 +137,7 @@ Source: {{ project }}.{{ dataset }}
 {% if tab=='manual' %}
 <div class="section">
   <h3>Manual Spend</h3>
-  <form method="get" action="{{ url_for('dashboard_manual') }}" class="inline">
+  <form method="get" action="{{ url_for('dashboard_manual') }}" class="inline inline-end">
     <div>
       <label>Month</label><br>
       <select name="month">
@@ -174,7 +175,7 @@ Source: {{ project }}.{{ dataset }}
     </div>
   </form>
 
-  <div class="table-scroll" style="margin-top:10px;">
+  <div class="table-scroll mt-10">
     <table id="manualTable">
       <thead>
         <tr>
@@ -208,7 +209,7 @@ Source: {{ project }}.{{ dataset }}
 {% if tab=='income' %}
 <div class="section">
   <h3>Income</h3>
-  <form method="get" action="{{ url_for('dashboard_income') }}" class="inline">
+  <form method="get" action="{{ url_for('dashboard_income') }}" class="inline inline-end">
     <div>
       <label>Month</label><br>
       <select name="month">
@@ -242,7 +243,7 @@ Source: {{ project }}.{{ dataset }}
     </div>
   </form>
 
-  <div class="table-scroll" style="margin-top:10px;">
+  <div class="table-scroll mt-10">
     <table id="incomeTable">
       <thead>
         <tr>
@@ -274,7 +275,7 @@ Source: {{ project }}.{{ dataset }}
 {% if tab=='aggregate' %}
 <div class="section">
   <h3>Aggregate</h3>
-  <form method="get" action="{{ url_for('aggregate') }}" class="inline" style="align-items:flex-start;">
+  <form method="get" action="{{ url_for('aggregate') }}" class="inline inline-start">
     <div>
       <label>Group by</label><br>
       <div>
@@ -312,7 +313,7 @@ Source: {{ project }}.{{ dataset }}
           {% endfor %}
         </select>
       </div>
-      <div style="margin-top:8px;">
+      <div class="mt-8">
         <label for="min_amount">Minimum amount (optional)</label><br>
         <input id="min_amount" name="min_amount" type="text" placeholder="e.g., 10" value="{{ aggregate_min_amount or '' }}">
       </div>
@@ -323,7 +324,7 @@ Source: {{ project }}.{{ dataset }}
     </div>
   </form>
 
-  <div class="table-scroll" style="margin-top:10px;">
+  <div class="table-scroll mt-10">
     <table>
       <thead>
         <tr>
@@ -362,19 +363,18 @@ Source: {{ project }}.{{ dataset }}
 {% block scripts %}
 <script>
 // Simple client-side column sorter (enhances UX without reloading)
-// Note: Server already sorts per request; this is optional visual sorting.
 (function(){
   function attachSorter(tableId){
     const tbl = document.getElementById(tableId);
     if(!tbl) return;
     const getVal = (td, idx) => {
       const text = td.textContent.trim();
-      // Amount column heuristic: last column or label 'Amount'
       if (tbl.tHead && tbl.tHead.rows[0].cells[idx] && tbl.tHead.rows[0].cells[idx].textContent.trim().toLowerCase()==='amount'){
         return parseFloat(text.replace(/[^0-9.-]/g,'')) || 0;
       }
       return text.toLowerCase();
     };
+    if (!tbl.tHead) return;
     [...tbl.tHead.rows[0].cells].forEach((th, idx) => {
       th.addEventListener('click', ()=>{
         const rows = [...tbl.tBodies[0].rows];

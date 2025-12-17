@@ -2,33 +2,7 @@
 {% block title %}Credit Card Bills{% endblock %}
 
 {% block head %}
-<style>
-  .page-intro { padding: 12px 0; }
-  .kpi { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-  .pill { display:inline-block; padding: 6px 10px; border-radius: 999px; border:1px solid var(--border); background:#fff; }
-  .pill.ok { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
-  .pill.warn { background:#fff7ed; border-color:#fed7aa; color:#9a3412; }
-
-  .actions a, .actions button { margin-right:8px; }
-
-  .table-scroll { max-height: 60vh; overflow:auto; border:1px solid var(--border); border-radius:10px; }
-  table { width:100%; border-collapse:collapse; }
-  thead th { position:sticky; top:0; background:#f3f4f6; border-bottom:1px solid var(--border); padding:10px; text-align:left; z-index:1; }
-  tbody td { padding:10px; border-bottom:1px solid var(--border); }
-  tbody tr:hover { background:#fafafa; }
-
-  .due-status { display:inline-block; height:10px; width:80px; border-radius:999px; border:1px solid var(--border); }
-  .due-green { background:#18e3be; }
-  .due-amber { background:#ffd07a; }
-  .due-red { background:#ff8e8e; }
-
-  .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
-  @media (max-width: 980px) { .grid-2 { grid-template-columns: 1fr; } }
-
-  .inline { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
-  .inline label { font-size: 13px; color: var(--muted); }
-  .badge { display:inline-block; padding:4px 8px; background:#eef2ff; color:#3730a3; border-radius:999px; border:1px solid #e0e7ff; }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/bills.css') }}">
 {% endblock %}
 
 {% block header_meta %}
@@ -36,19 +10,19 @@
 {% endblock %}
 
 {% block content %}
-<div class="card page-intro" style="border:none; background:transparent; box-shadow:none; margin-bottom:0;">
-  <h3 style="margin:0 0 6px;">Credit Card Bills</h3>
+<div class="card card-plain mb-0">
+  <h3 class="mb-6">Credit Card Bills</h3>
   <p class="muted">Track due dates, monthly amounts, and payments. Viewing: {{ bill_month }}</p>
 </div>
 
 <!-- Filters -->
 <div class="card">
-  <form method="get" action="{{ url_for('bills') }}" class="inline">
+  <form method="get" action="{{ url_for('bills') }}" class="inline inline-end">
     <div>
       <label for="m">Month</label><br>
       <input type="month" id="m" name="m" value="{{ bill_month }}">
     </div>
-    <label class="inline" style="gap:6px;">
+    <label class="inline gap-6">
       <input type="checkbox" name="unpaid" value="1" {% if unpaid_only %}checked{% endif %}>
       Unpaid only
     </label>
@@ -67,7 +41,7 @@
 <!-- Current Month Bills -->
 <div class="card">
   <h3>Current Month Bills ({{ bill_month }})</h3>
-  <p class="muted" style="margin-bottom:8px;">
+  <p class="muted mb-8">
     Due status:
     <span class="due-status due-green" title="> 14 days"></span> green,
     <span class="due-status due-amber" title="7–14 days"></span> amber,
@@ -78,14 +52,14 @@
     <table id="billsTable" data-month="{{ bill_month }}">
       <thead>
         <tr>
-          <th style="width:100px;">Due</th>
-          <th style="width:180px;">Card</th>
-          <th style="width:100px;">DueDay</th>
-          <th style="width:140px;">Amount</th>
-          <th style="width:100px;">Paid</th>
-          <th style="width:180px;">PaidAt</th>
+          <th class="w-100">Due</th>
+          <th class="w-180">Card</th>
+          <th class="w-100">DueDay</th>
+          <th class="w-140">Amount</th>
+          <th class="w-100">Paid</th>
+          <th class="w-180">PaidAt</th>
           <th>Note</th>
-          <th style="width:160px;">Action</th>
+          <th class="w-160">Action</th>
         </tr>
       </thead>
       <tbody>
@@ -129,24 +103,24 @@
       <div class="pill warn"><strong>Unpaid:</strong> {{ summary.UnpaidCount|intgroup }}</div>
     </div>
     {% if cards|length == 0 %}
-      <p class="muted" style="margin-top:8px;">No cards found yet. Add your first card and due date below.</p>
+      <p class="muted mt-8">No cards found yet. Add your first card and due date below.</p>
     {% endif %}
   </div>
 
   <!-- Add New Card -->
   <div class="card">
     <h3>Add New Card</h3>
-    <form method="post" action="{{ url_for('bills_add_card') }}" class="inline">
+    <form method="post" action="{{ url_for('bills_add_card') }}" class="inline inline-end">
       <input type="hidden" name="view_month" value="{{ bill_month }}">
-      <div style="min-width:220px; flex:1;">
+      <div class="flex-1 min-220">
         <label>Card Name</label><br>
         <input type="text" name="card" placeholder="e.g., AMEX Gold" required>
       </div>
-      <div style="min-width:140px;">
+      <div class="min-140">
         <label>Default Due Day</label><br>
         <input type="number" name="due_day" min="1" max="31" required>
       </div>
-      <div style="min-width:240px; flex:1;">
+      <div class="flex-1 min-240">
         <label>Note</label><br>
         <input type="text" name="note" placeholder="Optional note...">
       </div>
@@ -156,7 +130,7 @@
     </form>
 
     {% if cards|length > 0 %}
-      <p class="muted" style="margin-top:8px;">Existing cards:</p>
+      <p class="muted mt-8">Existing cards:</p>
       <div class="kpi">
         {% for c in cards %}
           <div class="pill">{{ c.CardName }} — Due Day: {{ c.DueDay }}</div>
@@ -169,9 +143,9 @@
 <!-- Add/Update monthly bill -->
 <div class="card">
   <h3>Add or Update Bill ({{ bill_month }})</h3>
-  <form method="post" action="{{ url_for('bills_add') }}" class="inline">
+  <form method="post" action="{{ url_for('bills_add') }}" class="inline inline-end">
     <input type="hidden" name="bill_month" value="{{ bill_month }}">
-    <div style="min-width:220px; flex:1;">
+    <div class="flex-1 min-220">
       <label>Card</label><br>
       <select name="card" required>
         <option value="">-- Select --</option>
@@ -180,14 +154,14 @@
         {% endfor %}
       </select>
       {% if cards|length == 0 %}
-      <p class="muted" style="margin:6px 0 0;">Add a card first to use this form.</p>
+      <p class="muted mt-6">Add a card first to use this form.</p>
       {% endif %}
     </div>
-    <div style="min-width:160px;">
+    <div class="min-160">
       <label>Amount</label><br>
       <input type="number" name="amount" step="0.01" min="0" placeholder="e.g., 350.00" required>
     </div>
-    <div style="min-width:240px; flex:1;">
+    <div class="flex-1 min-240">
       <label>Note</label><br>
       <input type="text" name="note" placeholder="Optional note...">
     </div>
@@ -195,7 +169,7 @@
       <button class="btn secondary" type="submit" {% if cards|length == 0 %}disabled{% endif %}>Save</button>
     </div>
   </form>
-  <p class="muted" style="margin-top:8px;">Due Day is taken from the card’s default (set above) when creating a month entry.</p>
+  <p class="muted mt-8">Due Day is taken from the card’s default (set above) when creating a month entry.</p>
 </div>
 {% endblock %}
 
@@ -240,7 +214,7 @@
         statusEl.classList.add('due-red');
       } else if (diffDays <= 7) {
         statusEl.classList.add('due-amber');
-        row.style.background = 'rgba(255, 200, 0, 0.12)'; // subtle highlight
+        row.classList.add('row-urgent'); // subtle highlight via CSS
       } else {
         statusEl.classList.add('due-green');
       }
