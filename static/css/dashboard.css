@@ -1,0 +1,76 @@
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: var(--primary);
+  border-radius: 10px;
+  color: #fff;
+  align-items: center;
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  background: rgba(255,255,255,.08);
+  text-decoration: none;
+  color: inherit;
+  transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+.tab:hover { transform: translateY(-1px); }
+.tab.active {
+  background: #fff;
+  color: var(--primary);
+  font-weight: 600;
+}
+.tabs-spacer { flex: 1; }
+
+/* Sections */
+.section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 12px;
+}
+.section h3 { margin: 0 0 8px 0; }
+
+/* Layout helpers for forms */
+.inline-end { align-items: flex-end; }
+.inline-start { align-items: flex-start; }
+
+/* Small spacing utilities for replacing inline styles */
+.mt-10 { margin-top: 10px; }
+.mt-8 { margin-top: 8px; }
+.gap-6 { gap: 6px; }
+
+/* Table specifics for this page (inherits theme-aware styles from components.css) */
+.table-scroll { max-height: 60vh; }
+thead th {
+  cursor: pointer;
+}
+/* Light header background override matches your original */
+thead th { background: #f3f4f6; }
+html[data-theme="dark"] thead th { background: #1b2230; }
+
+/* Buttons: small size variant */
+.btn-small { padding: 6px 10px; border-radius: 6px; }
+
+/* Form tweaks */
+label { font-size: 13px; color: var(--muted); }
+select, input[type="text"] { min-width: 160px; }
+
+/* Badge styling when used inside tabs header */
+.badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 12px;
+}
+html[data-theme="dark"] .badge { background: rgba(255,255,255,0.06); }
