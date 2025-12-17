@@ -104,7 +104,60 @@ body {
   transition: background-color var(--transition-med),
     color var(--transition-med);
 }
-/* Header, nav */
+/* Header (class aligned with base.html) */
+.app-header {
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: saturate(120%) blur(4px);
+  transition: background-color var(--transition-med),
+    color var(--transition-med), box-shadow var(--transition-med),
+    border-color var(--transition-med);
+}
+.app-header.scrolled {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+/* Sidebar (class aligned with base.html) */
+.app-sidebar {
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  border-right: 1px solid var(--sidebar-border);
+  transition: background-color var(--transition-med),
+    color var(--transition-med), border-color var(--transition-med);
+}
+.nav-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 10px 12px;
+}
+.nav a {
+  color: var(--sidebar-text);
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin: 2px 4px;
+  transition: background-color var(--transition-fast),
+    color var(--transition-fast), transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+.nav a:hover {
+  background: var(--sidebar-hover);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24);
+  transform: translateX(2px);
+}
+.nav a.active {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-text);
+}
+
+/* Content area */
+.app-content {
+  transition: background-color var(--transition-med),
+    color var(--transition-med);
+}
+
+/* Legacy header/nav (if still used) */
 .header {
   display: flex;
   align-items: center;
@@ -137,12 +190,9 @@ body {
   color: var(--primary);
   padding: 6px 10px;
   border-radius: var(--radius-sm);
-  transition: background var(--transition-fast), color var(--transition-fast),
-    transform var(--transition-fast);
 }
 .nav a:hover {
   background: #f0f5ff;
-  transform: translateY(-1px);
 }
 html[data-theme="dark"] .nav a:hover {
   background: rgba(255, 255, 255, 0.06);
