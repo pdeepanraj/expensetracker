@@ -1,0 +1,135 @@
+/* -------------------- Design tokens -------------------- */
+:root {
+  /* Layout */
+  --header-h: 56px;
+  --sidebar-w: 240px;
+
+  /* Light theme (unified) */
+  --bg: #eef6ff;
+  --panel: #ffffff;            /* card/panel background */
+  --card: var(--panel);
+
+  --text: #1f2a44;
+  --muted: #5e6e8a;
+  --border: #d9e6ff;
+
+  --primary: #2d6cdf;          /* primary actions */
+  --accent: #4e79a7;
+
+  --success: #1e8e3e;
+  --danger: #b00020;
+  --warning: #b07d00;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+
+  /* Elevation and transitions */
+  --shadow: 0 6px 24px rgba(45, 108, 223, 0.08);
+  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-2: 0 6px 24px rgba(0, 0, 0, 0.12);
+  --transition-fast: 160ms ease;
+  --transition-med: 260ms ease;
+  --focus-ring: 0 0 0 3px rgba(45, 108, 223, 0.25);
+
+  /* Sidebar (light) */
+  --sidebar-bg: #0b1a2f;
+  --sidebar-border: #0e264f;
+  --sidebar-text: #cfe3ff;
+  --sidebar-hover: #103367;
+  --sidebar-active-bg: #2d6cdf;
+  --sidebar-active-text: #ffffff;
+
+  /* Header (light) */
+  --header-bg: #0f172a;
+  --header-text: #ffffff;
+
+  /* Tables, charts, canvas (light) */
+  --chart-grid: rgba(0, 0, 0, 0.1);
+  --chart-tooltip-bg: #1f2a44;
+  --chart-tooltip-text: #ffffff;
+
+  --table-bg: #ffffff;
+  --table-header-bg: #f0f5ff;
+  --table-row-hover: #f7faff;
+  --table-border: var(--border);
+  --table-text: var(--text);
+
+  --canvas-bg: #f7faff;
+  --canvas-border: var(--border);
+}
+
+/* Dark theme variables */
+html[data-theme="dark"] {
+  --bg: #0f1013;
+  --panel: #15171d;
+  --card: var(--panel);
+
+  --text: #f4f6f8;
+  --muted: #a2a7b0;
+  --border: rgba(255, 255, 255, 0.12);
+
+  --primary: #38a1ff;
+  --accent: #f05a7e;
+
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+  --focus-ring: 0 0 0 3px rgba(56, 161, 255, 0.35);
+
+  /* Sidebar (dark) */
+  --sidebar-bg: #0a0f1a;
+  --sidebar-border: #0f1a2a;
+  --sidebar-text: #c5dcff;
+  --sidebar-hover: #13233c;
+  --sidebar-active-bg: #38a1ff;
+  --sidebar-active-text: #0b1016;
+
+  /* Header (dark) */
+  --header-bg: #0b1016;
+  --header-text: #e9eef6;
+
+  /* Tables, charts, canvas (dark) */
+  --chart-grid: rgba(255, 255, 255, 0.12);
+  --chart-tooltip-bg: #0f1013;
+  --chart-tooltip-text: #e9ecf2;
+
+  --table-bg: #0f1217;
+  --table-header-bg: #151922;
+  --table-row-hover: #131720;
+  --table-border: rgba(255, 255, 255, 0.12);
+  --table-text: #e9eef6;
+
+  --canvas-bg: #12161d;
+  --canvas-border: rgba(255, 255, 255, 0.12);
+}
+
+/* Respect OS preference when no explicit toggle set */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) {
+    --bg: #0f1013;
+    --panel: #15171d;
+    --card: var(--panel);
+
+    --text: #f4f6f8;
+    --muted: #a2a7b0;
+    --border: rgba(255, 255, 255, 0.12);
+
+    --primary: #38a1ff;
+    --accent: #f05a7e;
+
+    --shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+    --focus-ring: 0 0 0 3px rgba(56, 161, 255, 0.35);
+
+    --chart-grid: rgba(255, 255, 255, 0.12);
+    --chart-tooltip-bg: #0f1013;
+    --chart-tooltip-text: #e9ecf2;
+
+    --table-bg: #0f1217;
+    --table-header-bg: #151922;
+    --table-row-hover: #131720;
+    --table-border: rgba(255, 255, 255, 0.12);
+    --table-text: #e9eef6;
+
+    --canvas-bg: #12161d;
+    --canvas-border: rgba(255, 255, 255, 0.12);
+  }
+}
