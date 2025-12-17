@@ -12,11 +12,35 @@ Source: {{ project }}.{{ dataset }}
 {% block content %}
 
 <!-- Tab bar -->
-<div class="tabs">
-  <a class="tab {% if tab=='details' or not tab %}active{% endif %}" href="{{ url_for('dashboard_details') }}">Details</a>
-  <a class="tab {% if tab=='manual' %}active{% endif %}" href="{{ url_for('dashboard_manual') }}">Manual</a>
-  <a class="tab {% if tab=='income' %}active{% endif %}" href="{{ url_for('dashboard_income') }}">Income</a>
-  <a class="tab {% if tab=='aggregate' %}active{% endif %}" href="{{ url_for('aggregate') }}">Aggregate</a>
+<div class="tabs" role="tablist">
+  <a class="tab {% if tab=='details' or not tab %}active{% endif %}"
+     href="{{ url_for('dashboard_details') }}"
+     role="tab"
+     tabindex="{% if tab=='details' or not tab %}0{% else %}-1{% endif %}"
+     aria-selected="{% if tab=='details' or not tab %}true{% else %}false{% endif %}">
+    Details
+  </a>
+  <a class="tab {% if tab=='manual' %}active{% endif %}"
+     href="{{ url_for('dashboard_manual') }}"
+     role="tab"
+     tabindex="{% if tab=='manual' %}0{% else %}-1{% endif %}"
+     aria-selected="{% if tab=='manual' %}true{% else %}false{% endif %}">
+    Manual
+  </a>
+  <a class="tab {% if tab=='income' %}active{% endif %}"
+     href="{{ url_for('dashboard_income') }}"
+     role="tab"
+     tabindex="{% if tab=='income' %}0{% else %}-1{% endif %}"
+     aria-selected="{% if tab=='income' %}true{% else %}false{% endif %}">
+    Income
+  </a>
+  <a class="tab {% if tab=='aggregate' %}active{% endif %}"
+     href="{{ url_for('aggregate') }}"
+     role="tab"
+     tabindex="{% if tab=='aggregate' %}0{% else %}-1{% endif %}"
+     aria-selected="{% if tab=='aggregate' %}true{% else %}false{% endif %}">
+    Aggregate
+  </a>
   <div class="tabs-spacer"></div>
   <div class="muted">Data Explorer</div>
 </div>
