@@ -5,132 +5,7 @@
   <title>{% block title %}Expense Tracker{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <style>
-    :root{
-      --header-h: 56px;
-      --sidebar-w: 240px;
-
-      /* Global palette */
-      --bg: #f6f7fb;
-      --panel: #ffffff;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --border: #e5e7eb;
-      --accent: #0b5cff;
-      --accent-contrast: #ffffff;
-
-      /* Sidebar theming variables (customize these) */
-      --sidebar-bg: #0b1a2f;
-      --sidebar-border: #0e264f;
-      --sidebar-text: #cfe3ff;
-      --sidebar-hover: #0f2d5c;
-      --sidebar-active-bg: #2d6cdf;
-      --sidebar-active-text: #ffffff;
-    }
-
-    html, body { height: 100%; margin: 0; }
-    body {
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-      color: var(--text);
-      background: var(--bg);
-    }
-
-    /* Header (fixed) */
-    .app-header {
-      position: fixed; top: 0; left: 0; right: 0;
-      height: var(--header-h);
-      background: #0f172a; color: #fff;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 12px; z-index: 1100; box-shadow: 0 1px 4px rgba(0,0,0,.08);
-    }
-    .app-brand { display:flex; align-items:center; gap:10px; font-weight:600; }
-    .app-brand .logo {
-      width: 28px; height: 28px; border-radius: 6px;
-      background: linear-gradient(135deg, #22d3ee, #6366f1);
-      display:inline-block;
-    }
-    .app-actions { display:flex; align-items:center; gap:8px; }
-    .btn { border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
-    .btn.secondary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
-    .btn:disabled { opacity:.6; cursor:not-allowed; }
-    .sidebar-toggle { display:none; }
-
-    /* Sidebar (fixed) */
-    .app-sidebar {
-      position: fixed; top: var(--header-h); left: 0; bottom: 0;
-      width: var(--sidebar-w);
-      background: var(--sidebar-bg);
-      color: var(--sidebar-text);
-      border-right: 1px solid var(--sidebar-border);
-      z-index: 1001;
-      display: flex; flex-direction: column; padding: 12px 8px;
-    }
-    .nav-title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: rgba(255,255,255,0.7); padding: 10px 12px; }
-    .nav a {
-      display: flex; align-items: center; gap: 10px;
-      color: var(--sidebar-text); text-decoration: none;
-      padding: 10px 12px; border-radius: 8px; margin: 2px 4px;
-    }
-    .nav a:hover { background: var(--sidebar-hover); }
-    .nav a.active { background: var(--sidebar-active-bg); color: var(--sidebar-active-text); }
-
-    /* Content area (scrolls) */
-    .app-content {
-      position: absolute;
-      top: var(--header-h);
-      left: var(--sidebar-w);
-      right: 0;
-      bottom: 0;
-      overflow: auto;
-      padding: 16px 20px;
-    }
-
-    /* Cards/tables/common */
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 16px;
-      margin-bottom: 16px;
-      box-shadow: 0 1px 2px rgba(0,0,0,.03);
-    }
-    .muted { color: var(--muted); }
-    .inline { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-    input[type="text"], input[type="number"], input[type="month"], input[type="file"], select, textarea {
-      border: 1px solid var(--border); background: #fff; color: var(--text);
-      border-radius: 8px; padding: 8px 10px; min-width: 200px;
-    }
-    table { width: 100%; border-collapse: collapse; }
-    thead th {
-      position: sticky; top: 0; background: #f3f4f6; color: #111827;
-      font-weight: 600; text-align: left; border-bottom: 1px solid var(--border);
-      padding: 10px; z-index: 1;
-    }
-    tbody td { padding: 10px; border-bottom: 1px solid var(--border); }
-    .table-scroll { max-height: 60vh; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
-
-    /* Mobile responsiveness */
-    @media (max-width: 720px) {
-      :root { --sidebar-w: 240px; }
-      .app-sidebar {
-        transform: translateX(-100%);
-        transition: transform .2s ease;
-      }
-      .app-sidebar.open { transform: translateX(0); }
-      .app-content { left: 0; padding: 12px 14px; }
-      .sidebar-toggle { display: inline-flex; }
-    }
-
-    /* Optional dark theme sidebar palette */
-    html[data-theme="dark"]{
-      --sidebar-bg: #0a0f1a;
-      --sidebar-border: #0f1a2a;
-      --sidebar-text: #bcd0ff;
-      --sidebar-hover: #11213a;
-      --sidebar-active-bg: #38a1ff;
-      --sidebar-active-text: #0b1016;
-    }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
   {% block head %}{% endblock %}
 </head>
@@ -152,8 +27,7 @@
     <div class="nav">
       <div class="nav-title">Main</div>
       <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint=='index' else '' }}">Home</a>
-      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint=='dashboard' else '' }}">Dashboard</a>
-      <a href="{{ url_for('review_get') }}" class="{{ 'active' if request.endpoint=='review_get' else '' }}">Review</a>
+      <a href="{{ url_for('dashboard_details') }}" class="{{ 'active' if request.endpoint in ['dashboard','dashboard_details','dashboard_manual','dashboard_income','aggregate'] else '' }}">Dashboard</a>
       <a href="{{ url_for('bills') }}" class="{{ 'active' if request.endpoint=='bills' else '' }}">Bills</a>
       <a href="{{ url_for('categories_get') }}" class="{{ 'active' if request.endpoint=='categories_get' else '' }}">Categories</a>
       <a href="{{ url_for('status') }}" class="{{ 'active' if request.endpoint=='status' else '' }}">Status</a>
@@ -162,7 +36,7 @@
   </aside>
 
   <!-- Overlay for mobile sidebar -->
-  <div id="appOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.25); z-index:1000;" onclick="toggleSidebar()"></div>
+  <div id="appOverlay" class="app-overlay" onclick="toggleSidebar()"></div>
 
   <!-- Scrollable Content -->
   <main class="app-content">
@@ -179,15 +53,21 @@
       if (ov) ov.style.display = open ? '' : 'none';
     }
 
-    // Light/Dark theme toggle with persistence
+    // Theme toggle with persistence + header scroll tint
     (function(){
       const html = document.documentElement;
       const key = 'app-theme';
       const btn = document.getElementById('themeToggle');
       const saved = localStorage.getItem(key);
-      if (saved === 'dark' || saved === 'light') {
+
+      // Respect OS preference if nothing saved
+      if (!saved) {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (prefersDark) html.setAttribute('data-theme', 'dark');
+      } else {
         html.setAttribute('data-theme', saved);
       }
+
       function setTheme(next){
         if (next) {
           html.setAttribute('data-theme', next);
@@ -198,6 +78,7 @@
         }
         window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme: next }}));
       }
+
       if (btn) {
         btn.addEventListener('click', () => {
           const cur = html.getAttribute('data-theme');
@@ -205,6 +86,20 @@
           setTheme(next);
         });
       }
+
+      // Scroll tint for header (works with page or content scroll)
+      const header = document.querySelector('.app-header');
+      const content = document.querySelector('.app-content');
+
+      function onScroll(){
+        if (!header) return;
+        const scTop = (window.scrollY || 0) + (content ? content.scrollTop || 0 : 0);
+        const scrolled = scTop > 8;
+        header.classList.toggle('scrolled', !!scrolled);
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      if (content) content.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
     })();
   </script>
 
