@@ -1069,6 +1069,7 @@ def aggregate():
 
     return render_template(
         "dashboard.html",
+        tab="aggregate",  # ensure Aggregate tab is active
         latest_month="",
         month_for_view=selected_month or "",
         top_categories=[],
@@ -1088,6 +1089,7 @@ def aggregate():
         loaded="",
         table_modified=get_table_metadata(TARGET_TABLE).get("modified"),
     )
+
 
 
 
