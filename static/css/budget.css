@@ -1,0 +1,61 @@
+/* Sections and layout */
+.section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 12px;
+}
+.inline { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.inline-end { align-items: flex-end; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 980px) { .grid-2 { grid-template-columns: 1fr; } }
+
+.table-scroll { max-height: 50vh; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+
+/* Pills and statuses */
+.pill {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+html[data-theme="dark"] .pill { background: rgba(255,255,255,0.06); }
+
+.status-ok { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+.status-bad { background: #fee2e2; border-color: #fecaca; color: #991b1b; }
+.muted { color: var(--muted); }
+
+/* Badges */
+.badge-ok {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  font-size: 12px;
+}
+.badge-bad {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  font-size: 12px;
+}
+
+/* Spacing utilities replacing inline styles */
+.ml-8 { margin-left: 8px; }
+.mt-8 { margin-top: 8px; }
+.mt-14 { margin-top: 14px; }
+.mb-8 { margin-bottom: 8px; }
+
+/* Min-width utilities */
+.flex-1 { flex: 1; }
+.min-140 { min-width: 140px; }
+.min-200 { min-width: 200px; }
+.min-240 { min-width: 240px; }
