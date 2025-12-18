@@ -1,0 +1,129 @@
+/* -------------------- Design tokens (Dark Red gradient theme) -------------------- */
+:root {
+  /* Layout */
+  --header-h: 56px;
+  --sidebar-w: 240px;
+
+  /* Light theme base */
+  --bg: #fff7f7;               /* subtle warm background */
+  --panel: #ffffff;
+  --card: var(--panel);
+
+  --text: #2a1f1f;             /* deep warm slate */
+  --muted: #7a6060;            /* desaturated warm */
+  --border: #e9cfcf;           /* pale warm border */
+
+  /* Dark Red palette */
+  --primary: #b3202a;          /* Carmine/Dark Red */
+  --primary-strong: #8f0f1a;   /* deeper red for hover/focus */
+  --accent: #e64646;           /* bright accent red */
+  --accent-soft: #ff7a7a;      /* lighter accent for tints */
+
+  /* Gradient stops (for backgrounds) */
+  --grad-1: #b3202a;           /* base red */
+  --grad-2: #e64646;           /* bright red */
+  --grad-3: #ff9a7d;           /* warm coral to soften */
+  --grad-4: #ffd3c2;           /* soft peach highlight */
+
+  /* Semantic (keep greens/yellows for status) */
+  --success: #168e3e;
+  --danger: #b00020;
+  --warning: #b07d00;
+
+  /* Radius and elevation */
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+
+  /* Shadows and glow tuned to red */
+  --shadow: 0 10px 28px rgba(179, 32, 42, 0.18);
+  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.10);
+  --shadow-2: 0 10px 28px rgba(179, 32, 42, 0.25);
+
+  /* Focus ring (high contrast) */
+  --focus-ring: 0 0 0 3px rgba(179, 32, 42, 0.35);
+
+  /* Sidebar (gradient-ready, warm) */
+  --sidebar-bg: #fff2f2;
+  --sidebar-border: #e8c7c7;
+  --sidebar-text: #3a2727;
+  --sidebar-hover: #ffe5e5;
+  --sidebar-active-bg: #ffd3d3;
+  --sidebar-active-text: #2a1f1f;
+
+  /* Header (gradient-ready, high contrast text) */
+  --header-bg: #fff0f0;
+  --header-text: #2a1f1f;
+
+  /* Tables, charts, canvas (light) */
+  --chart-grid: rgba(0, 0, 0, 0.08);
+  --chart-tooltip-bg: #2a1f1f;
+  --chart-tooltip-text: #ffffff;
+
+  --table-bg: #ffffff;
+  --table-header-bg: #ffecec;  /* warm tint */
+  --table-row-hover: #fff4f2;  /* subtle hover */
+  --table-border: var(--border);
+  --table-text: var(--text);
+
+  --canvas-bg: #fff4f2;
+  --canvas-border: var(--border);
+
+  /* Transitions */
+  --transition-fast: 160ms ease;
+  --transition-med: 260ms ease;
+}
+
+/* -------------------- Dark theme (keep red accents readable) -------------------- */
+html[data-theme="dark"] {
+  --bg: #121214;
+  --panel: #18191d;
+  --card: var(--panel);
+
+  --text: #f4f6f8;
+  --muted: #b5b7bc;
+  --border: rgba(255, 255, 255, 0.12);
+
+  /* Accents */
+  --primary: #cf2d3a;          /* slightly brighter red on dark */
+  --primary-strong: #a1131b;
+  --accent: #ff5151;
+  --accent-soft: #ff8585;
+
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+  --focus-ring: 0 0 0 3px rgba(207, 45, 58, 0.45);
+
+  /* Sidebar (dark) */
+  --sidebar-bg: #161719;
+  --sidebar-border: rgba(255, 255, 255, 0.10);
+  --sidebar-text: #f1e6e6;
+  --sidebar-hover: #222325;
+  --sidebar-active-bg: #2a2b2e;
+  --sidebar-active-text: #ffffff;
+
+  /* Header (dark) */
+  --header-bg: #17181b;
+  --header-text: #f4f6f8;
+
+  /* Tables, charts, canvas (dark) */
+  --chart-grid: rgba(255, 255, 255, 0.12);
+  --chart-tooltip-bg: #121214;
+  --chart-tooltip-text: #e9ecf2;
+
+  --table-bg: #121317;
+  --table-header-bg: #181a1f;
+  --table-row-hover: #1b1d22;
+  --table-border: rgba(255, 255, 255, 0.12);
+  --table-text: #e9eef6;
+
+  --canvas-bg: #14161b;
+  --canvas-border: rgba(255, 255, 255, 0.12);
+}
+
+/* -------------------- Optional gradients for header/sidebar -------------------- */
+.app-sidebar {
+  background: linear-gradient(180deg, var(--sidebar-bg) 0%, #ffe9e4 100%);
+}
+.app-header {
+  background: linear-gradient(180deg, var(--header-bg) 0%, #ffe3dd 100%);
+}
