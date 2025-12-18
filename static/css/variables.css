@@ -1,65 +1,72 @@
-/* -------------------- Design tokens -------------------- */
+/* -------------------- Design tokens (Baby Blue theme) -------------------- */
 :root {
   /* Layout */
   --header-h: 56px;
   --sidebar-w: 240px;
 
-  /* Light theme (unified) */
-  --bg: #eef6ff;
-  --panel: #ffffff;            /* card/panel background */
+  /* Light theme base */
+  --bg: #f6fbff;              /* very light baby-blue tint background */
+  --panel: #ffffff;           /* cards/panels */
   --card: var(--panel);
 
-  --text: #1f2a44;
-  --muted: #5e6e8a;
-  --border: #d9e6ff;
+  --text: #1f2a44;            /* slate text for contrast */
+  --muted: #5e6e8a;           /* desaturated slate */
+  --border: #dbe9f7;          /* pale baby-blue border */
 
-  --primary: #2d6cdf;          /* primary actions */
-  --accent: #4e79a7;
+  /* Baby Blue primary palette */
+  --primary: #89CFF0;         /* Baby Blue */
+  --accent: #aee3ff;          /* lighter accent */
+  --accent-strong: #64b9e6;   /* slightly stronger for hover/focus contrast */
 
+  /* Semantic */
   --success: #1e8e3e;
   --danger: #b00020;
   --warning: #b07d00;
 
+  /* Radius and elevation */
   --radius: 10px;
   --radius-sm: 6px;
   --radius-lg: 14px;
 
-  /* Elevation and transitions */
-  --shadow: 0 6px 24px rgba(45, 108, 223, 0.08);
+  --shadow: 0 6px 24px rgba(137, 207, 240, 0.12); /* Baby Blue shadow tone */
   --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.08);
   --shadow-2: 0 6px 24px rgba(0, 0, 0, 0.12);
-  --transition-fast: 160ms ease;
-  --transition-med: 260ms ease;
-  --focus-ring: 0 0 0 3px rgba(45, 108, 223, 0.25);
 
-  /* Sidebar (light) */
-  --sidebar-bg: #0b1a2f;
-  --sidebar-border: #0e264f;
-  --sidebar-text: #cfe3ff;
-  --sidebar-hover: #103367;
-  --sidebar-active-bg: #2d6cdf;
-  --sidebar-active-text: #ffffff;
+  /* Focus ring in Baby Blue */
+  --focus-ring: 0 0 0 3px rgba(137, 207, 240, 0.35);
 
-  /* Header (light) */
-  --header-bg: #0f172a;
-  --header-text: #ffffff;
+  /* Sidebar (pastel baby blue styling) */
+  --sidebar-bg: #f0f8ff;      /* Alice Blue-esque, near baby blue */
+  --sidebar-border: #e3f1ff;
+  --sidebar-text: #2b3a55;
+  --sidebar-hover: #e6f4ff;   /* gentle hover tint */
+  --sidebar-active-bg: #d5ecff; /* pastel active state */
+  --sidebar-active-text: #1f2a44;
+
+  /* Header (pastel) */
+  --header-bg: #eaf6ff;       /* soft baby-blue tint */
+  --header-text: #2b2f3a;
 
   /* Tables, charts, canvas (light) */
-  --chart-grid: rgba(0, 0, 0, 0.1);
+  --chart-grid: rgba(0, 0, 0, 0.08);
   --chart-tooltip-bg: #1f2a44;
   --chart-tooltip-text: #ffffff;
 
   --table-bg: #ffffff;
-  --table-header-bg: #f0f5ff;
-  --table-row-hover: #f7faff;
+  --table-header-bg: #f1f8ff; /* header row tint */
+  --table-row-hover: #f7fbff; /* subtle hover */
   --table-border: var(--border);
   --table-text: var(--text);
 
-  --canvas-bg: #f7faff;
+  --canvas-bg: #f7fbff;
   --canvas-border: var(--border);
+
+  /* Transitions */
+  --transition-fast: 160ms ease;
+  --transition-med: 260ms ease;
 }
 
-/* Dark theme variables */
+/* -------------------- Dark theme (muted, Baby Blue accents) -------------------- */
 html[data-theme="dark"] {
   --bg: #0f1013;
   --panel: #15171d;
@@ -69,22 +76,24 @@ html[data-theme="dark"] {
   --muted: #a2a7b0;
   --border: rgba(255, 255, 255, 0.12);
 
-  --primary: #38a1ff;
-  --accent: #f05a7e;
+  /* Baby Blue accents in dark */
+  --primary: #89CFF0;
+  --accent: #7ec8ef;          /* slightly dimmed for dark */
+  --accent-strong: #64b9e6;
 
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
-  --focus-ring: 0 0 0 3px rgba(56, 161, 255, 0.35);
+  --focus-ring: 0 0 0 3px rgba(137, 207, 240, 0.40);
 
   /* Sidebar (dark) */
-  --sidebar-bg: #0a0f1a;
-  --sidebar-border: #0f1a2a;
-  --sidebar-text: #c5dcff;
-  --sidebar-hover: #13233c;
-  --sidebar-active-bg: #38a1ff;
-  --sidebar-active-text: #0b1016;
+  --sidebar-bg: #10131a;
+  --sidebar-border: rgba(255, 255, 255, 0.10);
+  --sidebar-text: #cbd6ea;
+  --sidebar-hover: #162031;
+  --sidebar-active-bg: #1c2b44;
+  --sidebar-active-text: #e9eef6;
 
   /* Header (dark) */
-  --header-bg: #0b1016;
+  --header-bg: #12161f;
   --header-text: #e9eef6;
 
   /* Tables, charts, canvas (dark) */
@@ -102,7 +111,7 @@ html[data-theme="dark"] {
   --canvas-border: rgba(255, 255, 255, 0.12);
 }
 
-/* Respect OS preference when no explicit toggle set */
+/* -------------------- Respect OS preference when no explicit toggle -------------------- */
 @media (prefers-color-scheme: dark) {
   html:not([data-theme]) {
     --bg: #0f1013;
@@ -113,11 +122,12 @@ html[data-theme="dark"] {
     --muted: #a2a7b0;
     --border: rgba(255, 255, 255, 0.12);
 
-    --primary: #38a1ff;
-    --accent: #f05a7e;
+    --primary: #89CFF0;
+    --accent: #7ec8ef;
+    --accent-strong: #64b9e6;
 
     --shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
-    --focus-ring: 0 0 0 3px rgba(56, 161, 255, 0.35);
+    --focus-ring: 0 0 0 3px rgba(137, 207, 240, 0.40);
 
     --chart-grid: rgba(255, 255, 255, 0.12);
     --chart-tooltip-bg: #0f1013;
@@ -132,4 +142,13 @@ html[data-theme="dark"] {
     --canvas-bg: #12161d;
     --canvas-border: rgba(255, 255, 255, 0.12);
   }
+}
+
+/* -------------------- Optional gentle gradients for sidebar/header -------------------- */
+/* If you want subtle depth, keep these; otherwise the components.css background uses solid tokens. */
+.app-sidebar {
+  background: linear-gradient(180deg, var(--sidebar-bg) 0%, #edf7ff 100%);
+}
+.app-header {
+  background: linear-gradient(180deg, var(--header-bg) 0%, #f2f9ff 100%);
 }
