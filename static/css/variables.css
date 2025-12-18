@@ -1,25 +1,32 @@
-/* -------------------- Design tokens (Cerulean Blue theme) -------------------- */
+/* -------------------- Design tokens (Dark Red gradient theme) -------------------- */
 :root {
   /* Layout */
   --header-h: 56px;
   --sidebar-w: 240px;
 
   /* Light theme base */
-  --bg: #f6fbff;              /* very light cool tint */
-  --panel: #ffffff;           /* cards/panels */
+  --bg: #fff7f7;               /* subtle warm background */
+  --panel: #ffffff;
   --card: var(--panel);
 
-  --text: #233043;            /* deep slate for contrast */
-  --muted: #5e6e8a;           /* desaturated slate */
-  --border: #cfe2f3;          /* pale cool border */
+  --text: #2a1f1f;             /* deep warm slate */
+  --muted: #7a6060;            /* desaturated warm */
+  --border: #e9cfcf;           /* pale warm border */
 
-  /* Cerulean Blue primary palette */
-  --primary: #4DA3D9;         /* Cerulean Blue */
-  --accent: #6DB9E8;          /* lighter accent for tints */
-  --accent-strong: #338FCB;   /* stronger for hover/focus */
+  /* Dark Red palette */
+  --primary: #b3202a;          /* Carmine/Dark Red */
+  --primary-strong: #8f0f1a;   /* deeper red for hover/focus */
+  --accent: #e64646;           /* bright accent red */
+  --accent-soft: #ff7a7a;      /* lighter accent for tints */
 
-  /* Semantic */
-  --success: #1e8e3e;
+  /* Gradient stops (for backgrounds) */
+  --grad-1: #b3202a;           /* base red */
+  --grad-2: #e64646;           /* bright red */
+  --grad-3: #ff9a7d;           /* warm coral to soften */
+  --grad-4: #ffd3c2;           /* soft peach highlight */
+
+  /* Semantic (keep greens/yellows for status) */
+  --success: #168e3e;
   --danger: #b00020;
   --warning: #b07d00;
 
@@ -28,37 +35,38 @@
   --radius-sm: 6px;
   --radius-lg: 14px;
 
-  --shadow: 0 6px 24px rgba(77, 163, 217, 0.12);
-  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-2: 0 6px 24px rgba(0, 0, 0, 0.12);
+  /* Shadows and glow tuned to red */
+  --shadow: 0 10px 28px rgba(179, 32, 42, 0.18);
+  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.10);
+  --shadow-2: 0 10px 28px rgba(179, 32, 42, 0.25);
 
-  /* Focus ring tuned to Cerulean */
-  --focus-ring: 0 0 0 3px rgba(77, 163, 217, 0.40);
+  /* Focus ring (high contrast) */
+  --focus-ring: 0 0 0 3px rgba(179, 32, 42, 0.35);
 
-  /* Sidebar (pastel cerulean styling) */
-  --sidebar-bg: #eef6fc;      /* soft blue tint */
-  --sidebar-border: #d9eaf7;
-  --sidebar-text: #293a52;
-  --sidebar-hover: #e0f0fb;   /* gentle hover */
-  --sidebar-active-bg: #d1e9fb; /* pastel active */
-  --sidebar-active-text: #233043;
+  /* Sidebar (gradient-ready, warm) */
+  --sidebar-bg: #fff2f2;
+  --sidebar-border: #e8c7c7;
+  --sidebar-text: #3a2727;
+  --sidebar-hover: #ffe5e5;
+  --sidebar-active-bg: #ffd3d3;
+  --sidebar-active-text: #2a1f1f;
 
-  /* Header (pastel, slightly deeper) */
-  --header-bg: #e3f2fb;       /* deeper than baby blue */
-  --header-text: #233043;
+  /* Header (gradient-ready, high contrast text) */
+  --header-bg: #fff0f0;
+  --header-text: #2a1f1f;
 
   /* Tables, charts, canvas (light) */
   --chart-grid: rgba(0, 0, 0, 0.08);
-  --chart-tooltip-bg: #233043;
+  --chart-tooltip-bg: #2a1f1f;
   --chart-tooltip-text: #ffffff;
 
   --table-bg: #ffffff;
-  --table-header-bg: #e9f3ff; /* header row tint */
-  --table-row-hover: #f3f9ff; /* subtle hover */
+  --table-header-bg: #ffecec;  /* warm tint */
+  --table-row-hover: #fff4f2;  /* subtle hover */
   --table-border: var(--border);
   --table-text: var(--text);
 
-  --canvas-bg: #f7fbff;
+  --canvas-bg: #fff4f2;
   --canvas-border: var(--border);
 
   /* Transitions */
@@ -66,89 +74,56 @@
   --transition-med: 260ms ease;
 }
 
-/* -------------------- Dark theme (muted, cerulean accents) -------------------- */
+/* -------------------- Dark theme (keep red accents readable) -------------------- */
 html[data-theme="dark"] {
-  --bg: #0f1013;
-  --panel: #15171d;
+  --bg: #121214;
+  --panel: #18191d;
   --card: var(--panel);
 
   --text: #f4f6f8;
-  --muted: #a2a7b0;
+  --muted: #b5b7bc;
   --border: rgba(255, 255, 255, 0.12);
 
-  /* Cerulean accents in dark */
-  --primary: #4DA3D9;
-  --accent: #6DB9E8;
-  --accent-strong: #338FCB;
+  /* Accents */
+  --primary: #cf2d3a;          /* slightly brighter red on dark */
+  --primary-strong: #a1131b;
+  --accent: #ff5151;
+  --accent-soft: #ff8585;
 
-  --shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
-  --focus-ring: 0 0 0 3px rgba(77, 163, 217, 0.45);
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+  --focus-ring: 0 0 0 3px rgba(207, 45, 58, 0.45);
 
   /* Sidebar (dark) */
-  --sidebar-bg: #10131a;
+  --sidebar-bg: #161719;
   --sidebar-border: rgba(255, 255, 255, 0.10);
-  --sidebar-text: #cfe0f2;
-  --sidebar-hover: #162031;
-  --sidebar-active-bg: #20344b; /* darker active */
-  --sidebar-active-text: #e9eef6;
+  --sidebar-text: #f1e6e6;
+  --sidebar-hover: #222325;
+  --sidebar-active-bg: #2a2b2e;
+  --sidebar-active-text: #ffffff;
 
   /* Header (dark) */
-  --header-bg: #12161f;
-  --header-text: #e9eef6;
+  --header-bg: #17181b;
+  --header-text: #f4f6f8;
 
   /* Tables, charts, canvas (dark) */
   --chart-grid: rgba(255, 255, 255, 0.12);
-  --chart-tooltip-bg: #0f1013;
+  --chart-tooltip-bg: #121214;
   --chart-tooltip-text: #e9ecf2;
 
-  --table-bg: #0f1217;
-  --table-header-bg: #151922;
-  --table-row-hover: #131720;
+  --table-bg: #121317;
+  --table-header-bg: #181a1f;
+  --table-row-hover: #1b1d22;
   --table-border: rgba(255, 255, 255, 0.12);
   --table-text: #e9eef6;
 
-  --canvas-bg: #12161d;
+  --canvas-bg: #14161b;
   --canvas-border: rgba(255, 255, 255, 0.12);
 }
 
-/* -------------------- Respect OS preference when no explicit toggle -------------------- */
-@media (prefers-color-scheme: dark) {
-  html:not([data-theme]) {
-    --bg: #0f1013;
-    --panel: #15171d;
-    --card: var(--panel);
-
-    --text: #f4f6f8;
-    --muted: #a2a7b0;
-    --border: rgba(255, 255, 255, 0.12);
-
-    --primary: #4DA3D9;
-    --accent: #6DB9E8;
-    --accent-strong: #338FCB;
-
-    --shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
-    --focus-ring: 0 0 0 3px rgba(77, 163, 217, 0.45);
-
-    --chart-grid: rgba(255, 255, 255, 0.12);
-    --chart-tooltip-bg: #0f1013;
-    --chart-tooltip-text: #e9ecf2;
-
-    --table-bg: #0f1217;
-    --table-header-bg: #151922;
-    --table-row-hover: #131720;
-    --table-border: rgba(255, 255, 255, 0.12);
-    --table-text: #e9eef6;
-
-    --canvas-bg: #12161d;
-    --canvas-border: rgba(255, 255, 255, 0.12);
-  }
-}
-
-/* -------------------- Optional gentle gradients for sidebar/header -------------------- */
-/* Remove these if you prefer solid tokens only. Components consume --sidebar-bg/--header-bg regardless. */
+/* -------------------- Optional gradients for header/sidebar -------------------- */
 .app-sidebar {
-  background: linear-gradient(180deg, var(--sidebar-bg) 0%, #e8f4fc 100%);
+  background: linear-gradient(180deg, var(--sidebar-bg) 0%, #ffe9e4 100%);
 }
 .app-header {
-  background: linear-gradient(180deg, var(--header-bg) 0%, #ecf6ff 100%);
+  background: linear-gradient(180deg, var(--header-bg) 0%, #ffe3dd 100%);
 }

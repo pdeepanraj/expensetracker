@@ -1,0 +1,154 @@
+/* -------------------- Design tokens (Cerulean Blue theme) -------------------- */
+:root {
+  /* Layout */
+  --header-h: 56px;
+  --sidebar-w: 240px;
+
+  /* Light theme base */
+  --bg: #f6fbff;              /* very light cool tint */
+  --panel: #ffffff;           /* cards/panels */
+  --card: var(--panel);
+
+  --text: #233043;            /* deep slate for contrast */
+  --muted: #5e6e8a;           /* desaturated slate */
+  --border: #cfe2f3;          /* pale cool border */
+
+  /* Cerulean Blue primary palette */
+  --primary: #4DA3D9;         /* Cerulean Blue */
+  --accent: #6DB9E8;          /* lighter accent for tints */
+  --accent-strong: #338FCB;   /* stronger for hover/focus */
+
+  /* Semantic */
+  --success: #1e8e3e;
+  --danger: #b00020;
+  --warning: #b07d00;
+
+  /* Radius and elevation */
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+
+  --shadow: 0 6px 24px rgba(77, 163, 217, 0.12);
+  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-2: 0 6px 24px rgba(0, 0, 0, 0.12);
+
+  /* Focus ring tuned to Cerulean */
+  --focus-ring: 0 0 0 3px rgba(77, 163, 217, 0.40);
+
+  /* Sidebar (pastel cerulean styling) */
+  --sidebar-bg: #eef6fc;      /* soft blue tint */
+  --sidebar-border: #d9eaf7;
+  --sidebar-text: #293a52;
+  --sidebar-hover: #e0f0fb;   /* gentle hover */
+  --sidebar-active-bg: #d1e9fb; /* pastel active */
+  --sidebar-active-text: #233043;
+
+  /* Header (pastel, slightly deeper) */
+  --header-bg: #e3f2fb;       /* deeper than baby blue */
+  --header-text: #233043;
+
+  /* Tables, charts, canvas (light) */
+  --chart-grid: rgba(0, 0, 0, 0.08);
+  --chart-tooltip-bg: #233043;
+  --chart-tooltip-text: #ffffff;
+
+  --table-bg: #ffffff;
+  --table-header-bg: #e9f3ff; /* header row tint */
+  --table-row-hover: #f3f9ff; /* subtle hover */
+  --table-border: var(--border);
+  --table-text: var(--text);
+
+  --canvas-bg: #f7fbff;
+  --canvas-border: var(--border);
+
+  /* Transitions */
+  --transition-fast: 160ms ease;
+  --transition-med: 260ms ease;
+}
+
+/* -------------------- Dark theme (muted, cerulean accents) -------------------- */
+html[data-theme="dark"] {
+  --bg: #0f1013;
+  --panel: #15171d;
+  --card: var(--panel);
+
+  --text: #f4f6f8;
+  --muted: #a2a7b0;
+  --border: rgba(255, 255, 255, 0.12);
+
+  /* Cerulean accents in dark */
+  --primary: #4DA3D9;
+  --accent: #6DB9E8;
+  --accent-strong: #338FCB;
+
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+  --focus-ring: 0 0 0 3px rgba(77, 163, 217, 0.45);
+
+  /* Sidebar (dark) */
+  --sidebar-bg: #10131a;
+  --sidebar-border: rgba(255, 255, 255, 0.10);
+  --sidebar-text: #cfe0f2;
+  --sidebar-hover: #162031;
+  --sidebar-active-bg: #20344b; /* darker active */
+  --sidebar-active-text: #e9eef6;
+
+  /* Header (dark) */
+  --header-bg: #12161f;
+  --header-text: #e9eef6;
+
+  /* Tables, charts, canvas (dark) */
+  --chart-grid: rgba(255, 255, 255, 0.12);
+  --chart-tooltip-bg: #0f1013;
+  --chart-tooltip-text: #e9ecf2;
+
+  --table-bg: #0f1217;
+  --table-header-bg: #151922;
+  --table-row-hover: #131720;
+  --table-border: rgba(255, 255, 255, 0.12);
+  --table-text: #e9eef6;
+
+  --canvas-bg: #12161d;
+  --canvas-border: rgba(255, 255, 255, 0.12);
+}
+
+/* -------------------- Respect OS preference when no explicit toggle -------------------- */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) {
+    --bg: #0f1013;
+    --panel: #15171d;
+    --card: var(--panel);
+
+    --text: #f4f6f8;
+    --muted: #a2a7b0;
+    --border: rgba(255, 255, 255, 0.12);
+
+    --primary: #4DA3D9;
+    --accent: #6DB9E8;
+    --accent-strong: #338FCB;
+
+    --shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+    --focus-ring: 0 0 0 3px rgba(77, 163, 217, 0.45);
+
+    --chart-grid: rgba(255, 255, 255, 0.12);
+    --chart-tooltip-bg: #0f1013;
+    --chart-tooltip-text: #e9ecf2;
+
+    --table-bg: #0f1217;
+    --table-header-bg: #151922;
+    --table-row-hover: #131720;
+    --table-border: rgba(255, 255, 255, 0.12);
+    --table-text: #e9eef6;
+
+    --canvas-bg: #12161d;
+    --canvas-border: rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* -------------------- Optional gentle gradients for sidebar/header -------------------- */
+/* Remove these if you prefer solid tokens only. Components consume --sidebar-bg/--header-bg regardless. */
+.app-sidebar {
+  background: linear-gradient(180deg, var(--sidebar-bg) 0%, #e8f4fc 100%);
+}
+.app-header {
+  background: linear-gradient(180deg, var(--header-bg) 0%, #ecf6ff 100%);
+}

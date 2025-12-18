@@ -808,6 +808,60 @@ def manual_category_tag(cat: str) -> str:
     return f"Manual_{slug}" if slug else "Manual_Uncategorized"
 
 
+def seed_month_bills_if_missing(bill_month: str):
+    """
+    Ensure each card in MASTER has an entry for bill_month.
+    Creates rows with (CardName, DueDay from MASTER, BillMonth=bill_month, Amount=0, Paid=FALSE, Note='AUTO_SEED').
+    Does nothing for cards that already have an entry for that month.
+    """
+    client = bq_client()
+    table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
+
+    # Fetch all master card names + due days
+    masters = bq_query(f"""
+      SELECT CardName, ANY_VALUE(DueDay) AS DueDay
+      FROM {table_id}
+      WHERE BillMonth = @master
+      GROUP BY CardName
+    """, {"master": MASTER_MONTH})
+
+    if not masters:
+        return
+
+    # Fetch existing card rows for target month
+    existing = bq_query(f"""
+      SELECT CardName
+      FROM {table_id}
+      WHERE BillMonth = @m
+    """, {"m": bill_month})
+    existing_set = {str(r.get("CardName") or "") for r in existing}
+
+    # Prepare inserts for missing cards
+    rows = []
+    for m in masters:
+      card = str(m.get("CardName") or "").strip()
+      due_day = int(m.get("DueDay") or 0)
+      if not card or card in existing_set:
+          continue
+      row_id = hashlib.sha256(f"{card}|{bill_month}".encode("utf-8")).hexdigest()[:16]
+      rows.append({
+          "CardName": card,
+          "DueDay": due_day,
+          "BillMonth": bill_month,
+          "Amount": 0.0,
+          "Paid": False,
+          "PaidAt": None,
+          "Note": "AUTO_SEED",
+          "RowId": row_id,
+      })
+
+    if not rows:
+        return
+
+    # Insert missing rows
+    client.insert_rows_json(f"{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}", rows)
+
+
 # ---------------- Dashboard ----------------
 @app.get("/")
 def dashboard():
@@ -1367,6 +1421,14 @@ def bills():
     qs_month = request.args.get("m", "").strip()
     unpaid_only = request.args.get("unpaid", "").strip() == "1"
     bill_month = qs_month if qs_month else month_str(dt.date.today())
+
+    # NEW: auto-seed entries for all master cards for this month if missing
+    try:
+        seed_month_bills_if_missing(bill_month)
+    except Exception as e:
+        # Non-fatal; continue showing page even if seeding fails
+        print(f"[SEED] Skipped seeding {bill_month}: {type(e).__name__}: {e}")
+
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{BILLS_TABLE}`"
     summary_sql = f"""
       SELECT
@@ -1405,6 +1467,7 @@ def bills():
         unpaid_only=unpaid_only,
         prev_month=prev_m, next_month=next_m
     )
+
 
 @app.post("/bills/add_card")
 def bills_add_card():
