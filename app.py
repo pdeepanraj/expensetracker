@@ -809,7 +809,7 @@ def manual_category_tag(cat: str) -> str:
 
 
 # ---------------- Dashboard ----------------
-@app.get("/dashboard")
+@app.get("")
 def dashboard():
     # Default tab
     return redirect(url_for("dashboard_details"))
@@ -818,76 +818,90 @@ def dashboard():
 def dashboard_details():
     if not validate_dataset(BQ_PROJECT, BQ_DATASET):
         return "Dataset not accessible.", 500
-    # Filters
+
+    # Filters from UI
     month = (request.args.get("month") or "").strip()
     card  = (request.args.get("card") or "").strip()
     main  = (request.args.get("main") or "").strip()
     cat   = (request.args.get("cat") or "").strip()
-    include_manual = (request.args.get("include_manual","1") == "1")
+
+    # Manual include toggle: only include when explicitly checked
+    include_manual = (request.args.get("include_manual") == "1")
 
     # Sorting
     sort, order = parse_sorting("details", request.args)
-    order_sql = f"ORDER BY {sort} {order.upper()}"
 
+    # Distincts for dropdowns
     months, cards, mains, cats = get_distinct_filters()
 
-    # Card WHERE
-    where_sql, qp = apply_filters_where({"month": month or None, "card": card or None, "main": main or None, "cat": cat or None})
+    # WHERE for cards (applies all filters)
+    where_sql, qp = apply_filters_where({
+        "month": month or None,
+        "card": card or None,
+        "main": main or None,
+        "cat":  cat or None
+    })
 
-    # Cards select
+    # Cards rows
     table_id = f"`{BQ_PROJECT}.{BQ_DATASET}.{TARGET_TABLE}`"
     card_sql = f"""
       SELECT Month, CardName, MainCategory, Category, Description, Amount
       FROM {table_id}
       {where_sql}
     """
+    card_rows = bq_query(card_sql, qp)
 
-    # Manual select (Month scope only, normalized fields)
+    # Manual rows (Month-only scope) — include only when checkbox selected
     manual_rows = []
     if include_manual:
         base_manual = f"`{BQ_PROJECT}.{BQ_DATASET}.manual_spend`"
         if month:
             manual_sql = f"""
-              SELECT Month, 'Manual' AS CardName,
-                     Category AS MainCategory, Category AS Category,
-                     Description, Amount
+              SELECT Month,
+                     'Manual' AS CardName,
+                     Category AS MainCategory,
+                     Category AS Category,
+                     Description,
+                     Amount
               FROM {base_manual}
               WHERE Month=@m
             """
             manual_rows = bq_query(manual_sql, {"m": month})
         else:
             manual_sql = f"""
-              SELECT Month, 'Manual' AS CardName,
-                     Category AS MainCategory, Category AS Category,
-                     Description, Amount
+              SELECT Month,
+                     'Manual' AS CardName,
+                     Category AS MainCategory,
+                     Category AS Category,
+                     Description,
+                     Amount
               FROM {base_manual}
             """
             manual_rows = bq_query(manual_sql)
 
-    # Cards rows
-    card_rows = bq_query(card_sql, qp)
-
+    # Merge rows (cards first, then manual if any)
     rows = card_rows + manual_rows
 
-    # Apply client-side like sorting in Python to keep SQL simple for union
+    # Python-side sort to keep union simple
     def keyer(r):
         v = r.get(sort)
-        # numeric amounts else string
-        return (float(v) if sort=="Amount" else (str(v) or ""))
-    rows.sort(key=keyer, reverse=(order=="desc"))
+        return (float(v) if sort == "Amount" else (str(v) or ""))
+
+    rows.sort(key=keyer, reverse=(order == "desc"))
 
     return render_template(
         "dashboard.html",
         tab="details",
         rows=rows,
-        # filters
         months=months, cards=cards, mains=mains, cats=cats,
         selected_month=month, selected_card=card, selected_main=main, selected_cat=cat,
         include_manual=include_manual,
         sort=sort, order=order,
-        # aggregate placeholders
         aggregate_labels=[], aggregate_values=[], aggregate_group_by="", aggregate_rows=[]
     )
+
+
+
 
 @app.get("/dashboard/manual")
 def dashboard_manual():
@@ -989,10 +1003,16 @@ def aggregate():
     group_by_list = request.args.getlist("group_by")
     group_cols = normalize_group_by_param(group_by_list) or ["Category"]
 
+    # Filters (cards)
     selected_month = request.args.get("month", "").strip() or None
     selected_card = request.args.get("card", "").strip() or None
     selected_main = request.args.get("main", "").strip() or None
     selected_cat = request.args.get("cat", "").strip() or None
+
+    # Manual include toggle: only include when explicitly checked
+    include_manual = (request.args.get("include_manual") == "1")
+
+    # Min amount filter
     min_amount = request.args.get("min_amount", "").strip()
     try:
         min_amount_val = float(min_amount) if min_amount else None
@@ -1016,33 +1036,42 @@ def aggregate():
       {where_sql}
     """
 
-    # Manual source: Manual_<Slug> for both MainCategory and Category
-    manual_base = f"`{BQ_PROJECT}.{BQ_DATASET}.manual_spend`"
-    if selected_month:
-        manual_select = f"""
-          SELECT Month,
-                 'Manual' AS CardName,
-                 CONCAT('Manual_', REGEXP_REPLACE(INITCAP(Category), r'[^A-Za-z0-9]+', '')) AS MainCategory,
-                 CONCAT('Manual_', REGEXP_REPLACE(INITCAP(Category), r'[^A-Za-z0-9]+', '')) AS Category,
-                 Amount
-          FROM {manual_base}
-          WHERE Month=@month
+    agg_params = dict(qp)
+
+    # Manual source: include only when toggled, Month scope only; map to Manual_<Slug>
+    manual_select = ""
+    if include_manual:
+        manual_base = f"`{BQ_PROJECT}.{BQ_DATASET}.manual_spend`"
+        if selected_month:
+            manual_select = f"""
+              SELECT Month,
+                     'Manual' AS CardName,
+                     CONCAT('Manual_', REGEXP_REPLACE(INITCAP(Category), r'[^A-Za-z0-9]+', '')) AS MainCategory,
+                     CONCAT('Manual_', REGEXP_REPLACE(INITCAP(Category), r'[^A-Za-z0-9]+', '')) AS Category,
+                     Amount
+              FROM {manual_base}
+              WHERE Month=@month
+            """
+            agg_params["month"] = selected_month
+        else:
+            manual_select = f"""
+              SELECT Month,
+                     'Manual' AS CardName,
+                     CONCAT('Manual_', REGEXP_REPLACE(INITCAP(Category), r'[^A-Za-z0-9]+', '')) AS MainCategory,
+                     CONCAT('Manual_', REGEXP_REPLACE(INITCAP(Category), r'[^A-Za-z0-9]+', '')) AS Category,
+                     Amount
+              FROM {manual_base}
+            """
+
+    # Build union only if manual is included
+    if include_manual and manual_select:
+        union_source = f"""
+          ({cards_select})
+          UNION ALL
+          ({manual_select})
         """
     else:
-        manual_select = f"""
-          SELECT Month,
-                 'Manual' AS CardName,
-                 CONCAT('Manual_', REGEXP_REPLACE(INITCAP(Category), r'[^A-Za-z0-9]+', '')) AS MainCategory,
-                 CONCAT('Manual_', REGEXP_REPLACE(INITCAP(Category), r'[^A-Za-z0-9]+', '')) AS Category,
-                 Amount
-          FROM {manual_base}
-        """
-
-    union_source = f"""
-      ({cards_select})
-      UNION ALL
-      ({manual_select})
-    """
+        union_source = f"({cards_select})"
 
     sql = f"""
       SELECT {select_cols}, SUM(Amount) AS Amount
@@ -1051,10 +1080,6 @@ def aggregate():
       {order_clause}
       LIMIT 1000
     """
-
-    agg_params = dict(qp)
-    if selected_month:
-        agg_params["month"] = selected_month
 
     rows = bq_query(sql, params=agg_params)
 
@@ -1069,7 +1094,7 @@ def aggregate():
 
     return render_template(
         "dashboard.html",
-        tab="aggregate",  # ensure Aggregate tab is active
+        tab="aggregate",
         latest_month="",
         month_for_view=selected_month or "",
         top_categories=[],
@@ -1086,9 +1111,11 @@ def aggregate():
         months=months, cards=cards, mains=mains, cats=cats,
         selected_month=selected_month, selected_card=selected_card,
         selected_main=selected_main, selected_cat=selected_cat,
+        include_manual=include_manual,
         loaded="",
         table_modified=get_table_metadata(TARGET_TABLE).get("modified"),
     )
+
 
 
 
