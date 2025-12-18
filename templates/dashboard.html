@@ -313,6 +313,11 @@ Source: {{ project }}.{{ dataset }}
           {% endfor %}
         </select>
       </div>
+      <label class="inline gap-6">
+      <input type="checkbox" name="include_manual" value="1" {% if include_manual %}checked{% endif %}>
+        Include manual spends
+        </label>
+
       <div class="mt-8">
         <label for="min_amount">Minimum amount (optional)</label><br>
         <input id="min_amount" name="min_amount" type="text" placeholder="e.g., 10" value="{{ aggregate_min_amount or '' }}">
