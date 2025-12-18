@@ -546,3 +546,33 @@ html[data-theme="dark"] .brand-tracker {
   .brand-text::after,
   .app-brand:hover .brand-mark { transition: none; box-shadow: none; }
 }
+
+/* Base brand text size */
+.brand-text {
+  font-size: 20px;
+  line-height: 1.2;
+}
+.brand-expense { font-weight: 800; }
+.brand-tracker { font-weight: 700; }
+
+/* Scale the whole brand block so icon and text grow together */
+.brand-mark {
+  transform: scale(1.15); /* ~15% larger overall */
+  transform-origin: left center;
+}
+
+/* Larger on wider screens */
+@media (min-width: 900px) {
+  .brand-text { font-size: 22px; }
+  .brand-mark { transform: scale(1.2); }
+}
+
+/* Keep it comfortable on small heights (landscape phones) */
+@media (max-height: 480px) and (max-width: 900px) {
+  .brand-text { font-size: 18px; }
+  .brand-mark { transform: scale(1.1); }
+}
+
+/* Compact mode reduces size slightly */
+html[data-compact="1"] .brand-text { font-size: 18px; }
+html[data-compact="1"] .brand-mark { transform: scale(1.1); }

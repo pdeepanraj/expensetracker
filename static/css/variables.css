@@ -1,22 +1,22 @@
-/* -------------------- Design tokens (Baby Blue theme) -------------------- */
+/* -------------------- Design tokens (Cerulean Blue theme) -------------------- */
 :root {
   /* Layout */
   --header-h: 56px;
   --sidebar-w: 240px;
 
   /* Light theme base */
-  --bg: #f6fbff;              /* very light baby-blue tint background */
+  --bg: #f6fbff;              /* very light cool tint */
   --panel: #ffffff;           /* cards/panels */
   --card: var(--panel);
 
-  --text: #1f2a44;            /* slate text for contrast */
+  --text: #233043;            /* deep slate for contrast */
   --muted: #5e6e8a;           /* desaturated slate */
-  --border: #dbe9f7;          /* pale baby-blue border */
+  --border: #cfe2f3;          /* pale cool border */
 
-  /* Baby Blue primary palette */
-  --primary: #89CFF0;         /* Baby Blue */
-  --accent: #aee3ff;          /* lighter accent */
-  --accent-strong: #64b9e6;   /* slightly stronger for hover/focus contrast */
+  /* Cerulean Blue primary palette */
+  --primary: #4DA3D9;         /* Cerulean Blue */
+  --accent: #6DB9E8;          /* lighter accent for tints */
+  --accent-strong: #338FCB;   /* stronger for hover/focus */
 
   /* Semantic */
   --success: #1e8e3e;
@@ -28,33 +28,33 @@
   --radius-sm: 6px;
   --radius-lg: 14px;
 
-  --shadow: 0 6px 24px rgba(137, 207, 240, 0.12); /* Baby Blue shadow tone */
+  --shadow: 0 6px 24px rgba(77, 163, 217, 0.12);
   --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.08);
   --shadow-2: 0 6px 24px rgba(0, 0, 0, 0.12);
 
-  /* Focus ring in Baby Blue */
-  --focus-ring: 0 0 0 3px rgba(137, 207, 240, 0.35);
+  /* Focus ring tuned to Cerulean */
+  --focus-ring: 0 0 0 3px rgba(77, 163, 217, 0.40);
 
-  /* Sidebar (pastel baby blue styling) */
-  --sidebar-bg: #f0f8ff;      /* Alice Blue-esque, near baby blue */
-  --sidebar-border: #e3f1ff;
-  --sidebar-text: #2b3a55;
-  --sidebar-hover: #e6f4ff;   /* gentle hover tint */
-  --sidebar-active-bg: #d5ecff; /* pastel active state */
-  --sidebar-active-text: #1f2a44;
+  /* Sidebar (pastel cerulean styling) */
+  --sidebar-bg: #eef6fc;      /* soft blue tint */
+  --sidebar-border: #d9eaf7;
+  --sidebar-text: #293a52;
+  --sidebar-hover: #e0f0fb;   /* gentle hover */
+  --sidebar-active-bg: #d1e9fb; /* pastel active */
+  --sidebar-active-text: #233043;
 
-  /* Header (pastel) */
-  --header-bg: #eaf6ff;       /* soft baby-blue tint */
-  --header-text: #2b2f3a;
+  /* Header (pastel, slightly deeper) */
+  --header-bg: #e3f2fb;       /* deeper than baby blue */
+  --header-text: #233043;
 
   /* Tables, charts, canvas (light) */
   --chart-grid: rgba(0, 0, 0, 0.08);
-  --chart-tooltip-bg: #1f2a44;
+  --chart-tooltip-bg: #233043;
   --chart-tooltip-text: #ffffff;
 
   --table-bg: #ffffff;
-  --table-header-bg: #f1f8ff; /* header row tint */
-  --table-row-hover: #f7fbff; /* subtle hover */
+  --table-header-bg: #e9f3ff; /* header row tint */
+  --table-row-hover: #f3f9ff; /* subtle hover */
   --table-border: var(--border);
   --table-text: var(--text);
 
@@ -66,7 +66,7 @@
   --transition-med: 260ms ease;
 }
 
-/* -------------------- Dark theme (muted, Baby Blue accents) -------------------- */
+/* -------------------- Dark theme (muted, cerulean accents) -------------------- */
 html[data-theme="dark"] {
   --bg: #0f1013;
   --panel: #15171d;
@@ -76,20 +76,20 @@ html[data-theme="dark"] {
   --muted: #a2a7b0;
   --border: rgba(255, 255, 255, 0.12);
 
-  /* Baby Blue accents in dark */
-  --primary: #89CFF0;
-  --accent: #7ec8ef;          /* slightly dimmed for dark */
-  --accent-strong: #64b9e6;
+  /* Cerulean accents in dark */
+  --primary: #4DA3D9;
+  --accent: #6DB9E8;
+  --accent-strong: #338FCB;
 
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
-  --focus-ring: 0 0 0 3px rgba(137, 207, 240, 0.40);
+  --focus-ring: 0 0 0 3px rgba(77, 163, 217, 0.45);
 
   /* Sidebar (dark) */
   --sidebar-bg: #10131a;
   --sidebar-border: rgba(255, 255, 255, 0.10);
-  --sidebar-text: #cbd6ea;
+  --sidebar-text: #cfe0f2;
   --sidebar-hover: #162031;
-  --sidebar-active-bg: #1c2b44;
+  --sidebar-active-bg: #20344b; /* darker active */
   --sidebar-active-text: #e9eef6;
 
   /* Header (dark) */
@@ -122,12 +122,12 @@ html[data-theme="dark"] {
     --muted: #a2a7b0;
     --border: rgba(255, 255, 255, 0.12);
 
-    --primary: #89CFF0;
-    --accent: #7ec8ef;
-    --accent-strong: #64b9e6;
+    --primary: #4DA3D9;
+    --accent: #6DB9E8;
+    --accent-strong: #338FCB;
 
     --shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
-    --focus-ring: 0 0 0 3px rgba(137, 207, 240, 0.40);
+    --focus-ring: 0 0 0 3px rgba(77, 163, 217, 0.45);
 
     --chart-grid: rgba(255, 255, 255, 0.12);
     --chart-tooltip-bg: #0f1013;
@@ -145,10 +145,10 @@ html[data-theme="dark"] {
 }
 
 /* -------------------- Optional gentle gradients for sidebar/header -------------------- */
-/* If you want subtle depth, keep these; otherwise the components.css background uses solid tokens. */
+/* Remove these if you prefer solid tokens only. Components consume --sidebar-bg/--header-bg regardless. */
 .app-sidebar {
-  background: linear-gradient(180deg, var(--sidebar-bg) 0%, #edf7ff 100%);
+  background: linear-gradient(180deg, var(--sidebar-bg) 0%, #e8f4fc 100%);
 }
 .app-header {
-  background: linear-gradient(180deg, var(--header-bg) 0%, #f2f9ff 100%);
+  background: linear-gradient(180deg, var(--header-bg) 0%, #ecf6ff 100%);
 }
