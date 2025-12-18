@@ -25,11 +25,8 @@ body {
   backdrop-filter: saturate(120%) blur(4px);
   transition: background-color var(--transition-med), color var(--transition-med), box-shadow var(--transition-med), border-color var(--transition-med);
 }
-.app-header.scrolled {
-  box-shadow: 0 6px 20px rgba(0,0,0,.18);
-}
+.app-header.scrolled { box-shadow: 0 6px 20px rgba(0,0,0,.18); }
 
-/* Brand/logo */
 .app-brand { display: flex; align-items: center; gap: 10px; font-weight: 600; }
 .app-brand .logo {
   width: 28px; height: 28px; border-radius: 6px;
@@ -52,8 +49,6 @@ body {
   display: flex; flex-direction: column; padding: 12px 8px;
   transition: background-color var(--transition-med), color var(--transition-med), border-color var(--transition-med), transform .2s ease;
 }
-
-/* Navigation inside sidebar */
 .nav-title {
   font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
   color: rgba(255,255,255,0.7); padding: 10px 12px;
@@ -70,10 +65,7 @@ body {
   box-shadow: 0 6px 18px rgba(0,0,0,.24);
   transform: translateX(2px);
 }
-.nav a.active {
-  background: var(--sidebar-active-bg);
-  color: var(--sidebar-active-text);
-}
+.nav a.active { background: var(--sidebar-active-bg); color: var(--sidebar-active-text); }
 
 /* -------------------- Content -------------------- */
 .app-content {
@@ -110,17 +102,14 @@ body {
 }
 .btn:disabled { opacity: .6; cursor: not-allowed; }
 
-/* Ripple sheen */
 .btn::after, button::after {
-  content: "";
-  position: absolute; inset: 0; border-radius: inherit;
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
   transform: scale(0); background: rgba(255,255,255,0.25);
   transition: transform 320ms ease, opacity 320ms ease;
   pointer-events: none;
 }
 .btn:hover::after, button:hover::after { transform: scale(1); opacity: 0; }
 
-/* Sidebar toggle button visibility for mobile */
 .sidebar-toggle { display: none; }
 
 /* -------------------- Cards and common UI -------------------- */
@@ -138,7 +127,9 @@ body {
 .card h2 { margin: 0 0 8px; font-size: 22px; }
 .card h3 { margin: 0 0 10px; font-size: 18px; }
 .muted { color: var(--muted); }
-.inline { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.inline { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.inline-end { align-items: flex-end; }
+.inline-start { align-items: flex-start; }
 .hr { height: 1px; background: var(--border); border: 0; margin: 16px 0; }
 
 @keyframes cardIn {
@@ -148,7 +139,6 @@ body {
 
 /* -------------------- Forms -------------------- */
 label { display: block; margin: 8px 0 6px; font-weight: 600; }
-
 input[type="text"], input[type="url"], input[type="number"], input[type="month"], input[type="file"], select, textarea {
   width: 100%;
   min-width: 0;
@@ -160,9 +150,7 @@ input[type="text"], input[type="url"], input[type="number"], input[type="month"]
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-med), color var(--transition-med);
 }
 input[type="text"]:focus, input[type="url"]:focus, input[type="number"]:focus, input[type="month"]:focus, input[type="file"]:focus, select:focus, textarea:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: var(--focus-ring);
+  outline: none; border-color: var(--primary); box-shadow: var(--focus-ring);
 }
 
 /* -------------------- Tables -------------------- */
@@ -175,6 +163,8 @@ input[type="text"]:focus, input[type="url"]:focus, input[type="number"]:focus, i
   position: relative;
   z-index: 1;
   transition: border-color var(--transition-med), background-color var(--transition-med);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 table { border-collapse: collapse; width: 100%; color: var(--table-text); }
 th, td {
@@ -281,9 +271,7 @@ html[data-theme="dark"] .due-status { border-color: rgba(255,255,255,0.14); }
 .layout { display: grid; grid-template-columns: 280px 1fr; gap: 24px; }
 .sidebar .card { margin-bottom: 24px; }
 .sidebar .grid-2 { grid-template-columns: 1fr; gap: 12px; }
-@media (min-width: 901px) {
-  .sidebar { position: sticky; top: 24px; align-self: start; }
-}
+@media (min-width: 901px) { .sidebar { position: sticky; top: 24px; align-self: start; } }
 
 /* Accordion */
 .accordion { border-top: 1px solid var(--border); margin-top: 8px; }
@@ -297,7 +285,7 @@ html[data-theme="dark"] .due-status { border-color: rgba(255,255,255,0.14); }
 .accordion-panel { display: none; padding: 8px 0 12px; }
 .accordion-item[aria-expanded="true"] .accordion-panel { display: block; }
 
-/* -------------------- Overlay (moved from inline) -------------------- */
+/* -------------------- Overlay -------------------- */
 .app-overlay {
   display: none;
   position: fixed;
@@ -320,13 +308,13 @@ html[data-theme="dark"] .due-status { border-color: rgba(255,255,255,0.14); }
 
 @media (max-width: 900px) {
   .header, .nav, .main, .footer { padding-left: 16px; padding-right: 16px; }
-  .inline { flex-direction: column; align-items: stretch; }
+  .inline { flex-direction: row; flex-wrap: wrap; }
   .checkbox-list { grid-template-columns: 1fr; }
   .filters-toggle { display: inline-block; }
   .sidebar.collapsed { display: none; }
 }
 
-/* -------------------- Optional legacy header/nav (kept minimal) -------------------- */
+/* -------------------- Optional legacy header/nav -------------------- */
 .header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 16px 24px; border-bottom: 1px solid var(--border);
@@ -336,7 +324,6 @@ html[data-theme="dark"] .due-status { border-color: rgba(255,255,255,0.14); }
 .header h1 { font-size: 20px; margin: 0; letter-spacing: 0.2px; }
 .header .meta { font-size: 12px; color: var(--muted); }
 
-/* If you still render a top nav outside the sidebar, keep this variant */
 .nav.topbar {
   display: flex; gap: 12px; padding: 12px 24px; border-bottom: 1px solid var(--border);
   transition: border-color var(--transition-med);
@@ -347,18 +334,24 @@ html[data-theme="dark"] .due-status { border-color: rgba(255,255,255,0.14); }
 .nav.topbar a:hover { background: #f0f5ff; }
 html[data-theme="dark"] .nav.topbar a:hover { background: rgba(255,255,255,0.06); }
 
+/* -------------------- Global truncate utility -------------------- */
+.truncate {
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 700px) {
+  .truncate { max-width: 200px; }
+}
 
-/* -------------------- Compact mode: tighter spacing-------------------- */
-
-/* Compact mode: tighter spacing */
+/* -------------------- Compact mode (global) -------------------- */
 html[data-compact="1"] table th,
 html[data-compact="1"] table td {
   padding: 6px 8px;
   font-size: 13px;
 }
-html[data-compact="1"] .inline {
-  gap: 8px;
-}
+html[data-compact="1"] .inline { gap: 8px; }
 html[data-compact="1"] .btn,
 html[data-compact="1"] .btn.btn-small,
 html[data-compact="1"] button {
@@ -377,20 +370,45 @@ html[data-compact="1"] .tab {
   gap: 6px;
 }
 @media (max-width: 700px) {
-  html[data-compact="1"] .table-scroll {
-    max-height: 50vh;
-  }
+  html[data-compact="1"] .table-scroll { max-height: 50vh; }
 }
 
-.truncate {
-  max-width: 320px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-@media (max-width: 700px) {
-  .truncate {
-    max-width: 200px;
+/* -------------------- Mobile landscape improvements -------------------- */
+/* Short height, wider width */
+@media (max-height: 480px) and (max-width: 900px) {
+  :root { --header-h: 48px; }
+  .app-header { padding: 0 8px; }
+  .app-actions .btn { padding: 6px 10px; }
+
+  .app-sidebar {
+    width: min(80vw, 320px);
+    transform: translateX(-100%);
+    top: var(--header-h);
+    bottom: 0;
   }
+  .app-sidebar.open { transform: translateX(0); }
+  .app-content { left: 0; padding: 10px 12px; }
+
+  .tabs { padding: 6px; gap: 6px; }
+  .tab { padding: 8px 10px; gap: 6px; }
+
+  .card, .section { padding: 12px; }
+  .inline { gap: 8px; flex-wrap: wrap; }
+  .inline .min-160, .inline .min-200, .inline .min-240 { min-width: 140px; }
+
+  .table-scroll { max-height: 50vh; }
+  table th, table td { padding: 6px 8px; font-size: 13px; }
+
+  .truncate { max-width: 180px; }
 }
 
+/* Prevent content from sitting under header in short height */
+@media (max-height: 480px) {
+  .app-content { padding-top: 12px; }
+}
+
+/* Utility: ensure inline containers wrap in short height */
+@media (max-height: 480px) {
+  .inline.wrap, .inline.inline-end.wrap, .inline.inline-start.wrap { flex-wrap: wrap; }
+  .inline.wrap > div, .inline.wrap > label { flex: 1 1 180px; }
+}
