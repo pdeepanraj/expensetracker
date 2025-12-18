@@ -382,3 +382,15 @@ html[data-compact="1"] .tab {
   }
 }
 
+.truncate {
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 700px) {
+  .truncate {
+    max-width: 200px;
+  }
+}
+
