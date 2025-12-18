@@ -21,11 +21,12 @@
     </div>
     <div class="app-actions">
       <button id="themeToggle" class="btn" type="button" title="Toggle theme">Theme</button>
+      <button id="compactToggle" class="btn" type="button" title="Toggle compact mode">Compact</button>
     </div>
   </header>
 
   <!-- Fixed Sidebar -->
-  <aside id="appSidebar" class="app-sidebar">
+  <aside id="appSidebar" class="app-sidebar" aria-label="Primary">
     <div class="nav">
       <div class="nav-title">Main</div>
       <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint=='index' else '' }}">Home</a>
@@ -39,10 +40,11 @@
   </aside>
 
   <!-- Overlay for mobile sidebar -->
-  <div id="appOverlay" class="app-overlay" onclick="toggleSidebar()"></div>
+  <div id="appOverlay" class="app-overlay" onclick="toggleSidebar()" aria-hidden="true"></div>
 
   <!-- Scrollable Content -->
-  <main class="app-content">
+  <main class="app-content" role="main">
+    {% block header_meta %}{% endblock %}
     {% block content %}{% endblock %}
   </main>
 
@@ -56,37 +58,62 @@
       if (ov) ov.style.display = open ? '' : 'none';
     }
 
-    // Theme toggle with persistence + header scroll tint
+    // Theme and Compact toggles with persistence + header scroll tint
     (function(){
       const html = document.documentElement;
-      const key = 'app-theme';
-      const btn = document.getElementById('themeToggle');
-      const saved = localStorage.getItem(key);
+      const themeKey = 'app-theme';
+      const compactKey = 'app-compact';
+      const btnTheme = document.getElementById('themeToggle');
+      const btnCompact = document.getElementById('compactToggle');
+      const savedTheme = localStorage.getItem(themeKey);
+      const savedCompact = localStorage.getItem(compactKey);
 
-      // Respect OS preference if nothing saved
-      if (!saved) {
+      // Theme init (respect OS if no saved choice)
+      if (!savedTheme) {
         const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         if (prefersDark) html.setAttribute('data-theme', 'dark');
       } else {
-        html.setAttribute('data-theme', saved);
+        html.setAttribute('data-theme', savedTheme);
       }
 
       function setTheme(next){
         if (next) {
           html.setAttribute('data-theme', next);
-          localStorage.setItem(key, next);
+          localStorage.setItem(themeKey, next);
         } else {
           html.removeAttribute('data-theme');
-          localStorage.removeItem(key);
+          localStorage.removeItem(themeKey);
         }
         window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme: next }}));
       }
 
-      if (btn) {
-        btn.addEventListener('click', () => {
+      // Compact init
+      if (savedCompact === '1') {
+        html.setAttribute('data-compact', '1');
+      }
+
+      function setCompact(on){
+        if (on) {
+          html.setAttribute('data-compact', '1');
+          localStorage.setItem(compactKey, '1');
+        } else {
+          html.removeAttribute('data-compact');
+          localStorage.removeItem(compactKey);
+        }
+        window.dispatchEvent(new CustomEvent('compact-changed', { detail: { compact: !!on }}));
+      }
+
+      if (btnTheme) {
+        btnTheme.addEventListener('click', () => {
           const cur = html.getAttribute('data-theme');
           const next = (cur === 'dark') ? 'light' : 'dark';
           setTheme(next);
+        });
+      }
+      if (btnCompact) {
+        btnCompact.addEventListener('click', () => {
+          const on = html.getAttribute('data-compact') === '1';
+          setCompact(!on);
         });
       }
 
