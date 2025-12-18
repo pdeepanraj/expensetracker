@@ -49,40 +49,40 @@ Source: {{ project }}.{{ dataset }}
 {% if tab=='details' or not tab %}
 <div class="section">
   <h3>Details (Cards{% if include_manual %} + Manual{% endif %})</h3>
-  <form method="get" action="{{ url_for('dashboard_details') }}" class="inline inline-end">
-    <div>
+  <form method="get" action="{{ url_for('dashboard_details') }}" class="inline inline-end wrap">
+    <div class="min-160">
       <label>Month</label><br>
       <select name="month">
         <option value="">All</option>
         {% for m in months %}<option value="{{ m }}" {% if selected_month==m %}selected{% endif %}>{{ m }}</option>{% endfor %}
       </select>
     </div>
-    <div>
+    <div class="min-160">
       <label>Card</label><br>
       <select name="card">
         <option value="">All</option>
         {% for c in cards %}<option value="{{ c }}" {% if selected_card==c %}selected{% endif %}>{{ c }}</option>{% endfor %}
       </select>
     </div>
-    <div>
+    <div class="min-160">
       <label>Main</label><br>
       <select name="main">
         <option value="">All</option>
         {% for mc in mains %}<option value="{{ mc }}" {% if selected_main==mc %}selected{% endif %}>{{ mc }}</option>{% endfor %}
       </select>
     </div>
-    <div>
+    <div class="min-160">
       <label>Category</label><br>
       <select name="cat">
         <option value="">All</option>
         {% for ct in cats %}<option value="{{ ct }}" {% if selected_cat==ct %}selected{% endif %}>{{ ct }}</option>{% endfor %}
       </select>
     </div>
-    <label class="inline gap-6">
+    <label class="inline gap-6 ai-center">
       <input type="checkbox" name="include_manual" value="1" {% if include_manual %}checked{% endif %}>
       Include manual spends
     </label>
-    <div>
+    <div class="min-160">
       <label>Sort</label><br>
       <select name="sort">
         {% set fields = ['Month','CardName','MainCategory','Category','Description','Amount'] %}
@@ -120,7 +120,7 @@ Source: {{ project }}.{{ dataset }}
           <td>{{ r.CardName }}</td>
           <td>{{ r.MainCategory }}</td>
           <td>{{ r.Category }}</td>
-          <td>{{ r.Description }}</td>
+          <td class="truncate">{{ r.Description }}</td>
           <td>{{ (r.Amount or 0)|currency }}</td>
         </tr>
         {% endfor %}
@@ -137,26 +137,26 @@ Source: {{ project }}.{{ dataset }}
 {% if tab=='manual' %}
 <div class="section">
   <h3>Manual Spend</h3>
-  <form method="get" action="{{ url_for('dashboard_manual') }}" class="inline inline-end">
-    <div>
+  <form method="get" action="{{ url_for('dashboard_manual') }}" class="inline inline-end wrap">
+    <div class="min-160">
       <label>Month</label><br>
       <select name="month">
         <option value="">All</option>
         {% for m in months %}<option value="{{ m }}" {% if selected_month==m %}selected{% endif %}>{{ m }}</option>{% endfor %}
       </select>
     </div>
-    <div>
+    <div class="min-160">
       <label>Category</label><br>
       <select name="cat">
         <option value="">All</option>
         {% for c in cats %}<option value="{{ c }}" {% if selected_cat==c %}selected{% endif %}>{{ c }}</option>{% endfor %}
       </select>
     </div>
-    <div>
+    <div class="flex-1 min-160">
       <label>Text contains</label><br>
       <input type="text" name="q" value="{{ q or '' }}" placeholder="Search description...">
     </div>
-    <div>
+    <div class="min-160">
       <label>Sort</label><br>
       <select name="sort">
         {% set fields = ['Month','Category','Description','Amount','Note'] %}
@@ -191,7 +191,7 @@ Source: {{ project }}.{{ dataset }}
         <tr>
           <td>{{ r.Month }}</td>
           <td>{{ r.Category }}</td>
-          <td>{{ r.Description }}</td>
+          <td class="truncate">{{ r.Description }}</td>
           <td>{{ (r.Amount or 0)|currency }}</td>
           <td>{{ r.Note or NBSP }}</td>
         </tr>
@@ -209,22 +209,22 @@ Source: {{ project }}.{{ dataset }}
 {% if tab=='income' %}
 <div class="section">
   <h3>Income</h3>
-  <form method="get" action="{{ url_for('dashboard_income') }}" class="inline inline-end">
-    <div>
+  <form method="get" action="{{ url_for('dashboard_income') }}" class="inline inline-end wrap">
+    <div class="min-160">
       <label>Month</label><br>
       <select name="month">
         <option value="">All</option>
         {% for m in months %}<option value="{{ m }}" {% if selected_month==m %}selected{% endif %}>{{ m }}</option>{% endfor %}
       </select>
     </div>
-    <div>
+    <div class="min-160">
       <label>Source</label><br>
       <select name="src">
         <option value="">All</option>
         {% for s in sources %}<option value="{{ s }}" {% if selected_src==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
       </select>
     </div>
-    <div>
+    <div class="min-160">
       <label>Sort</label><br>
       <select name="sort">
         {% set fields = ['Month','Source','Amount','Note'] %}
@@ -275,52 +275,51 @@ Source: {{ project }}.{{ dataset }}
 {% if tab=='aggregate' %}
 <div class="section">
   <h3>Aggregate</h3>
-  <form method="get" action="{{ url_for('aggregate') }}" class="inline inline-start">
-    <div>
+  <form method="get" action="{{ url_for('aggregate') }}" class="inline inline-start wrap">
+    <div class="min-160">
       <label>Group by</label><br>
-      <div>
-        <label><input type="checkbox" name="group_by" value="Month" {% if aggregate_group_by and 'Month' in aggregate_group_by.split(',') %}checked{% endif %}> Month</label><br>
-        <label><input type="checkbox" name="group_by" value="CardName" {% if aggregate_group_by and 'CardName' in aggregate_group_by.split(',') %}checked{% endif %}> CardName</label><br>
-        <label><input type="checkbox" name="group_by" value="MainCategory" {% if aggregate_group_by and 'MainCategory' in aggregate_group_by.split(',') %}checked{% endif %}> MainCategory</label><br>
-        <label><input type="checkbox" name="group_by" value="Category" {% if (not aggregate_group_by) or 'Category' in aggregate_group_by.split(',') %}checked{% endif %}> Category</label>
+      <div class="stack gap-6">
+        <label class="inline ai-center gap-6"><input type="checkbox" name="group_by" value="Month" {% if aggregate_group_by and 'Month' in aggregate_group_by.split(',') %}checked{% endif %}> Month</label>
+        <label class="inline ai-center gap-6"><input type="checkbox" name="group_by" value="CardName" {% if aggregate_group_by and 'CardName' in aggregate_group_by.split(',') %}checked{% endif %}> CardName</label>
+        <label class="inline ai-center gap-6"><input type="checkbox" name="group_by" value="MainCategory" {% if aggregate_group_by and 'MainCategory' in aggregate_group_by.split(',') %}checked{% endif %}> MainCategory</label>
+        <label class="inline ai-center gap-6"><input type="checkbox" name="group_by" value="Category" {% if (not aggregate_group_by) or 'Category' in aggregate_group_by.split(',') %}checked{% endif %}> Category</label>
       </div>
     </div>
-    <div>
+    <div class="flex-1">
       <label>Filters (cards)</label><br>
-      <div class="inline">
-        <select name="month">
+      <div class="inline wrap">
+        <select name="month" class="min-160">
           <option value="">All</option>
           {% for m in months %}
           <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
           {% endfor %}
         </select>
-        <select name="card">
+        <select name="card" class="min-160">
           <option value="">All</option>
           {% for c in cards %}
           <option value="{{ c }}" {% if selected_card == c %}selected{% endif %}>{{ c }}</option>
           {% endfor %}
         </select>
-        <select name="main">
+        <select name="main" class="min-160">
           <option value="">All</option>
           {% for mc in mains %}
           <option value="{{ mc }}" {% if selected_main == mc %}selected{% endif %}>{{ mc }}</option>
           {% endfor %}
         </select>
-        <select name="cat">
+        <select name="cat" class="min-160">
           <option value="">All</option>
           {% for ct in cats %}
           <option value="{{ ct }}" {% if selected_cat == ct %}selected{% endif %}>{{ ct }}</option>
           {% endfor %}
         </select>
-      </div>
-      <label class="inline gap-6">
-      <input type="checkbox" name="include_manual" value="1" {% if include_manual %}checked{% endif %}>
-        Include manual spends
+        <label class="inline gap-6 ai-center">
+          <input type="checkbox" name="include_manual" value="1" {% if include_manual %}checked{% endif %}>
+          Include manual spends
         </label>
-
+      </div>
       <div class="mt-8">
         <label for="min_amount">Minimum amount (optional)</label><br>
-        <input id="min_amount" name="min_amount" type="text" placeholder="e.g., 10" value="{{ aggregate_min_amount or '' }}">
+        <input id="min_amount" name="min_amount" type="text" placeholder="e.g., 10" value="{{ aggregate_min_amount or '' }}" class="min-160">
       </div>
     </div>
     <div class="actions">
@@ -371,15 +370,14 @@ Source: {{ project }}.{{ dataset }}
 (function(){
   function attachSorter(tableId){
     const tbl = document.getElementById(tableId);
-    if(!tbl) return;
+    if(!tbl || !tbl.tHead) return;
     const getVal = (td, idx) => {
       const text = td.textContent.trim();
-      if (tbl.tHead && tbl.tHead.rows[0].cells[idx] && tbl.tHead.rows[0].cells[idx].textContent.trim().toLowerCase()==='amount'){
+      if (tbl.tHead.rows[0].cells[idx].textContent.trim().toLowerCase()==='amount'){
         return parseFloat(text.replace(/[^0-9.-]/g,'')) || 0;
       }
       return text.toLowerCase();
     };
-    if (!tbl.tHead) return;
     [...tbl.tHead.rows[0].cells].forEach((th, idx) => {
       th.addEventListener('click', ()=>{
         const rows = [...tbl.tBodies[0].rows];
