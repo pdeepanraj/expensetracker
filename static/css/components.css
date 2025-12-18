@@ -346,3 +346,39 @@ html[data-theme="dark"] .due-status { border-color: rgba(255,255,255,0.14); }
 }
 .nav.topbar a:hover { background: #f0f5ff; }
 html[data-theme="dark"] .nav.topbar a:hover { background: rgba(255,255,255,0.06); }
+
+
+/* -------------------- Compact mode: tighter spacing-------------------- */
+
+/* Compact mode: tighter spacing */
+html[data-compact="1"] table th,
+html[data-compact="1"] table td {
+  padding: 6px 8px;
+  font-size: 13px;
+}
+html[data-compact="1"] .inline {
+  gap: 8px;
+}
+html[data-compact="1"] .btn,
+html[data-compact="1"] .btn.btn-small,
+html[data-compact="1"] button {
+  padding: 6px 10px;
+}
+html[data-compact="1"] .section,
+html[data-compact="1"] .card {
+  padding: 12px;
+}
+html[data-compact="1"] .tabs {
+  padding: 6px;
+  gap: 6px;
+}
+html[data-compact="1"] .tab {
+  padding: 8px 10px;
+  gap: 6px;
+}
+@media (max-width: 700px) {
+  html[data-compact="1"] .table-scroll {
+    max-height: 50vh;
+  }
+}
+
