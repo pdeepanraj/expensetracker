@@ -2,34 +2,7 @@
 {% block title %}Choose CSVs{% endblock %}
 
 {% block head %}
-<style>
-  /* Tab bar */
-  .tabs { display:flex; gap:8px; padding:8px; background:#0b5cff; border-radius:10px; color:#fff; align-items:center; }
-  .tab { display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; cursor:pointer; user-select:none; background:rgba(255,255,255,.08); }
-  .tab.active { background:#fff; color:#0b5cff; font-weight:600; }
-  .tabs-spacer { flex:1; }
-
-  /* Sections */
-  .section { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:12px; }
-  .section h3 { margin:0 0 8px 0; }
-  .muted { color:var(--muted); }
-
-  /* File list grid */
-  .file-toolbar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
-  .search { padding:8px 10px; border:1px solid var(--border); border-radius:8px; min-width:260px; }
-  .file-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:8px; }
-  @media (max-width: 1080px){ .file-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 720px){ .file-grid { grid-template-columns: 1fr; } }
-
-  .file-item {
-    display:flex; align-items:center; gap:10px;
-    border:1px solid var(--border); border-radius:8px; padding:8px 10px; background:#fff;
-  }
-  .file-name { font-weight:600; color:#111827; }
-  .file-path { color:var(--muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-
-  .actions { display:flex; gap:8px; flex-wrap:wrap; }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/list.css') }}">
 {% endblock %}
 
 {% block header_meta %}
@@ -37,15 +10,15 @@ Repo: {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="card" style="border:none; background:transparent; box-shadow:none; padding:0; margin-bottom:8px;">
-  <h3 style="margin:0 0 6px;">CSV files{% if files and files|length > 0 %} ({{ files|length }}){% endif %}</h3>
-  {% if error %}<p class="muted" style="color:crimson;">{{ error }}</p>{% endif %}
+<div class="card card-plain mb-8">
+  <h3 class="mb-6">CSV files{% if files and files|length > 0 %} ({{ files|length }}){% endif %}</h3>
+  {% if error %}<p class="muted err">{{ error }}</p>{% endif %}
 </div>
 
 <!-- Tab bar -->
-<div class="tabs">
-  <div class="tab active" data-tab="select">Select CSVs</div>
-  <div class="tab" data-tab="advanced">Advanced</div>
+<div class="tabs" role="tablist">
+  <button class="tab active" data-tab="select" role="tab" tabindex="0" aria-selected="true">Select CSVs</button>
+  <button class="tab" data-tab="advanced" role="tab" tabindex="-1" aria-selected="false">Advanced</button>
   <div class="tabs-spacer"></div>
   <div class="muted">List</div>
 </div>
@@ -61,7 +34,7 @@ Repo: {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}
 
     <div class="file-toolbar">
       <input id="search" class="search" type="text" placeholder="Filter files by name or path...">
-      <label style="display:flex; align-items:center; gap:6px;">
+      <label class="inline gap-6 ai-center">
         <input type="checkbox" id="selectAll"> Select all
       </label>
       <div class="muted">Showing {{ files|length }} item(s)</div>
@@ -71,7 +44,7 @@ Repo: {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}
       {% for f in files %}
       <label class="file-item">
         <input type="checkbox" name="csv_paths" value="{{ f.path }}">
-        <div style="flex:1; min-width:0;">
+        <div class="flex-1 min-0">
           <div class="file-name">{{ f.name }}</div>
           <div class="file-path">{{ f.path }}</div>
         </div>
@@ -79,7 +52,7 @@ Repo: {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}
       {% endfor %}
     </div>
 
-    <div class="actions" style="margin-top:12px;">
+    <div class="actions mt-12">
       <button class="btn secondary" type="submit">Run Pipeline</button>
       <a class="btn" href="{{ url_for('dashboard') }}">View Dashboard</a>
       <a class="btn" href="{{ url_for('status') }}">View Status</a>
@@ -87,7 +60,7 @@ Repo: {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}
   </form>
   {% else %}
     <p class="muted">No CSV files found in this folder.</p>
-    <div class="actions" style="margin-top:8px;">
+    <div class="actions mt-8">
       <a class="btn" href="{{ url_for('index') }}">Back</a>
       <a class="btn secondary" href="{{ url_for('dashboard') }}">Dashboard</a>
     </div>
@@ -95,18 +68,18 @@ Repo: {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}
 </div>
 
 <!-- Advanced -->
-<div class="section" id="tab-advanced" style="display:none;">
+<div class="section hidden" id="tab-advanced">
   <h3>Optional: categories JSON path in repo</h3>
   <p class="muted">Your app now reads categories from BigQuery; this setting is kept for compatibility.</p>
-  <form method="post" action="{{ url_for('process') }}" class="inline" style="align-items:flex-start;">
+  <form method="post" action="{{ url_for('process') }}" class="inline inline-start">
     <input type="hidden" name="owner" value="{{ owner }}">
     <input type="hidden" name="repo" value="{{ repo }}">
     <input type="hidden" name="branch" value="{{ branch }}">
     <input type="hidden" name="path" value="{{ path }}">
-    <div style="flex:1; min-width:360px;">
+    <div class="flex-1 min-360">
       <label>categories_grouped.json path</label><br>
       <input type="text" name="json_path" placeholder="categories_grouped.json">
-      <div class="muted" style="font-size:12px; margin-top:6px;">If provided, it’s fetched but classification uses BigQuery config.</div>
+      <div class="muted small-note mt-6">If provided, it’s fetched but classification uses BigQuery config.</div>
     </div>
     <div>
       <button class="btn" type="submit">Run with JSON path</button>
@@ -117,42 +90,52 @@ Repo: {{ owner }}/{{ repo }}@{{ branch }}{% if path %}/{{ path }}{% endif %}
 
 {% block scripts %}
 <script>
-  // Tabs
-  (function(){
-    const tabs = document.querySelectorAll('.tab');
-    const panels = {
-      select: document.getElementById('tab-select'),
-      advanced: document.getElementById('tab-advanced')
-    };
-    function activate(name){
-      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-      Object.entries(panels).forEach(([k, el]) => el.style.display = (k === name ? '' : 'none'));
-    }
-    activate('select');
-    tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
-  })();
-
-  // Select all helper
-  (function(){
-    const selectAll = document.getElementById('selectAll');
-    if (!selectAll) return;
-    selectAll.addEventListener('change', () => {
-      document.querySelectorAll('input[name="csv_paths"]').forEach(cb => cb.checked = selectAll.checked);
+// Tabs: accessibility + keyboard
+(function(){
+  const tabs = Array.from(document.querySelectorAll('.tabs .tab'));
+  const panels = {
+    select: document.getElementById('tab-select'),
+    advanced: document.getElementById('tab-advanced')
+  };
+  function show(name){
+    tabs.forEach(t => {
+      const isActive = t.dataset.tab === name;
+      t.classList.toggle('active', isActive);
+      t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      t.setAttribute('tabindex', isActive ? '0' : '-1');
     });
-  })();
+    Object.entries(panels).forEach(([k, el]) => el.classList.toggle('hidden', k !== name));
+  }
+  show('select');
+  tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab)));
+  document.querySelector('.tabs').addEventListener('keydown', e => {
+    const idx = tabs.findIndex(t => t.classList.contains('active'));
+    if (e.key === 'ArrowRight') { e.preventDefault(); const n = tabs[(idx+1)%tabs.length]; n.focus(); show(n.dataset.tab); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); const p = tabs[(idx-1+tabs.length)%tabs.length]; p.focus(); show(p.dataset.tab); }
+  });
+})();
 
-  // Search filter
-  (function(){
-    const search = document.getElementById('search');
-    const grid = document.getElementById('fileGrid');
-    if (!search || !grid) return;
-    search.addEventListener('input', () => {
-      const q = search.value.toLowerCase();
-      grid.querySelectorAll('.file-item').forEach(item => {
-        const text = item.innerText.toLowerCase();
-        item.style.display = text.includes(q) ? '' : 'none';
-      });
+// Select all helper
+(function(){
+  const selectAll = document.getElementById('selectAll');
+  if (!selectAll) return;
+  selectAll.addEventListener('change', () => {
+    document.querySelectorAll('input[name="csv_paths"]').forEach(cb => cb.checked = selectAll.checked);
+  });
+})();
+
+// Search filter
+(function(){
+  const search = document.getElementById('search');
+  const grid = document.getElementById('fileGrid');
+  if (!search || !grid) return;
+  search.addEventListener('input', () => {
+    const q = search.value.toLowerCase();
+    grid.querySelectorAll('.file-item').forEach(item => {
+      const text = item.innerText.toLowerCase();
+      item.style.display = text.includes(q) ? '' : 'none';
     });
-  })();
+  });
+})();
 </script>
 {% endblock %}
