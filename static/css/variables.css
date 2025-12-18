@@ -1,0 +1,231 @@
+/* -------------------- Design tokens (Modern Bold Neutrals + Electric Accent) -------------------- */
+:root {
+  /* Layout */
+  --header-h: 56px;
+  --sidebar-w: 240px;
+
+  /* Surfaces (light mode) */
+  --bg: #f7f8fa;              /* soft neutral background */
+  --panel: #ffffff;           /* cards/panels */
+  --card: var(--panel);
+
+  /* Typography */
+  --text: #0f172a;            /* deep ink */
+  --muted: #6b7280;           /* slate */
+  --border: #e6e8ee;          /* subtle neutral border */
+
+  /* Accent (electric violet/blue) */
+  --primary: #6E59F9;         /* electric violet-blue */
+  --primary-strong: #4A35F2;  /* stronger for hover/focus */
+  --accent: #22D3EE;          /* cyan accent for gradients/details */
+  --accent-soft: #9AE6F0;     /* tint for soft states */
+
+  /* Gradient stops (used by components.css tabs/header/sidebar if enabled) */
+  --grad-1: #6E59F9;
+  --grad-2: #4A35F2;
+  --grad-3: #22D3EE;
+  --grad-4: #A5B4FC;          /* soft indigo for gentle blend */
+
+  /* Semantic */
+  --success: #16a34a;
+  --danger: #dc2626;
+  --warning: #b45309;
+
+  /* Radius & elevation */
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+
+  /* Shadows & glow (subtle, modern) */
+  --shadow: 0 10px 24px rgba(17, 24, 39, 0.12);
+  --shadow-1: 0 1px 3px rgba(17, 24, 39, 0.08);
+  --shadow-2: 0 10px 28px rgba(17, 24, 39, 0.16);
+
+  /* Focus ring (accessible, brand) */
+  --focus-ring: 0 0 0 3px rgba(110, 89, 249, 0.35);
+
+  /* Sidebar (light) */
+  --sidebar-bg: #fbfbfe;
+  --sidebar-border: #eceef7;
+  --sidebar-text: #1f2937;
+  --sidebar-hover: #f2f4ff;
+  --sidebar-active-bg: #e7e9ff;
+  --sidebar-active-text: #0f172a;
+
+  /* Header (light) */
+  --header-bg: #fbfbfe;
+  --header-text: #0f172a;
+
+  /* Tables, charts, canvas (light) */
+  --chart-grid: rgba(0, 0, 0, 0.08);
+  --chart-tooltip-bg: #0f172a;
+  --chart-tooltip-text: #ffffff;
+
+  --table-bg: #ffffff;
+  --table-header-bg: #f3f4f8;
+  --table-row-hover: #f8f9fc;
+  --table-border: var(--border);
+  --table-text: var(--text);
+
+  --canvas-bg: #f8f9fc;
+  --canvas-border: var(--border);
+
+  /* Motion tuning */
+  --transition-fast: 160ms ease;
+  --transition-med: 260ms ease;
+}
+
+/* -------------------- Dark theme (ink surfaces + electric accents) -------------------- */
+html[data-theme="dark"] {
+  --bg: #0b0c10;              /* near-black with warmth */
+  --panel: #121318;           /* card/panel surface */
+  --card: var(--panel);
+
+  --text: #e6e8ee;            /* light ink */
+  --muted: #a3a7b3;           /* cool slate */
+  --border: rgba(255, 255, 255, 0.12);
+
+  --primary: #7A66FF;         /* slightly brighter for dark */
+  --primary-strong: #5A47F7;
+  --accent: #2AD8F2;
+  --accent-soft: #AEEAF5;
+
+  --shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+  --focus-ring: 0 0 0 3px rgba(122, 102, 255, 0.45);
+
+  --sidebar-bg: #0f1116;
+  --sidebar-border: rgba(255,255,255,0.10);
+  --sidebar-text: #dfe3ea;
+  --sidebar-hover: #161a22;
+  --sidebar-active-bg: #202535;
+  --sidebar-active-text: #ffffff;
+
+  --header-bg: #0d1016;
+  --header-text: #e6e8ee;
+
+  --chart-grid: rgba(255, 255, 255, 0.12);
+  --chart-tooltip-bg: #0b0c10;
+  --chart-tooltip-text: #e9ecf2;
+
+  --table-bg: #0d1016;
+  --table-header-bg: #141722;
+  --table-row-hover: #151a27;
+  --table-border: rgba(255, 255, 255, 0.12);
+  --table-text: #e6e8ee;
+
+  --canvas-bg: #12161d;
+  --canvas-border: rgba(255, 255, 255, 0.12);
+}
+
+/* -------------------- Respect OS preference when no explicit toggle -------------------- */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) {
+    --bg: #0b0c10;
+    --panel: #121318;
+    --card: var(--panel);
+
+    --text: #e6e8ee;
+    --muted: #a3a7b3;
+    --border: rgba(255, 255, 255, 0.12);
+
+    --primary: #7A66FF;
+    --primary-strong: #5A47F7;
+    --accent: #2AD8F2;
+    --accent-soft: #AEEAF5;
+
+    --shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+    --focus-ring: 0 0 0 3px rgba(122, 102, 255, 0.45);
+
+    --chart-grid: rgba(255, 255, 255, 0.12);
+    --chart-tooltip-bg: #0b0c10;
+    --chart-tooltip-text: #e9ecf2;
+
+    --table-bg: #0d1016;
+    --table-header-bg: #141722;
+    --table-row-hover: #151a27;
+    --table-border: rgba(255, 255, 255, 0.12);
+    --table-text: #e6e8ee;
+
+    --canvas-bg: #12161d;
+    --canvas-border: rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* -------------------- Optional gradients for header/sidebar (subtle, premium) -------------------- */
+.app-sidebar {
+  background: linear-gradient(180deg, var(--sidebar-bg) 0%, #f3f4ff 100%);
+}
+html[data-theme="dark"] .app-sidebar {
+  background: linear-gradient(180deg, var(--sidebar-bg) 0%, #141726 100%);
+}
+
+.app-header {
+  background: linear-gradient(180deg, var(--header-bg) 0%, #f2f3fe 100%);
+}
+html[data-theme="dark"] .app-header {
+  background: linear-gradient(180deg, var(--header-bg) 0%, #151829 100%);
+}
+
+/* Micro‑motion polish: gradient shift on tabs, gentle content entry, premium hover feedback */
+
+/* Tabs: subtle gradient shift on hover */ 
+.tabs { 
+  background-size: 200% 100%; transition: background-position var(--transition-med), box-shadow var(--transition-med); 
+} 
+.tabs:hover { 
+  background-position: 100% 0; box-shadow: 0 10px 26px rgba(17, 24, 39, 0.18); 
+} 
+.tab { 
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast); 
+} 
+.tab:hover { 
+  transform: translateY(-1px); box-shadow: 0 6px 16px rgba(17, 24, 39, 0.14); 
+}
+
+/* Buttons: premium hover and active feedback */ 
+.btn, button { 
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast), 
+    background-image var(--transition-fast); 
+} 
+.btn:hover, button:hover { 
+  filter: brightness(1.02); 
+} 
+
+.btn:active, button:active { 
+  transform: translateY(0); filter: brightness(0.98); 
+}
+
+/* Cards/sections: soft entrance and hover lift */ 
+.card, .section { 
+  will-change: transform, box-shadow, opacity; 
+} 
+
+@keyframes softIn { 
+  from { opacity: 0; transform: translateY(6px); 
+       } to { opacity: 1; transform: translateY(0); 
+            } 
+} 
+.card, .section { 
+  animation: softIn 220ms ease; 
+} 
+.card:hover, .section:hover { 
+  transform: translateY(-1px); box-shadow: var(--shadow-2); 
+}
+
+/* Table headers: subtle sheen on hover */ 
+th { 
+  transition: background-color var(--transition-fast), box-shadow var(--transition-fast); 
+} 
+th:hover {
+  box-shadow: inset 0 -2px 0 rgba(110, 89, 249, 0.25); 
+}
+
+/* Focus states: slightly stronger feedback for keyboard users */ 
+:focus-visible { 
+  outline: none; box-shadow: var(--focus-ring), 0 0 0 1px rgba(255, 255, 255, 0.6); 
+}
+
+/* Reduced motion: respect user preferences */ 
+@media (prefers-reduced-motion: reduce) { 
+  .tabs, .tab, .btn, button, .card, .section, th { transition: none; animation: none; } 
+}
