@@ -809,7 +809,7 @@ def manual_category_tag(cat: str) -> str:
 
 
 # ---------------- Dashboard ----------------
-@app.get("")
+@app.get("/")
 def dashboard():
     # Default tab
     return redirect(url_for("dashboard_details"))
